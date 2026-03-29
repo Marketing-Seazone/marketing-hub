@@ -1,6 +1,8 @@
+"use client"
+
 import Link from "next/link"
 import { TEAMS, T } from "@/lib/constants"
-import { Palette, BarChart2, Megaphone, TrendingUp, Zap } from "lucide-react"
+import { Palette, BarChart2, Megaphone, TrendingUp, Zap, BookOpen } from "lucide-react"
 
 const TEAM_ICONS = {
   "criacao":           Palette,
@@ -60,7 +62,52 @@ export default function Home() {
           gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
           gap: 16,
         }}>
-          {TEAMS.map(team => {
+            {/* Card tutorial */}
+          <Link href="/tutorial" style={{ textDecoration: "none" }}>
+            <div style={{
+              background: `${T.cinza800}`,
+              border: `1px solid ${T.cinza700}`,
+              borderRadius: 14,
+              padding: "24px 24px 20px",
+              boxShadow: T.elevSm,
+              cursor: "pointer",
+              transition: "box-shadow 0.15s, transform 0.15s",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevMd
+                ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevSm
+                ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"
+              }}
+            >
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: "rgba(255,255,255,0.1)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <BookOpen size={20} color="#fff" />
+              </div>
+              <div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#fff", display: "block", marginBottom: 4 }}>
+                  Como adicionar um artefato
+                </span>
+                <span style={{ fontSize: 13, color: T.cinza200, lineHeight: 1.5 }}>
+                  Guia passo a passo para subir novos artefatos em qualquer time via Git + Pull Request.
+                </span>
+              </div>
+              <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.cinza200 }}>Ler tutorial</span>
+                <span style={{ fontSize: 12, color: T.cinza200 }}>→</span>
+              </div>
+            </div>
+          </Link>
+
+        {TEAMS.map(team => {
             const Icon = TEAM_ICONS[team.id]
             return (
               <Link key={team.id} href={team.href} style={{ textDecoration: "none" }}>
