@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { ChevronLeft, Play, Database, BookOpen, AlertCircle, Loader2 } from "lucide-react"
+import { ChevronLeft, Play, Database, BookOpen, AlertCircle, Loader2, Lightbulb, Code2, Search } from "lucide-react"
 import { T } from "@/lib/constants"
 
 // ─── Dicionário de tabelas ────────────────────────────────────────────────────
@@ -131,7 +131,7 @@ ORDER BY data DESC`,
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-type Tab = "explorador" | "dicionario"
+type Tab = "explorador" | "dicionario" | "como-usar"
 
 export default function DadosPage() {
   const [tab, setTab] = useState<Tab>("explorador")
@@ -204,16 +204,20 @@ export default function DadosPage() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${T.border}`, paddingBottom: 0 }}>
-          {(["explorador", "dicionario"] as Tab[]).map(t => (
-            <button key={t} onClick={() => setTab(t)} style={{
+          {([
+            { id: "explorador",  label: "Explorador",  icon: <Play size={13} /> },
+            { id: "dicionario",  label: "Dicionário",  icon: <BookOpen size={13} /> },
+            { id: "como-usar",   label: "Como usar",   icon: <Lightbulb size={13} /> },
+          ] as { id: Tab; label: string; icon: React.ReactNode }[]).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)} style={{
               background: "none", border: "none", cursor: "pointer",
               padding: "8px 16px", fontSize: 13, fontWeight: 600,
-              color: tab === t ? T.primary : T.mutedFg,
-              borderBottom: tab === t ? `2px solid ${T.primary}` : "2px solid transparent",
+              color: tab === t.id ? T.primary : T.mutedFg,
+              borderBottom: tab === t.id ? `2px solid ${T.primary}` : "2px solid transparent",
               marginBottom: -1, fontFamily: T.font,
               display: "flex", alignItems: "center", gap: 6,
             }}>
-              {t === "explorador" ? <><Play size={13} /> Explorador</> : <><BookOpen size={13} /> Dicionário</>}
+              {t.icon} {t.label}
             </button>
           ))}
         </div>
@@ -438,6 +442,119 @@ export default function DadosPage() {
                 </div>
               )
             })}
+          </div>
+        )}
+
+        {/* ── Como usar ── */}
+        {tab === "como-usar" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+
+            {/* Bloco 1 — Explorar dados */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", boxShadow: T.elevSm }}>
+              <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${T.primary}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Search size={16} color={T.primary} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: 0 }}>Explorar dados pontualmente</p>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>Para quem quer consultar um número, validar uma hipótese ou entender os dados disponíveis.</p>
+                </div>
+              </div>
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+                <p style={{ fontSize: 13, color: T.mutedFg, margin: 0, lineHeight: 1.7 }}>
+                  Use a aba <strong style={{ color: T.cardFg }}>Explorador</strong> para rodar qualquer SQL diretamente nas tabelas da Nekt.
+                  Se não souber SQL, use a aba <strong style={{ color: T.cardFg }}>Dicionário</strong> para entender o que cada tabela e coluna contém,
+                  depois monte sua query ou peça ajuda para alguém do time.
+                </p>
+                <div style={{ background: `${T.primary}08`, border: `1px solid ${T.primary}20`, borderRadius: 8, padding: "12px 16px" }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: T.primary, margin: "0 0 4px" }}>Exemplo de uso</p>
+                  <p style={{ fontSize: 13, color: T.mutedFg, margin: 0, lineHeight: 1.6 }}>
+                    "Quero saber quanto foi gasto nas campanhas de Marketplace nos últimos 7 dias" →
+                    abre o Explorador, clica em <em>Top campanhas por spend</em> e ajusta o filtro de vertical e período.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 2 — Usar como base de artefato */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, overflow: "hidden", boxShadow: T.elevSm }}>
+              <div style={{ padding: "20px 24px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: `${T.verde600}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Code2 size={16} color={T.verde600} />
+                </div>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: 0 }}>Usar os dados como base de um artefato</p>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>Para quem está construindo um dashboard ou ferramenta dentro de um time.</p>
+                </div>
+              </div>
+              <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ fontSize: 13, color: T.mutedFg, margin: 0, lineHeight: 1.7 }}>
+                  O Marketing Hub já tem uma rota de API pronta que conecta na Nekt:
+                  <code style={{ fontFamily: "monospace", fontSize: 12, background: T.muted, padding: "1px 6px", borderRadius: 4, margin: "0 4px" }}>POST /api/query</code>.
+                  Qualquer artefato dentro do hub pode chamar essa rota passando um SQL e receber os dados em JSON — sem precisar configurar credenciais ou instalar nada.
+                </p>
+
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 8px" }}>Como chamar a rota no seu artefato</p>
+                  <div style={{ background: T.cinza800, color: "#e2e8f0", borderRadius: 10, padding: "14px 18px", fontFamily: "monospace", fontSize: 12, lineHeight: 1.8, overflowX: "auto", whiteSpace: "pre" }}>{`const res = await fetch("/api/query", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    sql: \`
+      SELECT campaign_name, SUM(spend) AS spend, SUM(mql) AS mql
+      FROM nekt_silver.ads_unificado
+      WHERE date >= CURRENT_DATE - INTERVAL '7' DAY
+      GROUP BY 1
+      ORDER BY spend DESC
+    \`
+  }),
+})
+const { columns, rows } = await res.json()
+// rows = [{ campaign_name: "...", spend: 1200, mql: 3 }, ...]`}</div>
+                </div>
+
+                <div style={{ background: `${T.verde600}08`, border: `1px solid ${T.verde600}20`, borderRadius: 8, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: T.verde600, margin: 0 }}>Criando um artefato com Claude Code</p>
+                  <p style={{ fontSize: 13, color: T.mutedFg, margin: 0, lineHeight: 1.7 }}>
+                    Se você estiver usando o Claude Code para criar o artefato, diga explicitamente que os dados devem vir da Nekt via Marketing Hub.
+                    Exemplo de comando:
+                  </p>
+                  <div style={{ background: T.cinza800, color: "#e2e8f0", borderRadius: 8, padding: "12px 16px", fontFamily: "monospace", fontSize: 12, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{`"Cria um dashboard de campanhas no time de Growth.
+Quero uma tabela com MQL e gasto por campanha dos últimos 7 dias.
+Use a rota /api/query do Marketing Hub para buscar os dados
+da tabela nekt_silver.ads_unificado."`}</div>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0, lineHeight: 1.6 }}>
+                    Com isso o Claude já sabe qual rota usar, qual tabela consultar e como montar o SQL — sem precisar configurar nada.
+                    Use o <strong style={{ color: T.cardFg }}>Dicionário</strong> para escolher as colunas certas antes de dar o comando.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Bloco 3 — Tabelas disponíveis resumo */}
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "20px 24px", boxShadow: T.elevSm }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, textTransform: "uppercase", letterSpacing: "0.06em", margin: "0 0 14px" }}>
+                Tabelas disponíveis — resumo rápido
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { name: "nekt_silver.ads_unificado",                              color: T.primary,    label: "Ads Unificado",         use: "Performance de anúncios Meta — spend, impressões, MQL, WON por anúncio/dia" },
+                  { name: "nekt_silver.deals_pipedrive_join_marketing",             color: T.verde600,   label: "Deals Pipedrive",        use: "Deals com atribuição de campanha — funil completo e status WON" },
+                  { name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",    color: T.laranja500, label: "Funil SZI",              use: "Funil pré-agregado de Investimentos (SZI) por dia" },
+                  { name: "nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable",   color: T.teal600,    label: "Funil Marketplace",      use: "Funil pré-agregado de Marketplace por dia" },
+                  { name: "nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable",    color: T.roxo600,    label: "Funil SZS",              use: "Funil pré-agregado de Serviços (SZS) por dia" },
+                ].map(t => (
+                  <div key={t.name} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0, marginTop: 5 }} />
+                    <div>
+                      <code style={{ fontSize: 11, color: t.color, fontFamily: "monospace", fontWeight: 600 }}>{t.name}</code>
+                      <span style={{ fontSize: 12, color: T.mutedFg, marginLeft: 8 }}>— {t.use}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
       </main>
