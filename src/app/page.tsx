@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
+import { useSession } from "next-auth/react"
 import { TEAMS, T } from "@/lib/constants"
-import { Palette, BarChart2, Megaphone, TrendingUp, Zap, BookOpen, Database } from "lucide-react"
+import { Palette, BarChart2, Megaphone, TrendingUp, Zap, BookOpen, Database, Users } from "lucide-react"
 
 const TEAM_ICONS = {
   "criacao":           Palette,
@@ -19,6 +20,9 @@ const SeazoneIcon = () => (
 )
 
 export default function Home() {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.login === "Sampa-J"
+
   return (
     <div style={{ minHeight: "100vh", background: T.muted, fontFamily: T.font }}>
 
@@ -151,6 +155,53 @@ export default function Home() {
               </div>
             </div>
           </Link>
+
+          {/* Card pessoas — só admin */}
+          {isAdmin && (
+            <Link href="/pessoas" style={{ textDecoration: "none" }}>
+              <div style={{
+                background: T.card,
+                border: `1px solid #F59E0B`,
+                borderRadius: 14,
+                padding: "24px 24px 20px",
+                boxShadow: T.elevSm,
+                cursor: "pointer",
+                transition: "box-shadow 0.15s, transform 0.15s",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+              }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevMd
+                  ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevSm
+                  ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"
+                }}
+              >
+                <div style={{
+                  width: 40, height: 40, borderRadius: 10,
+                  background: "#FEF3C7",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  <Users size={20} color="#F59E0B" />
+                </div>
+                <div>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, display: "block", marginBottom: 4 }}>
+                    Pessoas
+                  </span>
+                  <span style={{ fontSize: 13, color: T.mutedFg, lineHeight: 1.5 }}>
+                    Ranking de contribuições e gamificação do time.
+                  </span>
+                </div>
+                <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#F59E0B" }}>Ver ranking</span>
+                  <span style={{ fontSize: 12, color: "#F59E0B" }}>→</span>
+                </div>
+              </div>
+            </Link>
+          )}
 
         {TEAMS.map(team => {
             const Icon = TEAM_ICONS[team.id]

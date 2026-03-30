@@ -17,6 +17,7 @@ type Contributor = {
   commits: number
   additions: number
   deletions: number
+  activeWeeks: number
 }
 
 export default function PessoasPage() {
@@ -55,7 +56,7 @@ export default function PessoasPage() {
         const parsed: Contributor[] = data.map((c: {
           author: { login: string; avatar_url: string; html_url: string }
           total: number
-          weeks: { a: number; d: number }[]
+          weeks: { a: number; d: number; c: number }[]
         }) => ({
           login: c.author.login,
           avatar_url: c.author.avatar_url,
@@ -63,6 +64,7 @@ export default function PessoasPage() {
           commits: c.total,
           additions: c.weeks.reduce((sum, w) => sum + w.a, 0),
           deletions: c.weeks.reduce((sum, w) => sum + w.d, 0),
+          activeWeeks: c.weeks.filter(w => w.c > 0).length,
         }))
 
         // Ordena por commits desc
@@ -190,13 +192,16 @@ export default function PessoasPage() {
                       <Plus size={12} />
                       {c.additions.toLocaleString("pt-BR")} linhas
                     </span>
+                    <span style={{ fontSize: 12, color: T.mutedFg }}>
+                      {c.activeWeeks} sem. ativas
+                    </span>
                   </div>
                 </div>
 
                 {/* Score */}
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
                   <p style={{ fontSize: 18, fontWeight: 800, color: T.primary, margin: "0 0 2px" }}>
-                    {(c.commits * 10 + Math.floor(c.additions / 10)).toLocaleString("pt-BR")}
+                    {(c.commits * 15 + c.activeWeeks * 25 + Math.floor(c.additions / 20)).toLocaleString("pt-BR")}
                   </p>
                   <p style={{ fontSize: 10, color: T.mutedFg, margin: 0, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                     pts
@@ -208,7 +213,7 @@ export default function PessoasPage() {
         )}
 
         <p style={{ fontSize: 11, color: T.mutedFg, marginTop: 20, textAlign: "center" }}>
-          Score = commits × 10 + linhas adicionadas ÷ 10
+          Score = commits × 15 + semanas ativas × 25 + linhas adicionadas ÷ 20
         </p>
       </main>
     </div>
