@@ -26,10 +26,3 @@ export default function Page() {
     </TeamLayout>
   )
 }
-```
-
-Salva. Depois no cmd:
-```
-git add .
-git commit -m "fix(social): incorpora ferramenta via iframe e usa tokens do tema"
-git push origin feat/social-calendario-seazone
