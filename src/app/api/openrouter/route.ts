@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY as string;
 
@@ -20,6 +22,11 @@ Formato exato:
 {"titulo": "titulo do post em ate 10 palavras", "descricao": "descricao estrategica do conteudo em 2-3 frases explicando o tema, o publico-alvo e o objetivo do post"}`;
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions)
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const body = await request.json();
   const { editorial, format, channel, topic } = body;
 
