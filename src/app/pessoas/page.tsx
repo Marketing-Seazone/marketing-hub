@@ -67,9 +67,13 @@ export default function PessoasPage() {
           activeWeeks: c.weeks.filter(w => w.c > 0).length,
         }))
 
-        // Ordena por commits desc
-        parsed.sort((a, b) => b.commits - a.commits)
-        setContributors(parsed)
+        const BOT_LOGINS = ["claude", "github-actions", "dependabot"]
+
+        setContributors(
+          parsed
+            .filter(c => !BOT_LOGINS.some(bot => c.login.toLowerCase().includes(bot)))
+            .sort((a, b) => b.commits - a.commits)
+        )
       } finally {
         setLoading(false)
       }
