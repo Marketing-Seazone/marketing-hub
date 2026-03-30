@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import "./globals.css"
+import AuthSessionProvider from "@/components/session-provider"
 
 export const metadata: Metadata = {
   title: "Marketing Hub — Seazone",
@@ -9,7 +10,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        <AuthSessionProvider>{children}</AuthSessionProvider>
+      </body>
     </html>
   )
 }
