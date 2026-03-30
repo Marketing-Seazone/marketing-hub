@@ -169,6 +169,7 @@ function TabButton({ label, active, onClick }: { label: string; active: boolean;
 export default function MarketingGeral() {
   const [activeTab, setActiveTab] = useState("visao-geral")
   const [loading, setLoading] = useState(true)
+  const [errors, setErrors] = useState<Record<string, string>>({})
   const [reais, setReais] = useState<Record<string, number | null>>({
     cacSzi: null, cacSzs: null, crescimento: null, vendasSzi: null, vendasSzs: null,
   })
@@ -176,67 +177,61 @@ export default function MarketingGeral() {
   useEffect(() => {
     async function load() {
       setLoading(true)
-      try {
-        const [rCacSzi, rCacSzs, rCrescimento, rVendasSzi, rVendasSzs] = await Promise.all([
-          // CAC SZI = spend / won no trimestre
-          queryNekt(`
-            SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
-            FROM nekt_silver.ads_unificado
-            WHERE vertical ILIKE '%invest%'
-              AND date >= DATE_TRUNC('quarter', CURRENT_DATE)
-          `),
-          // CAC SZS = spend / won no trimestre
-          queryNekt(`
-            SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
-            FROM nekt_silver.ads_unificado
-            WHERE vertical ILIKE '%servi%'
-              AND date >= DATE_TRUNC('quarter', CURRENT_DATE)
-          `),
-          // Crescimento SP + Salvador — won SZS fechados nessas cidades no trimestre
-          queryNekt(`
-            SELECT COUNT(*) AS valor
-            FROM nekt_silver.deals_pipedrive_join_marketing
-            WHERE status = 'won'
-              AND rd_campanha ILIKE '%[SS]%'
-              AND (title ILIKE '%salvador%' OR title ILIKE '%SP%'
-                   OR title ILIKE '%são paulo%' OR title ILIKE '%sao paulo%'
-                   OR rd_campanha ILIKE '%salvador%' OR rd_campanha ILIKE '%são paulo%'
-                   OR rd_campanha ILIKE '%sao paulo%')
-              AND ganho_em >= DATE_TRUNC('quarter', CURRENT_DATE)
-          `),
-          // Vendas SZI no trimestre
-          queryNekt(`
-            SELECT SUM(won_szi) AS valor
-            FROM nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable
-            WHERE data >= DATE_TRUNC('quarter', CURRENT_DATE)
-          `),
-          // Vendas SZS no trimestre
-          queryNekt(`
-            SELECT SUM(won_szs) AS valor
-            FROM nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable
-            WHERE data >= DATE_TRUNC('quarter', CURRENT_DATE)
-          `),
-        ])
+      setErrors({})
 
-        const pick = (r: NektResult) => {
+      const safe = async (key: string, sql: string): Promise<number | null> => {
+        try {
+          const r = await queryNekt(sql)
           const row = r.rows[0]
           if (!row) return null
           const v = Object.values(row)[0]
           return v !== null && v !== undefined ? Number(v) : null
+        } catch (e) {
+          setErrors(prev => ({ ...prev, [key]: String(e) }))
+          return null
         }
-
-        setReais({
-          cacSzi:      pick(rCacSzi),
-          cacSzs:      pick(rCacSzs),
-          crescimento: pick(rCrescimento),
-          vendasSzi:   pick(rVendasSzi),
-          vendasSzs:   pick(rVendasSzs),
-        })
-      } catch (err) {
-        console.error("Erro ao carregar metas:", err)
-      } finally {
-        setLoading(false)
       }
+
+      const [cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs] = await Promise.all([
+        safe("cacSzi", `
+          SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
+          FROM nekt_silver.ads_unificado
+          WHERE vertical = 'Investimentos'
+            AND date >= CURRENT_DATE - INTERVAL '90' DAY
+        `),
+        safe("cacSzs", `
+          SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
+          FROM nekt_silver.ads_unificado
+          WHERE vertical = 'Servicos'
+            AND date >= CURRENT_DATE - INTERVAL '90' DAY
+        `),
+        safe("crescimento", `
+          SELECT COUNT(DISTINCT id) AS valor
+          FROM nekt_silver.deals_pipedrive_join_marketing
+          WHERE status = 'won'
+            AND rd_campanha ILIKE '%[SS]%'
+            AND (rd_campanha ILIKE '%salvador%'
+                 OR rd_campanha ILIKE '%sp%'
+                 OR rd_campanha ILIKE '%sao paulo%'
+                 OR rd_campanha ILIKE '%são paulo%'
+                 OR title ILIKE '%salvador%'
+                 OR title ILIKE '%são paulo%')
+            AND DATE(ganho_em) >= CURRENT_DATE - INTERVAL '90' DAY
+        `),
+        safe("vendasSzi", `
+          SELECT COALESCE(SUM(won_szi), 0) AS valor
+          FROM nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable
+          WHERE data >= CURRENT_DATE - INTERVAL '90' DAY
+        `),
+        safe("vendasSzs", `
+          SELECT COALESCE(SUM(won_szs), 0) AS valor
+          FROM nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable
+          WHERE data >= CURRENT_DATE - INTERVAL '90' DAY
+        `),
+      ])
+
+      setReais({ cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs })
+      setLoading(false)
     }
     load()
   }, [])
@@ -288,6 +283,15 @@ export default function MarketingGeral() {
                 Dados atualizados em tempo real via Nekt · {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
               </p>
             </div>
+
+            {Object.keys(errors).length > 0 && (
+              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
+                <p style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", margin: "0 0 6px" }}>Erros ao carregar dados:</p>
+                {Object.entries(errors).map(([k, v]) => (
+                  <p key={k} style={{ fontSize: 11, color: "#dc2626", margin: "2px 0", fontFamily: "monospace" }}>{k}: {v}</p>
+                ))}
+              </div>
+            )}
 
             <div style={{
               display: "grid",
