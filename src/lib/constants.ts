@@ -24,6 +24,21 @@ export const T = {
   roxo600:    "#9810FA",
   teal600:    "#0D9488",
   font:       "'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
+  // Status semânticos
+  statusOk:       "#10b981",
+  statusOkFg:     "#059669",
+  statusOkBg:     "#d1fae5",
+  statusOkDark:   "#065f46",
+  statusWarn:     "#f59e0b",
+  statusWarnFg:   "#d97706",
+  statusWarnBg:   "#fef3c7",
+  statusWarnDark: "#92400e",
+  statusErr:      "#ef4444",
+  statusErrFg:    "#dc2626",
+  statusErrBg:    "#fee2e2",
+  statusErrDark:  "#991b1b",
+  pendingBg:      "#dbeafe",
+  pendingFg:      "#1e40af",
 } as const
 
 export type TeamId = "criacao" | "product-marketing" | "social-midia" | "growth" | "ativacao"
