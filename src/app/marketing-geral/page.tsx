@@ -253,11 +253,15 @@ export default function MarketingGeral() {
   }, [])
 
   const tabs = [
-    { id: "visao-geral",    label: "Visão Geral" },
-    { id: "midias-sociais", label: "Mídias Sociais" },
-    { id: "midia-paga",     label: "Mídia Paga" },
-    { id: "funis",          label: "Funis" },
-    { id: "ativacao",       label: "Ativação" },
+    { id: "visao-geral",       label: "Visão Geral" },
+    { id: "midias-sociais",    label: "Mídias Sociais" },
+    { id: "criacao",           label: "Criação" },
+    { id: "pmm-szi",           label: "PMM SZI" },
+    { id: "pmm-szs",           label: "PMM SZS" },
+    { id: "pmm-mktplace",      label: "PMM Mkt Place" },
+    { id: "ativacao",          label: "Marketing de Ativação" },
+    { id: "growth-paga",       label: "Growth Mídia Paga" },
+    { id: "growth-nao-paga",   label: "Growth Mídia Não Paga" },
   ]
 
   return (
