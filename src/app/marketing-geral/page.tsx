@@ -148,6 +148,255 @@ function MetaCard({
   )
 }
 
+// ── Mídias Sociais ───────────────────────────────────────
+
+const FOLLOWERS_DATA = [
+  { label: "@destinoseazone", platform: "Instagram", icon: "📷", current: 108500, goals: { abr:110000,mai:120000,jun:130000,jul:140000,ago:150000,set:160000,out:170000,nov:180000,dez:190000 } },
+  { label: "@vistasdeanita",  platform: "Instagram", icon: "📷", current: 167200, goals: { abr:170000,mai:180000,jun:190000,jul:200000,ago:210000,set:220000,out:230000,nov:240000,dez:250000 } },
+  { label: "@vistasdeanita",  platform: "TikTok",    icon: "🎵", current: 4800,   goals: { abr:5000,  mai:6000,  jun:7000,  jul:8000,  ago:9000,  set:10000, out:11000, nov:12000, dez:13000 } },
+  { label: "@destinoseazone", platform: "TikTok",    icon: "🎵", current: 920,    goals: { abr:1000,  mai:2000,  jun:3000,  jul:4000,  ago:5000,  set:6000,  out:7000,  nov:8000,  dez:9000  } },
+]
+
+const MONTHS = ["abr","mai","jun","jul","ago","set","out","nov","dez"] as const
+type Month = typeof MONTHS[number]
+
+const EDITORIAL_CALENDAR = [
+  { day: "Segunda", editoria: "Inteligência de Mercado", format: "Carrossel educativo",       channels: ["Instagram"] },
+  { day: "Terça",   editoria: "Achados Seazone",         format: "Oportunidade do portfólio", channels: ["Instagram","TikTok"] },
+  { day: "Quarta",  editoria: "Dono no Controle",        format: "Reels ou carrossel",        channels: ["Instagram"] },
+  { day: "Quinta",  editoria: "Resultados Reais",        format: "Prova social/depoimento",   channels: ["Instagram"] },
+  { day: "Sexta",   editoria: "Onde Investir",           format: "Carrossel ou Reels",        channels: ["Instagram"] },
+  { day: "Sábado",  editoria: "Por dentro do Airbnb",    format: "Reels rápido/dica",         channels: ["Instagram","TikTok"] },
+  { day: "Domingo", editoria: "Autoridade Seazone",      format: "Bastidor/institucional",    channels: ["Instagram"] },
+]
+
+const EDITORIAL_COMPLIANCE = {
+  total: { published: 18, planned: 22 },
+  byDay: [
+    { day: "Seg", count: 4, planned: 4 },
+    { day: "Ter", count: 3, planned: 4 },
+    { day: "Qua", count: 3, planned: 4 },
+    { day: "Qui", count: 2, planned: 3 },
+    { day: "Sex", count: 3, planned: 3 },
+    { day: "Sáb", count: 2, planned: 3 },
+    { day: "Dom", count: 1, planned: 1 },
+  ],
+}
+
+const EDITORIAL_MIX = [
+  { editoria: "Inteligência de Mercado", real: 5, planned: 5 },
+  { editoria: "Dono no Controle",        real: 2, planned: 4 },
+  { editoria: "Onde Investir",           real: 2, planned: 4 },
+  { editoria: "Resultados Reais",        real: 5, planned: 4 },
+  { editoria: "Destinos Seazone",        real: 4, planned: 5 },
+  { editoria: "Autoridade Seazone",      real: 5, planned: 4 },
+  { editoria: "Por dentro do Airbnb",    real: 3, planned: 4 },
+]
+
+function fmtN(n: number) {
+  if (n >= 1000000) return `${(n/1000000).toFixed(1)}M`
+  if (n >= 1000)    return `${(n/1000).toFixed(1)}k`
+  return n.toLocaleString("pt-BR")
+}
+
+function MidiasSociais() {
+  const [mes, setMes] = useState<Month>("abr")
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+
+      {/* Seletor de mês */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, color: T.mutedFg, marginRight: 4 }}>Mês:</span>
+        {MONTHS.map(m => (
+          <button key={m} onClick={() => setMes(m)} style={{
+            padding: "4px 12px", fontSize: 13, borderRadius: 20, border: "none", cursor: "pointer",
+            background: m === mes ? T.primary : T.cinza50,
+            color: m === mes ? "#fff" : T.cinza600, fontWeight: m === mes ? 600 : 400,
+            fontFamily: T.font,
+          }}>
+            {m.charAt(0).toUpperCase() + m.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Seguidores por conta */}
+      <div>
+        <div style={{ marginBottom: 16 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Seguidores por Conta</h3>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Metas de seguidores — {mes}/2025</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 14 }}>
+          {FOLLOWERS_DATA.map((d, i) => {
+            const goal = d.goals[mes]
+            const pct = Math.round((d.current / goal) * 100)
+            return (
+              <div key={i} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 16, boxShadow: T.elevSm }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 16 }}>{d.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: T.cardFg }}>{d.label}</span>
+                  <span style={{ fontSize: 10, background: T.cinza50, color: T.cinza400, padding: "2px 6px", borderRadius: 4, marginLeft: "auto" }}>{d.platform}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 22, fontWeight: 700 }}>{fmtN(d.current)}</span>
+                  <span style={{ fontSize: 12, color: T.cinza400, marginBottom: 2 }}>/ {fmtN(goal)}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, marginLeft: "auto", color: statusColor(pct) }}>{pct}%</span>
+                </div>
+                <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 6 }}>
+                  <div style={{ width: `${Math.min(pct,100)}%`, height: 6, borderRadius: 6, background: statusColor(pct) }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Roadmap de seguidores */}
+      <div>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 12px" }}>Roadmap de Seguidores (Abr → Dez/2025)</h3>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "auto", boxShadow: T.elevSm }}>
+          <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: T.cinza50 }}>
+                <th style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: T.mutedFg, position: "sticky", left: 0, background: T.cinza50 }}>Conta</th>
+                {MONTHS.map(m => (
+                  <th key={m} style={{ padding: "10px 12px", textAlign: "center", fontWeight: 600, color: m === mes ? T.primary : T.mutedFg, background: m === mes ? `${T.primary}10` : T.cinza50 }}>
+                    {m.charAt(0).toUpperCase() + m.slice(1)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {FOLLOWERS_DATA.map((d, i) => (
+                <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                  <td style={{ padding: "10px 16px", fontWeight: 500, position: "sticky", left: 0, background: T.card, whiteSpace: "nowrap" }}>
+                    {d.label} <span style={{ fontSize: 11, color: T.cinza400 }}>{d.platform}</span>
+                  </td>
+                  {MONTHS.map(m => (
+                    <td key={m} style={{ padding: "10px 12px", textAlign: "center", fontWeight: m === mes ? 700 : 400, background: m === mes ? `${T.primary}08` : "transparent" }}>
+                      {fmtN(d.goals[m])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Aderência editorial */}
+      <div>
+        <div style={{ marginBottom: 12 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Calendário Editorial — Aderência</h3>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Posts publicados na data planejada ÷ total planejado</p>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14 }}>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
+            <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 8px" }}>Aderência geral</p>
+            <p style={{ fontSize: 36, fontWeight: 800, color: T.fg, margin: "0 0 4px" }}>
+              {Math.round((EDITORIAL_COMPLIANCE.total.published / EDITORIAL_COMPLIANCE.total.planned) * 100)}%
+            </p>
+            <p style={{ fontSize: 12, color: T.cinza400, margin: "0 0 12px" }}>{EDITORIAL_COMPLIANCE.total.published} de {EDITORIAL_COMPLIANCE.total.planned} posts</p>
+            <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 8 }}>
+              <div style={{ width: `${Math.round((EDITORIAL_COMPLIANCE.total.published/EDITORIAL_COMPLIANCE.total.planned)*100)}%`, height: 8, borderRadius: 6, background: T.primary }} />
+            </div>
+          </div>
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
+            <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 12px" }}>Status por dia da semana</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+              {EDITORIAL_COMPLIANCE.byDay.map(d => {
+                const ok = d.count >= d.planned
+                return (
+                  <div key={d.day} style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: 11, fontWeight: 500, color: T.cinza600, margin: "0 0 6px" }}>{d.day}</p>
+                    <div style={{ background: T.cinza50, borderRadius: 8, padding: "8px 4px" }}>
+                      <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>{d.count}/{d.planned}</p>
+                      <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 4px", borderRadius: 6, background: ok ? "#d1fae5" : "#fef3c7", color: ok ? "#065f46" : "#92400e" }}>
+                        {ok ? "OK" : "Parcial"}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendário semanal */}
+      <div>
+        <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 12px" }}>Calendário Semanal</h3>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.elevSm }}>
+          <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+            <thead>
+              <tr style={{ background: T.cinza50 }}>
+                {["Dia","Editoria","Formato","Canais"].map(h => (
+                  <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontWeight: 600, color: T.mutedFg }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {EDITORIAL_CALENDAR.map((row, i) => (
+                <tr key={i} style={{ borderTop: `1px solid ${T.border}` }}>
+                  <td style={{ padding: "10px 16px", fontWeight: 600, color: T.primary }}>{row.day}</td>
+                  <td style={{ padding: "10px 16px" }}>{row.editoria}</td>
+                  <td style={{ padding: "10px 16px", color: T.mutedFg }}>{row.format}</td>
+                  <td style={{ padding: "10px 16px" }}>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {row.channels.map(c => (
+                        <span key={c} style={{ fontSize: 11, background: T.cinza50, color: T.cinza600, padding: "2px 8px", borderRadius: 10 }}>{c}</span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mix de editorias */}
+      <div>
+        <div style={{ marginBottom: 12 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Mix de Editorias</h3>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Distribuição real vs planejada de publicações por editoria no mês</p>
+        </div>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {EDITORIAL_MIX.map(e => {
+              const maxVal = Math.max(e.real, e.planned)
+              return (
+                <div key={e.editoria} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 13, width: 200, flexShrink: 0, color: T.cardFg }}>{e.editoria}</span>
+                  <div style={{ flex: 1, background: T.cinza100, borderRadius: 10, height: 20, overflow: "hidden" }}>
+                    <div style={{
+                      width: `${(e.real / maxVal) * 100}%`, height: 20,
+                      background: T.primary, borderRadius: "10px 0 0 10px",
+                      display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6,
+                    }}>
+                      <span style={{ fontSize: 10, color: "#fff", fontWeight: 600 }}>{e.real}</span>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, color: T.cinza400, width: 56, flexShrink: 0 }}>Meta: {e.planned}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 16, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
+              <div style={{ width: 12, height: 12, background: T.primary, borderRadius: 3 }} /> Real
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
+              <div style={{ width: 12, height: 12, background: T.cinza100, borderRadius: 3 }} /> Planejado
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  )
+}
+
 // ── Tabs (para expansão futura) ─────────────────────────
 
 function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -333,7 +582,9 @@ export default function MarketingGeral() {
           </>
         )}
 
-        {activeTab !== "visao-geral" && (
+        {activeTab === "midias-sociais" && <MidiasSociais />}
+
+        {activeTab !== "visao-geral" && activeTab !== "midias-sociais" && (
           <div style={{
             background: T.card, border: `1px solid ${T.border}`,
             borderRadius: 14, padding: "48px 32px",
