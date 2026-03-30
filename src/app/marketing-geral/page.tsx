@@ -136,16 +136,16 @@ function calcPercent(real: number | null, meta: number | null) {
 
 function progressColor(pct: number | null) {
   if (pct === null) return T.cinza200
-  if (pct >= 90) return "#10b981"
-  if (pct >= 70) return "#f59e0b"
-  return "#ef4444"
+  if (pct >= 90) return T.statusOk
+  if (pct >= 70) return T.statusWarn
+  return T.statusErr
 }
 
 function progressTextColor(pct: number | null) {
   if (pct === null) return T.cinza400
-  if (pct >= 90) return "#059669"
-  if (pct >= 70) return "#d97706"
-  return "#dc2626"
+  if (pct >= 90) return T.statusOkFg
+  if (pct >= 70) return T.statusWarnFg
+  return T.statusErrFg
 }
 
 // ============================================================
@@ -320,7 +320,7 @@ function MidiasSociais() {
           <button key={m} onClick={() => setSelectedMonth(m)} style={{
             padding: "4px 12px", fontSize: 13, borderRadius: 20, border: "none", cursor: "pointer",
             background: m === selectedMonth ? T.primary : T.cinza50,
-            color: m === selectedMonth ? "#fff" : T.cinza600, fontWeight: m === selectedMonth ? 600 : 400,
+            color: m === selectedMonth ? T.primaryFg : T.cinza600, fontWeight: m === selectedMonth ? 600 : 400,
           }}>
             {m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
@@ -408,8 +408,8 @@ function MidiasSociais() {
                     <p style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{d.count}/{d.planned}</p>
                     <span style={{
                       fontSize: 10, fontWeight: 500, padding: "2px 6px", borderRadius: 10,
-                      background: d.count >= d.planned ? "#d1fae5" : d.count > 0 ? "#fef3c7" : "#dbeafe",
-                      color: d.count >= d.planned ? "#065f46" : d.count > 0 ? "#92400e" : "#1e40af",
+                      background: d.count >= d.planned ? T.statusOkBg : d.count > 0 ? T.statusWarnBg : T.pendingBg,
+                      color: d.count >= d.planned ? T.statusOkDark : d.count > 0 ? T.statusWarnDark : T.pendingFg,
                     }}>
                       {d.count >= d.planned ? "OK" : d.count > 0 ? "Parcial" : "Pendente"}
                     </span>
@@ -464,7 +464,7 @@ function MidiasSociais() {
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ flex: 1, background: T.cinza100, borderRadius: 10, height: 20, overflow: "hidden" }}>
                     <div style={{ width: `${(e.real / Math.max(e.real, e.planned)) * 100}%`, height: 20, background: T.primary, borderRadius: "10px 0 0 10px", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 4 }}>
-                      <span style={{ fontSize: 10, color: "#fff", fontWeight: 500 }}>{e.real}</span>
+                      <span style={{ fontSize: 10, color: T.primaryFg, fontWeight: 500 }}>{e.real}</span>
                     </div>
                   </div>
                   <span style={{ fontSize: 12, color: T.cinza400, width: 60 }}>Meta: {e.planned}</span>
@@ -677,9 +677,9 @@ function Ativacao() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {NIVEIS_ATIVACAO.map(n => {
             const colors: Record<string, { bg: string; border: string; badge: string; title: string }> = {
-              ATL: { bg: "#eff6ff", border: "#bfdbfe", badge: "#dbeafe", title: "#1e40af" },
-              TTL: { bg: "#faf5ff", border: "#e9d5ff", badge: "#f3e8ff", title: "#7e22ce" },
-              BTL: { bg: "#fff7ed", border: "#fed7aa", badge: "#ffedd5", title: "#c2410c" },
+              ATL: { bg: `${T.primary}08`, border: `${T.primary}30`, badge: `${T.primary}15`, title: T.primary },
+              TTL: { bg: `${T.roxo600}08`, border: `${T.roxo600}30`, badge: `${T.roxo600}15`, title: T.roxo600 },
+              BTL: { bg: `${T.laranja500}08`, border: `${T.laranja500}30`, badge: `${T.laranja500}15`, title: T.laranja500 },
             }
             const c = colors[n.sigla]
             return (
@@ -709,7 +709,7 @@ function Ativacao() {
 function MidiaNaoPaga() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: 16, fontSize: 13, color: "#92400e" }}>
+      <div style={{ background: T.statusWarnBg, border: `1px solid ${T.statusWarn}`, borderRadius: 8, padding: 16, fontSize: 13, color: T.statusWarnDark }}>
         <strong>Canais:</strong> Email marketing + WhatsApp + Manychat · Todas as metas são "a definir" após 1º mês de operação.
       </div>
 
@@ -731,12 +731,12 @@ function MidiaNaoPaga() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
           {BACKOFFICE_STATUS.map(b => (
             <div key={b.name} style={{
-              background: T.card, border: `1px solid ${b.status === "falha" ? "#fecaca" : T.border}`,
+              background: T.card, border: `1px solid ${b.status === "falha" ? T.statusErrBg : T.border}`,
               borderRadius: 14, padding: 16, display: "flex", alignItems: "center", gap: 12, boxShadow: T.elevSm,
             }}>
               <div style={{
                 width: 40, height: 40, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                background: b.status === "ok" ? "#d1fae5" : "#fee2e2",
+                background: b.status === "ok" ? T.statusOkBg : T.statusErrBg,
               }}>
                 <span style={{ fontSize: 16 }}>{b.status === "ok" ? "✓" : "✕"}</span>
               </div>
@@ -744,8 +744,8 @@ function MidiaNaoPaga() {
                 <p style={{ fontSize: 13, fontWeight: 500, color: T.cardFg, margin: 0 }}>{b.name}</p>
                 <span style={{
                   fontSize: 10, fontWeight: 500, padding: "2px 8px", borderRadius: 10,
-                  background: b.status === "ok" ? "#d1fae5" : "#fee2e2",
-                  color: b.status === "ok" ? "#065f46" : "#991b1b",
+                  background: b.status === "ok" ? T.statusOkBg : T.statusErrBg,
+                  color: b.status === "ok" ? T.statusOkDark : T.statusErrDark,
                 }}>
                   {b.status === "ok" ? "OK" : "Falha"}
                 </span>
@@ -787,6 +787,7 @@ export default function MarketingGeral() {
   const [adsData, setAdsData] = useState<NektResult | null>(null)
   const [funnelData, setFunnelData] = useState<Record<string, NektResult | null>>({ szi: null, szs: null, mktp: null })
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function loadData() {
@@ -802,6 +803,7 @@ export default function MarketingGeral() {
         setFunnelData({ szi, szs, mktp })
       } catch (err) {
         console.error("Erro ao carregar dados do Nekt:", err)
+        setError("Não foi possível carregar os dados do Nekt. Tente recarregar a página.")
       } finally {
         setLoading(false)
       }
@@ -858,6 +860,19 @@ export default function MarketingGeral() {
 
       {/* Content */}
       <main style={{ padding: "32px 24px", maxWidth: 1100, margin: "0 auto" }}>
+        {error && (
+          <div style={{
+            background: T.statusErrBg, border: `1px solid ${T.statusErr}`,
+            borderRadius: 8, padding: 16, fontSize: 13, color: T.statusErrDark, marginBottom: 24,
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+          }}>
+            <span>{error}</span>
+            <button onClick={() => { setError(null); window.location.reload() }} style={{
+              background: T.statusErr, color: T.primaryFg, border: "none", borderRadius: 6,
+              padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}>Recarregar</button>
+          </div>
+        )}
         {renderTab()}
       </main>
     </div>
