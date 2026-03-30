@@ -53,50 +53,53 @@ export default function Home() {
         <Link href="/marketing-geral" style={{ textDecoration: "none", display: "block", marginBottom: 24 }}>
           <div
             style={{
-              background: `linear-gradient(135deg, ${T.cinza800} 0%, #0a1628 100%)`,
+              background: `linear-gradient(145deg, ${T.cinza800} 0%, #0a1628 100%)`,
               border: `1px solid ${T.cinza700}`,
-              borderRadius: 18, padding: "36px 40px",
+              borderRadius: 18, padding: "48px 40px 40px",
               boxShadow: T.elevMd, cursor: "pointer",
               transition: "box-shadow 0.15s, transform 0.15s",
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24,
+              display: "flex", flexDirection: "column", gap: 20,
             }}
             onMouseEnter={e => hoverCard(e.currentTarget as HTMLDivElement, true)}
             onMouseLeave={e => hoverCard(e.currentTarget as HTMLDivElement, false)}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-              <div style={{
-                width: 56, height: 56, borderRadius: 14,
-                background: "rgba(255,255,255,0.08)",
-                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-              }}>
-                <LayoutDashboard size={28} color="#fff" />
-              </div>
-              <div>
-                <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.4)", margin: "0 0 6px" }}>
-                  Dashboard Principal
-                </p>
-                <h2 style={{ fontSize: 24, fontWeight: 800, color: "#fff", margin: "0 0 8px" }}>
-                  Marketing Hub
-                </h2>
-                <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", margin: 0 }}>
-                  KPIs, seguidores, mídia paga, funis, ativação e mídia não paga — tudo em um lugar.
-                </p>
-              </div>
+            <div style={{
+              width: 52, height: 52, borderRadius: 14,
+              background: "rgba(255,255,255,0.08)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <LayoutDashboard size={26} color="#fff" />
+            </div>
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)", margin: "0 0 8px" }}>
+                Dashboard Principal
+              </p>
+              <h2 style={{ fontSize: 26, fontWeight: 800, color: "#fff", margin: "0 0 10px" }}>
+                Marketing Hub
+              </h2>
+              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", margin: 0, lineHeight: 1.6 }}>
+                KPIs, seguidores, mídia paga, funis, ativação e mídia não paga — tudo em um lugar.
+              </p>
             </div>
             <div style={{
-              fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.6)",
-              display: "flex", alignItems: "center", gap: 4, flexShrink: 0,
+              display: "inline-flex", alignItems: "center", gap: 6,
+              background: "rgba(255,255,255,0.1)", borderRadius: 8,
+              padding: "8px 16px", width: "fit-content",
+              fontSize: 13, fontWeight: 600, color: "#fff",
             }}>
-              Acessar <span style={{ fontSize: 18 }}>→</span>
+              Abrir dashboard →
             </div>
           </div>
         </Link>
 
         {/* ── Grid de sub-cards ── */}
+        <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.cinza400, margin: "0 0 12px" }}>
+          Áreas
+        </p>
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))",
-          gap: 14,
+          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+          gap: 10,
           marginBottom: 32,
         }}>
           {SUB_CARDS.map(card => (
@@ -104,32 +107,34 @@ export default function Home() {
               <div
                 style={{
                   background: T.card, border: `1px solid ${T.border}`,
-                  borderRadius: 14, padding: "20px 20px 16px",
-                  boxShadow: T.elevSm, cursor: "pointer",
-                  transition: "box-shadow 0.15s, transform 0.15s",
-                  display: "flex", flexDirection: "column", gap: 12, height: "100%",
+                  borderRadius: 12, padding: "16px 18px",
+                  cursor: "pointer",
+                  transition: "box-shadow 0.15s, transform 0.15s, border-color 0.15s",
+                  display: "flex", alignItems: "center", gap: 12,
                 }}
-                onMouseEnter={e => hoverCard(e.currentTarget as HTMLDivElement, true)}
-                onMouseLeave={e => hoverCard(e.currentTarget as HTMLDivElement, false)}
+                onMouseEnter={e => {
+                  const el = e.currentTarget as HTMLDivElement
+                  el.style.boxShadow = T.elevMd
+                  el.style.transform = "translateY(-1px)"
+                  el.style.borderColor = card.color
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget as HTMLDivElement
+                  el.style.boxShadow = "none"
+                  el.style.transform = "translateY(0)"
+                  el.style.borderColor = T.border
+                }}
               >
                 <div style={{
-                  width: 36, height: 36, borderRadius: 9,
-                  background: `${card.color}18`,
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
+                  background: `${card.color}15`,
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
-                  <card.Icon size={18} color={card.color} />
+                  <card.Icon size={15} color={card.color} />
                 </div>
-                <div>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, display: "block", marginBottom: 4 }}>
-                    {card.label}
-                  </span>
-                  <span style={{ fontSize: 12, color: T.mutedFg, lineHeight: 1.5 }}>
-                    {card.desc}
-                  </span>
-                </div>
-                <div style={{ marginTop: "auto", fontSize: 12, fontWeight: 600, color: card.color }}>
-                  Acessar →
-                </div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: T.cardFg }}>
+                  {card.label}
+                </span>
               </div>
             </Link>
           ))}
