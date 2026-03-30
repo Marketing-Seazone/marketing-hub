@@ -172,7 +172,7 @@ export function CalendarView() {
                     borderRight: `1px solid ${T.cinza50}`,
                     padding: 8,
                     transition: 'background 0.15s',
-                    background: isDragOver ? '#EFF6FF' : today ? '#EFF6FF80' : !isCurrentMonth ? `${T.cinza50}80` : 'transparent',
+                    background: isDragOver ? T.pendingBg : today ? `${T.pendingBg}80` : !isCurrentMonth ? `${T.cinza50}80` : 'transparent',
                     boxShadow: isDragOver ? `inset 0 0 0 2px ${T.primary}60` : today ? `inset 0 0 0 2px ${T.primary}30` : 'none',
                   }}
                 >
@@ -181,7 +181,7 @@ export function CalendarView() {
                       display: 'inline-flex', width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
                       borderRadius: '50%', fontSize: 12, fontWeight: today ? 700 : 500, marginBottom: 4,
                       background: today ? T.primary : 'transparent',
-                      color: today ? '#fff' : isCurrentMonth ? T.cinza700 : T.cinza200,
+                      color: today ? T.primaryFg : isCurrentMonth ? T.cinza700 : T.cinza200,
                     }}
                   >
                     {format(day, 'd')}
@@ -226,9 +226,9 @@ export function CalendarView() {
           position: 'fixed', bottom: 24, right: 24, zIndex: 50,
           display: 'flex', alignItems: 'center', gap: 8,
           background: T.fg, borderRadius: 12, padding: '12px 20px',
-          fontSize: 14, fontWeight: 500, color: '#fff', boxShadow: T.elevMd,
+          fontSize: 14, fontWeight: 500, color: T.primaryFg, boxShadow: T.elevMd,
         }}>
-          <CheckCircle size={18} color="#4ADE80" />
+          <CheckCircle size={18} color={T.statusOk} />
           {toast}
         </div>
       )}

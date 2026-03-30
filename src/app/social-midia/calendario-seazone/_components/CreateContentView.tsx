@@ -228,7 +228,7 @@ export function CreateContentView({ onNavigate }: CreateContentViewProps) {
                   style={{
                     border: `2px solid ${formats.includes(f.value) ? T.primary : T.border}`,
                     borderRadius: 12, padding: 12, textAlign: 'left', cursor: 'pointer',
-                    background: formats.includes(f.value) ? '#EFF6FF' : T.card,
+                    background: formats.includes(f.value) ? T.pendingBg : T.card,
                     boxShadow: formats.includes(f.value) ? T.elevSm : 'none',
                     transition: 'all 0.15s',
                   }}
@@ -250,7 +250,7 @@ export function CreateContentView({ onNavigate }: CreateContentViewProps) {
                   style={{
                     border: `1px solid ${channels.includes(ch.value) ? T.primary : T.border}`,
                     borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 500,
-                    background: channels.includes(ch.value) ? '#EFF6FF' : 'transparent',
+                    background: channels.includes(ch.value) ? T.pendingBg : 'transparent',
                     color: channels.includes(ch.value) ? T.primary : T.mutedFg,
                     cursor: 'pointer', transition: 'all 0.15s',
                   }}
@@ -319,13 +319,13 @@ export function CreateContentView({ onNavigate }: CreateContentViewProps) {
           </button>
 
           {error && (
-            <div style={{ marginTop: 16, whiteSpace: 'pre-line', background: '#FEF2F2', borderRadius: 12, padding: 16, fontSize: 14, color: T.destructive }}>
+            <div style={{ marginTop: 16, whiteSpace: 'pre-line', background: T.statusErrBg, borderRadius: 12, padding: 16, fontSize: 14, color: T.destructive }}>
               {error}
             </div>
           )}
 
           {toast && (
-            <div style={{ marginTop: 16, background: '#F0FDF4', borderRadius: 12, padding: 16, fontSize: 14, fontWeight: 500, color: '#16A34A' }}>
+            <div style={{ marginTop: 16, background: T.statusOkBg, borderRadius: 12, padding: 16, fontSize: 14, fontWeight: 500, color: T.statusOkFg }}>
               {toast}
             </div>
           )}

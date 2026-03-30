@@ -1,52 +1,53 @@
 import type { Editorial, EditorialSlug, ContentFormat, ContentStatus, Channel } from './types';
+import { T } from '@/lib/constants';
 
 export const EDITORIALS: Editorial[] = [
   {
     slug: 'inteligencia_mercado',
     name: 'Inteligencia de Mercado',
-    color: '#0055FF',
+    color: T.primary,
     audience: 'Investidores e Proprietarios',
     description: 'Dados do setor: taxa de ocupacao, aluguel fixo vs temporada, regulamentacao Airbnb, sazonalidade',
   },
   {
     slug: 'dono_controle',
     name: 'Dono no Controle',
-    color: '#7C3AED',
+    color: T.roxo600,
     audience: 'Proprietarios',
     description: 'Renda passiva sem dor de cabeca: erros de quem gerencia sozinho, checklist Airbnb, o que a Seazone faz',
   },
   {
     slug: 'onde_investir',
     name: 'Onde Investir',
-    color: '#16A34A',
+    color: T.statusOkFg,
     audience: 'Investidores',
     description: 'Guia dos SPOTs: ranking destinos, custo x retorno, perfil imovel ideal, comparativos por cidade',
   },
   {
     slug: 'resultados_reais',
     name: 'Resultados Reais',
-    color: '#EA580C',
+    color: T.laranja500,
     audience: 'Proprietarios e Investidores',
     description: 'Prova social: depoimentos com dados, ocupacao sazonal, casos de sucesso, R$18k em 30 dias',
   },
   {
     slug: 'destinos_seazone',
     name: 'Destinos Seazone',
-    color: '#DC2626',
+    color: T.destructive,
     audience: 'Hospedes',
     description: 'Conteudo de viagem: melhores praias Floripa, roteiros, imoveis por destino, bastidores',
   },
   {
     slug: 'autoridade_seazone',
     name: 'Autoridade Seazone',
-    color: '#0D9488',
+    color: T.teal600,
     audience: 'Todos',
     description: 'Institucional: bastidores da equipe, eventos, lancamentos, Seazone na midia',
   },
   {
     slug: 'por_dentro_airbnb',
     name: 'Por dentro do Airbnb',
-    color: '#4F46E5',
+    color: T.indigo600,
     audience: 'Proprietarios e Hospedes',
     description: 'Algoritmo Airbnb: como aparecer no topo, como hospede escolhe, avaliacoes',
   },

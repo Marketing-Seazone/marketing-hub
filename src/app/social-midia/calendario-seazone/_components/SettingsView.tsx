@@ -121,8 +121,8 @@ export function SettingsView({ onNavigate }: SettingsViewProps) {
           disabled={saving}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
-            background: saved ? '#DCFCE7' : T.primary,
-            color: saved ? '#16A34A' : T.primaryFg,
+            background: saved ? T.statusOkBg : T.primary,
+            color: saved ? T.statusOkFg : T.primaryFg,
             border: 'none', borderRadius: 12, padding: '12px 24px',
             fontSize: 14, fontWeight: 600, cursor: 'pointer',
             opacity: saving ? 0.5 : 1,
@@ -169,7 +169,7 @@ export function SettingsView({ onNavigate }: SettingsViewProps) {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{
                       display: 'flex', width: 32, height: 32, alignItems: 'center', justifyContent: 'center',
-                      borderRadius: 8, fontSize: 14, fontWeight: 800, color: '#fff', background: ed?.color,
+                      borderRadius: 8, fontSize: 14, fontWeight: 800, color: T.primaryFg, background: ed?.color,
                     }}>
                       {quadro.name.charAt(0)}
                     </span>
@@ -185,7 +185,7 @@ export function SettingsView({ onNavigate }: SettingsViewProps) {
                 </p>
 
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
-                  <span style={{ background: ed?.color, color: '#fff', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 600 }}>
+                  <span style={{ background: ed?.color, color: T.primaryFg, borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 600 }}>
                     {formatLabel}
                   </span>
                   <span style={{ background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 500, color: T.cinza600 }}>

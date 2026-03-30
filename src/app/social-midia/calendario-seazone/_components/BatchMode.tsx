@@ -147,8 +147,8 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
     return (
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 32, textAlign: 'center' }}>
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#DCFCE7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CheckCircle size={32} color="#16A34A" />
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: T.statusOkBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CheckCircle size={32} color={T.statusOkFg} />
           </div>
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 8px' }}>
@@ -167,7 +167,7 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
               const fmtLabel = FORMATS.find((f) => f.value === r.format)?.label;
               return (
                 <div key={r.index} style={{ display: 'flex', alignItems: 'center', gap: 12, borderBottom: `1px solid ${T.border}`, padding: '8px 0' }}>
-                  {r.success ? <CheckCircle size={16} color="#16A34A" /> : <AlertCircle size={16} color="#EF4444" />}
+                  {r.success ? <CheckCircle size={16} color={T.statusOkFg} /> : <AlertCircle size={16} color={T.statusErr} />}
                   <span style={{ width: 10, height: 10, borderRadius: '50%', background: ed?.color, flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 14, color: T.cinza700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
                   <span style={{ background: T.cinza50, borderRadius: 6, padding: '2px 8px', fontSize: 12, color: T.cinza600, flexShrink: 0 }}>{fmtLabel}</span>
@@ -231,7 +231,7 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
                 const ed = getEditorial(r.editorial);
                 return (
                   <div key={r.index} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', fontSize: 14 }}>
-                    {r.success ? <CheckCircle size={14} color="#16A34A" /> : <AlertCircle size={14} color="#EF4444" />}
+                    {r.success ? <CheckCircle size={14} color={T.statusOkFg} /> : <AlertCircle size={14} color={T.statusErr} />}
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: ed?.color, flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.cinza600 }}>{r.title}</span>
                   </div>
@@ -300,7 +300,7 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
                   style={{
                     border: `1px solid ${selected ? T.primary : T.border}`,
                     borderRadius: 8, padding: '8px 16px', fontSize: 14, fontWeight: 500,
-                    background: selected ? '#EFF6FF' : T.card, color: selected ? T.primary : T.cinza600,
+                    background: selected ? T.pendingBg : T.card, color: selected ? T.primary : T.cinza600,
                     cursor: 'pointer', transition: 'all 0.15s',
                   }}
                 >
@@ -363,7 +363,7 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
           </div>
 
           {error && (
-            <div style={{ marginTop: 16, background: '#FEF2F2', borderRadius: 12, padding: 16, fontSize: 14, color: T.destructive }}>{error}</div>
+            <div style={{ marginTop: 16, background: T.statusErrBg, borderRadius: 12, padding: 16, fontSize: 14, color: T.destructive }}>{error}</div>
           )}
 
           <button

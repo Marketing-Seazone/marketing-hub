@@ -155,7 +155,7 @@ export function BacklogView() {
                     <button
                       onClick={() => { setApproveId(item.id); setApproveDate(''); }}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 4, background: '#16A34A', color: '#fff',
+                        display: 'flex', alignItems: 'center', gap: 4, background: T.statusOkFg, color: T.primaryFg,
                         border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
                       }}
                     >
@@ -212,7 +212,7 @@ export function BacklogView() {
                 onClick={handleApprove}
                 disabled={!approveDate}
                 style={{
-                  flex: 1, background: '#16A34A', color: '#fff', border: 'none', borderRadius: 12,
+                  flex: 1, background: T.statusOkFg, color: T.primaryFg, border: 'none', borderRadius: 12,
                   padding: '10px 0', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                   opacity: approveDate ? 1 : 0.4,
                 }}

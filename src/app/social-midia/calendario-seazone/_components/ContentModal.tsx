@@ -136,7 +136,7 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
               }}
               disabled={saving}
               style={{
-                display: 'flex', alignItems: 'center', gap: 6, background: '#16A34A', color: '#fff',
+                display: 'flex', alignItems: 'center', gap: 6, background: T.statusOkFg, color: T.primaryFg,
                 border: 'none', borderRadius: 12, padding: '10px 16px', fontSize: 14, fontWeight: 600,
                 cursor: 'pointer', opacity: saving ? 0.5 : 1,
               }}
@@ -158,7 +158,7 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
           <button
             onClick={handleDelete}
             style={{
-              background: 'none', border: `1px solid #FCA5A5`, color: T.destructive, borderRadius: 12,
+              background: 'none', border: `1px solid ${T.statusErrBg}`, color: T.destructive, borderRadius: 12,
               padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer',
             }}
           >
