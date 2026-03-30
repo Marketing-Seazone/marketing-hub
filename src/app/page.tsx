@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { useSession } from "next-auth/react"
 import { TEAMS, T } from "@/lib/constants"
-import { Palette, BarChart2, Megaphone, TrendingUp, Zap, BookOpen, Database, Users } from "lucide-react"
+import { Palette, BarChart2, Megaphone, TrendingUp, Zap, BookOpen, Database, Users, LayoutDashboard } from "lucide-react"
 
 const TEAM_ICONS = {
   "criacao":           Palette,
@@ -202,6 +202,51 @@ export default function Home() {
               </div>
             </Link>
           )}
+
+          {/* Card Marketing Geral */}
+          <Link href="/marketing-geral" style={{ textDecoration: "none" }}>
+            <div style={{
+              background: T.card,
+              border: `1px solid ${T.primary}`,
+              borderRadius: 14,
+              padding: "24px 24px 20px",
+              boxShadow: T.elevSm,
+              cursor: "pointer",
+              transition: "box-shadow 0.15s, transform 0.15s",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevMd
+                ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.boxShadow = T.elevSm
+                ;(e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"
+              }}
+            >
+              <div style={{
+                width: 40, height: 40, borderRadius: 10,
+                background: `${T.primary}18`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <LayoutDashboard size={20} color={T.primary} />
+              </div>
+              <div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, display: "block", marginBottom: 4 }}>
+                  Marketing Geral
+                </span>
+                <span style={{ fontSize: 13, color: T.mutedFg, lineHeight: 1.5 }}>
+                  Dashboard operacional com KPIs, seguidores, mídia paga, funis e ativação.
+                </span>
+              </div>
+              <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: T.primary }}>Acessar dashboard</span>
+                <span style={{ fontSize: 12, color: T.primary }}>→</span>
+              </div>
+            </div>
+          </Link>
 
         {TEAMS.map(team => {
             const Icon = TEAM_ICONS[team.id]
