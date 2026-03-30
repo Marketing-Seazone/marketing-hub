@@ -12,24 +12,13 @@ export default function CalendarioSeazonePage() {
         padding: "24px",
         boxShadow: T.elevSm,
       }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: T.cardFg, margin: "0 0 8px" }}>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: T.cardFg, margin: "0 0 16px" }}>
           Calendário de Conteúdo — Seazone
         </h2>
-        <p style={{ fontSize: 13, color: T.mutedFg, marginBottom: 16 }}>
-          Planejamento e geração de conteúdo para redes sociais da Seazone com IA.
-        </p>
-        <a href="https://seazone-calendar.vercel.app" target="_blank" rel="noopener noreferrer" style={{
-          display: "inline-block",
-          background: "#0055FF",
-          color: "#fff",
-          borderRadius: 8,
-          padding: "10px 20px",
-          fontSize: 14,
-          fontWeight: 600,
-          textDecoration: "none",
-        }}>
-          Abrir ferramenta →
-        </a>
+        <iframe
+          src="https://seazone-calendar.vercel.app"
+          style={{ width: "100%", height: "80vh", border: "none", borderRadius: 8 }}
+        />
       </div>
     </TeamLayout>
   )
