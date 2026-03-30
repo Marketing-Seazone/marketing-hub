@@ -23,6 +23,7 @@ export const T = {
   laranja500: "#FF6900",
   roxo600:    "#9810FA",
   teal600:    "#0D9488",
+  indigo600:  "#4F46E5",
   font:       "'Helvetica Neue', -apple-system, BlinkMacSystemFont, sans-serif",
   // Status semânticos
   statusOk:       "#10b981",
