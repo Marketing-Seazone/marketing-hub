@@ -21,9 +21,9 @@ export const authOptions: AuthOptions = {
       const login = (profile as { login?: string })?.login
       if (!login || !account?.access_token) return false
 
-      // Verifica se o usuário é colaborador do repo
+      // Verifica se o usuário tem push access ao repo (= é colaborador)
       const res = await fetch(
-        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/collaborators/${login}`,
+        `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}`,
         {
           headers: {
             Authorization: `token ${account.access_token}`,
@@ -31,7 +31,9 @@ export const authOptions: AuthOptions = {
           },
         }
       )
-      return res.status === 204
+      if (!res.ok) return false
+      const data = await res.json()
+      return data.permissions?.push === true || data.permissions?.admin === true
     },
     async jwt({ token, profile }) {
       if (profile) {
