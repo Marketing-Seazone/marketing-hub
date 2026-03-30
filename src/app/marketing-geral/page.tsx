@@ -193,30 +193,46 @@ export default function MarketingGeral() {
       }
 
       const [cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs] = await Promise.all([
+        // CAC SZI = spend tráfego pago SZI / won deals canal marketing SZI
         safe("cacSzi", `
-          SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
-          FROM nekt_silver.ads_unificado
-          WHERE vertical = 'Investimentos'
-            AND date >= CURRENT_DATE - INTERVAL '90' DAY
+          SELECT
+            (SELECT SUM(spend) FROM nekt_silver.ads_unificado
+             WHERE vertical = 'Investimentos'
+               AND date >= CURRENT_DATE - INTERVAL '90' DAY)
+            /
+            NULLIF(
+              (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
+               WHERE status = 'won'
+                 AND rd_campanha LIKE '%[SI]%'
+                 AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
+            0) AS valor
         `),
+        // CAC SZS = spend tráfego pago SZS / won deals canal marketing SZS
         safe("cacSzs", `
-          SELECT SUM(spend) / NULLIF(SUM(won), 0) AS valor
-          FROM nekt_silver.ads_unificado
-          WHERE vertical = 'Servicos'
-            AND date >= CURRENT_DATE - INTERVAL '90' DAY
+          SELECT
+            (SELECT SUM(spend) FROM nekt_silver.ads_unificado
+             WHERE vertical ILIKE '%serv%'
+               AND date >= CURRENT_DATE - INTERVAL '90' DAY)
+            /
+            NULLIF(
+              (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
+               WHERE status = 'won'
+                 AND rd_campanha LIKE '%[SS]%'
+                 AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
+            0) AS valor
         `),
+        // Crescimento SP + Salvador = won SZS nessas cidades no trimestre
         safe("crescimento", `
           SELECT COUNT(DISTINCT id) AS valor
           FROM nekt_silver.deals_pipedrive_join_marketing
           WHERE status = 'won'
-            AND rd_campanha ILIKE '%[SS]%'
+            AND rd_campanha LIKE '%[SS]%'
+            AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY
             AND (rd_campanha ILIKE '%salvador%'
-                 OR rd_campanha ILIKE '%sp%'
                  OR rd_campanha ILIKE '%sao paulo%'
                  OR rd_campanha ILIKE '%são paulo%'
                  OR title ILIKE '%salvador%'
                  OR title ILIKE '%são paulo%')
-            AND DATE(ganho_em) >= CURRENT_DATE - INTERVAL '90' DAY
         `),
         safe("vendasSzi", `
           SELECT COALESCE(SUM(won_szi), 0) AS valor
