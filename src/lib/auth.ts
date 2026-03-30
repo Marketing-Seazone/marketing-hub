@@ -1,7 +1,7 @@
 import { AuthOptions } from "next-auth"
 import GitHubProvider from "next-auth/providers/github"
 
-const REPO_OWNER = "Sampa-J"
+const REPO_OWNER = "Marketing-Seazone"
 const REPO_NAME = "marketing-hub"
 const ADMIN_LOGIN = "Sampa-J"
 
