@@ -3,12 +3,7 @@
 import { useEffect, useState } from "react"
 import { TeamLayout } from "@/components/team-layout"
 import { T } from "@/lib/constants"
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { getSupabase } from "@/app/social-midia/calendario-seazone/_lib/supabase"
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 type Tab = "expansao_sp" | "expansao_salvador" | "vistas" | "seazone"
@@ -168,9 +163,9 @@ function RowModal({
 
     let err
     if (isNew) {
-      ;({ error: err } = await supabase.from(tableName).insert(payload))
+      ;({ error: err } = await getSupabase().from(tableName).insert(payload))
     } else {
-      ;({ error: err } = await supabase.from(tableName).update(payload).eq("id", (row as Record<string, unknown>).id))
+      ;({ error: err } = await getSupabase().from(tableName).update(payload).eq("id", (row as Record<string, unknown>).id))
     }
     setSaving(false)
     if (err) { setError(err.message); return }
@@ -263,7 +258,7 @@ export default function Page() {
 
   async function load() {
     setLoading(true)
-    const { data } = await supabase
+    const { data } = await getSupabase()
       .from(tableName)
       .select("*")
       .order("ano", { ascending: false })
@@ -276,7 +271,7 @@ export default function Page() {
 
   async function deleteRow(id: unknown) {
     if (!confirm("Tem certeza que deseja excluir este influencer?")) return
-    await supabase.from(tableName).delete().eq("id", id)
+    await getSupabase().from(tableName).delete().eq("id", id)
     load()
   }
 
