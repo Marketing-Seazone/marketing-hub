@@ -11,6 +11,7 @@ export default function PmmSzsPage() {
         border: "none",
         display: "block",
       }}
+      title="PMM SZS"
       allow="clipboard-write"
     />
   )
