@@ -2,6 +2,7 @@ export default function PmmSzsPage() {
   return (
     <iframe
       src="https://seazone-pmm-servicos.vercel.app"
+      title="PMM SZS"
       style={{
         position: "fixed",
         top: 0,
