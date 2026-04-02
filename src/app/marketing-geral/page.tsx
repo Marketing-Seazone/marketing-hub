@@ -22,6 +22,128 @@ async function queryNekt(sql: string): Promise<NektResult> {
   return res.json()
 }
 
+async function queryNektNum(sql: string): Promise<number> {
+  try {
+    const r = await queryNekt(sql)
+    return Number(r.rows?.[0]?.valor ?? 0)
+  } catch { return 0 }
+}
+
+// ── Metas Abril ──────────────────────────────────────────────────────────────
+
+const METAS_ABRIL = [
+  { label: "SZI",       metaPago: 15, metaNaoPago: 10, color: T.laranja500 },
+  { label: "SZS",       metaPago: 71, metaNaoPago: 34, color: T.roxo600    },
+  { label: "MKT PLACE", metaPago:  6, metaNaoPago:  4, color: T.teal600    },
+]
+
+function barColor(pct: number) {
+  if (pct >= 100) return "#10b981"
+  if (pct >= 60)  return "#f59e0b"
+  return "#ef4444"
+}
+
+function MetasAbril() {
+  const [dados, setDados] = useState<{ pago: number; naoPago: number }[]>([
+    { pago: 0, naoPago: 0 },
+    { pago: 0, naoPago: 0 },
+    { pago: 0, naoPago: 0 },
+  ])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      const [
+        sziPago, szsPago, mktpPago,
+        sziNP,   szsNP,   mktpNP,
+      ] = await Promise.all([
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[SI]%' AND rd_campanha ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[SS]%' AND rd_campanha ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[MKTPLACE]%' AND rd_campanha ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[SI]%' AND rd_campanha NOT ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[SS]%' AND rd_campanha NOT ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND rd_campanha LIKE '%[MKTPLACE]%' AND rd_campanha NOT ILIKE '%paga%' AND ganho_em >= '2026-04-01' AND ganho_em < '2026-05-01'`),
+      ])
+      setDados([
+        { pago: sziPago,  naoPago: sziNP  },
+        { pago: szsPago,  naoPago: szsNP  },
+        { pago: mktpPago, naoPago: mktpNP },
+      ])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  return (
+    <div style={{ marginBottom: 36 }}>
+      <div style={{ marginBottom: 16 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: T.fg, margin: "0 0 4px" }}>Metas Abril</h2>
+        <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>WON por vertical — abril 2026</p>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+        {METAS_ABRIL.map((meta, i) => {
+          const { pago, naoPago } = dados[i]
+          const totalReal = pago + naoPago
+          const totalMeta = meta.metaPago + meta.metaNaoPago
+          const pctTotal  = totalMeta > 0 ? Math.round((totalReal / totalMeta) * 100) : 0
+          const pctPago   = meta.metaPago > 0 ? Math.round((pago / meta.metaPago) * 100) : 0
+          const pctNP     = meta.metaNaoPago > 0 ? Math.round((naoPago / meta.metaNaoPago) * 100) : 0
+
+          return (
+            <div key={meta.label} style={{
+              background: T.card, border: `1px solid ${T.border}`,
+              borderRadius: 14, padding: "18px 20px",
+              boxShadow: T.elevSm, display: "flex", flexDirection: "column", gap: 14,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color }} />
+                  <span style={{ fontSize: 13, fontWeight: 700, color: T.cardFg }}>{meta.label}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                  {loading
+                    ? <div style={{ width: 32, height: 20, background: T.cinza100, borderRadius: 4 }} />
+                    : <span style={{ fontSize: 22, fontWeight: 800, color: T.fg, letterSpacing: "-0.5px" }}>{totalReal}</span>
+                  }
+                  <span style={{ fontSize: 12, color: T.cinza400 }}>/ {totalMeta}</span>
+                  {!loading && <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pctTotal), marginLeft: 4 }}>{pctTotal}%</span>}
+                </div>
+              </div>
+
+              <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 6 }}>
+                <div style={{ width: `${Math.min(pctTotal, 100)}%`, height: 6, borderRadius: 6, background: barColor(pctTotal), transition: "width 0.6s ease" }} />
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  { rotulo: "Mídia Paga",     real: pago,    metaV: meta.metaPago,    pct: pctPago },
+                  { rotulo: "Mídia Não Paga",  real: naoPago, metaV: meta.metaNaoPago, pct: pctNP   },
+                ].map(row => (
+                  <div key={row.rotulo}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 11, color: T.cinza600 }}>{row.rotulo}</span>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                        {loading
+                          ? <div style={{ width: 24, height: 14, background: T.cinza100, borderRadius: 3 }} />
+                          : <span style={{ fontSize: 12, fontWeight: 600, color: T.fg }}>{row.real}</span>
+                        }
+                        <span style={{ fontSize: 11, color: T.cinza400 }}>/ {row.metaV}</span>
+                      </div>
+                    </div>
+                    <div style={{ width: "100%", background: T.cinza100, borderRadius: 4, height: 4 }}>
+                      <div style={{ width: `${Math.min(row.pct, 100)}%`, height: 4, borderRadius: 4, background: barColor(row.pct), transition: "width 0.6s ease" }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Metas (fixas — você edita aqui) ──────────────────────
 
 const METAS = {
@@ -546,6 +668,8 @@ export default function MarketingGeral() {
 
         {activeTab === "visao-geral" && (
           <>
+            <MetasAbril />
+
             <div style={{ marginBottom: 28 }}>
               <h2 style={{ fontSize: 20, fontWeight: 800, color: T.fg, margin: "0 0 6px" }}>Metas do Trimestre</h2>
               <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
