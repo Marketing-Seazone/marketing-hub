@@ -669,40 +669,6 @@ export default function MarketingGeral() {
         {activeTab === "visao-geral" && (
           <>
             <MetasAbril />
-
-            <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800, color: T.fg, margin: "0 0 6px" }}>Metas do Trimestre</h2>
-              <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
-                Dados atualizados em tempo real via Nekt · {new Date().toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
-              </p>
-            </div>
-
-            {Object.keys(errors).length > 0 && (
-              <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", marginBottom: 16 }}>
-                <p style={{ fontSize: 12, fontWeight: 700, color: "#dc2626", margin: "0 0 6px" }}>Erros ao carregar dados:</p>
-                {Object.entries(errors).map(([k, v]) => (
-                  <p key={k} style={{ fontSize: 11, color: "#dc2626", margin: "2px 0", fontFamily: "monospace" }}>{k}: {v}</p>
-                ))}
-              </div>
-            )}
-
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: 16,
-            }}>
-              {(Object.entries(METAS) as [keyof typeof METAS, typeof METAS[keyof typeof METAS]][]).map(([key, m]) => (
-                <MetaCard
-                  key={key}
-                  label={m.label}
-                  meta={m.meta}
-                  real={reais[key]}
-                  unit={m.unit}
-                  tipo={m.tipo}
-                  loading={loading}
-                />
-              ))}
-            </div>
           </>
         )}
 
