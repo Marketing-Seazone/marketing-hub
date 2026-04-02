@@ -17,7 +17,7 @@ const SUB_CARDS = [
   { label: "Growth | Não Paga",    desc: "Orgânico, email, WhatsApp e conversão",            href: "/growth",                      color: T.laranja500, Icon: TrendingUp  },
   { label: "Growth | Mídia Paga",  desc: "Meta Ads, Google Ads e performance",               href: "/marketing-geral",             color: T.laranja500, Icon: BarChart2   },
   { label: "PMM | SZI",            desc: "Go-to-market e posicionamento Investimentos",      href: "/product-marketing",           color: T.primary,    Icon: BarChart2   },
-  { label: "PMM | SZS",            desc: "Go-to-market e posicionamento Serviços",           href: "/product-marketing",           color: T.primary,    Icon: BarChart2   },
+  { label: "PMM | SZS",            desc: "Go-to-market e posicionamento Serviços",           href: "/product-marketing/szs",       color: T.primary,    Icon: BarChart2   },
   { label: "PMM | MKT PLACE",      desc: "Go-to-market e posicionamento Marketplace",        href: "/product-marketing",           color: T.primary,    Icon: BarChart2   },
   { label: "Mídias Sociais",       desc: "Calendário editorial e performance de conteúdo",   href: "/social-midia",                color: T.teal600,    Icon: Megaphone   },
   { label: "Criativos MKTP",      desc: "Dashboard de criativos do Marketplace",            href: "/marketplace-ads",             color: T.teal600,    Icon: BarChart2   },
