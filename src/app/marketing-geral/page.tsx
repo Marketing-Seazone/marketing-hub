@@ -57,11 +57,11 @@ function MetasAbril() {
         sziPago, szsPago, mktpPago,
         sziNP,   szsNP,   mktpNP,
       ] = await Promise.all([
-        // Vertical por pipeline_id: SZI=7,28 | SZS=14 | MKTP=37
-        // Pago = rd_campanha contém "paga" | Não pago = não contém "paga"
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND rd_campanha ILIKE '%paga%' AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND rd_campanha ILIKE '%paga%' AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND rd_campanha ILIKE '%paga%' AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
+        // Pago — ads_unificado.won por vertical, mês corrente
+        queryNektNum(`SELECT COALESCE(SUM(won), 0) AS valor FROM nekt_silver.ads_unificado WHERE vertical ILIKE '%investimentos%' AND date >= DATE_TRUNC('month', CURRENT_DATE) AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1' MONTH`),
+        queryNektNum(`SELECT COALESCE(SUM(won), 0) AS valor FROM nekt_silver.ads_unificado WHERE vertical ILIKE '%serv%' AND date >= DATE_TRUNC('month', CURRENT_DATE) AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1' MONTH`),
+        queryNektNum(`SELECT COALESCE(SUM(won), 0) AS valor FROM nekt_silver.ads_unificado WHERE vertical ILIKE '%marketplace%' AND date >= DATE_TRUNC('month', CURRENT_DATE) AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1' MONTH`),
+        // Não pago — deals_pipedrive por pipeline, mês corrente (sincroniza quando Pipedrive atualizar)
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND ganho_em >= DATE_TRUNC('month', CURRENT_TIMESTAMP) - INTERVAL '3' HOUR AND ganho_em < DATE_TRUNC('month', CURRENT_TIMESTAMP) + INTERVAL '1' MONTH - INTERVAL '3' HOUR`),
