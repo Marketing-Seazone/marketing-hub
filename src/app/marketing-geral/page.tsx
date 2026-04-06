@@ -149,6 +149,47 @@ function MetasAbril() {
   )
 }
 
+// ── Criação ───────────────────────────────────────────────
+
+const CRIACAO_DONOS = [
+  { vertical: "SZI",       color: T.laranja500, dono: "Designer 1" },
+  { vertical: "SZS",       color: T.roxo600,    dono: "Designer 2" },
+  { vertical: "MKT PLACE", color: T.teal600,    dono: "Designer 3" },
+]
+
+function Criacao() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <MetasAbril />
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: T.elevSm }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Responsável por vertical</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+          {CRIACAO_DONOS.map(d => (
+            <div key={d.vertical} style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{d.vertical}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>{d.dono}</p>
+              </div>
+            </div>
+          ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.cinza300, flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>Todas</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>Copy</p>
+            </div>
+          </div>
+        </div>
+        <p style={{ fontSize: 11, color: T.cinza400, margin: "14px 0 0" }}>
+          Meta compartilhada — o time de criação como um todo é responsável pelos mesmos números de vendas.
+          O dono de cada vertical acompanha o placar semanal e aciona ajustes nos criativos quando necessário.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // ── Metas fixas ──────────────────────────────────────────
 
 const METAS_CAC = {
@@ -701,7 +742,6 @@ export default function MarketingGeral() {
   }, [])
 
   const PENDING_SECTIONS = [
-    { id: "criacao",         label: "Criação",               color: T.roxo600    },
     { id: "pmm-szi",         label: "PMM SZI",               color: T.primary    },
     { id: "pmm-szs",         label: "PMM SZS",               color: T.primary    },
     { id: "pmm-mktplace",    label: "PMM Mkt Place",         color: T.primary    },
@@ -753,6 +793,11 @@ export default function MarketingGeral() {
         <section>
           <SectionHeader title="Mídias Sociais" desc="Calendário editorial e seguidores" color={T.teal600} />
           <MidiasSociais />
+        </section>
+
+        <section>
+          <SectionHeader title="Criação" desc="Meta compartilhada — mesmo número que as vendas do mês" color={T.roxo600} />
+          <Criacao />
         </section>
 
         {PENDING_SECTIONS.map(s => (
