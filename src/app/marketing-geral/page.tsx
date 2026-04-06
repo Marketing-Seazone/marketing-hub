@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type CSSProperties } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Pencil, Trash2, Plus, X } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
@@ -716,11 +716,11 @@ function AtivacaoSection() {
     setEventos(ev => ev.filter(e => e.id !== id))
   }
 
-  const inp: React.CSSProperties = {
+  const inp: CSSProperties = {
     width: "100%", padding: "8px 12px", fontSize: 13, borderRadius: 8,
     border: `1px solid ${T.border}`, background: T.muted, color: T.fg, fontFamily: T.font,
   }
-  const lbl: React.CSSProperties = {
+  const lbl: CSSProperties = {
     fontSize: 11, fontWeight: 600, color: T.mutedFg, display: "block",
     marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.4px",
   }
