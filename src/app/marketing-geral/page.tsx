@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ChevronLeft, TrendingDown, TrendingUp } from "lucide-react"
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp, Pencil, Trash2, Plus, X } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import { T } from "@/lib/constants"
 
@@ -54,7 +54,7 @@ function barColor(pct: number) {
   return "#ef4444"
 }
 
-function MetasAbril() {
+function MetasAbril({ only }: { only?: number } = {}) {
   const [dados, setDados] = useState<{ pago: number; naoPago: number }[]>([
     { pago: 0, naoPago: 0 },
     { pago: 0, naoPago: 0 },
@@ -88,6 +88,7 @@ function MetasAbril() {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
       {METAS_ABRIL.map((meta, i) => {
+        if (only !== undefined && only !== i) return null
         const { pago, naoPago } = dados[i]
         const totalReal = pago + naoPago
         const totalMeta = meta.metaPago + meta.metaNaoPago
@@ -145,6 +146,42 @@ function MetasAbril() {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Criação ───────────────────────────────────────────────
+
+const CRIACAO_DONOS = [
+  { vertical: "SZI",       color: T.laranja500, dono: "Jaque",   papel: "Design"         },
+  { vertical: "SZS",       color: T.roxo600,    dono: "Henrique", papel: "Design"        },
+  { vertical: "MKT PLACE", color: T.teal600,    dono: "Johny",   papel: "Design"         },
+  { vertical: "Todas",     color: T.cinza300,   dono: "Gabriel", papel: "Copy"           },
+  { vertical: "Gestão",    color: T.primary,    dono: "Anna",    papel: "Coordenadora"   },
+]
+
+function Criacao() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <MetasAbril />
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: T.elevSm }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Responsável por vertical</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+          {CRIACAO_DONOS.map(d => (
+            <div key={d.vertical} style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{d.papel} · {d.vertical}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>{d.dono}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <p style={{ fontSize: 11, color: T.cinza400, margin: "14px 0 0" }}>
+          Meta compartilhada — o time de criação como um todo é responsável pelos mesmos números de vendas.
+          O dono de cada vertical acompanha o placar semanal e aciona ajustes nos criativos quando necessário.
+        </p>
+      </div>
     </div>
   )
 }
@@ -275,6 +312,26 @@ interface AdherenceData {
   byDay: { day: string; count: number; planned: number }[]
 }
 
+interface WeekPost {
+  title: string
+  status: string
+  scheduled_at: string
+  editoria: string
+}
+
+function getWeekBounds(offset: number) {
+  const now = new Date()
+  const dow = now.getDay() // 0=Sun
+  const mondayDelta = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + mondayDelta + offset * 7)
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59, 999)
+  return { monday, sunday }
+}
+
 
 function MidiasSociais() {
   const [mes, setMes] = useState<Month>("abr")
@@ -316,6 +373,35 @@ function MidiasSociais() {
     }
     load()
   }, [mes])
+
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [weekPosts, setWeekPosts] = useState<Record<string, WeekPost[]>>({})
+  const [loadingWeek, setLoadingWeek] = useState(true)
+
+  useEffect(() => {
+    async function loadWeek() {
+      setLoadingWeek(true)
+      const { monday, sunday } = getWeekBounds(weekOffset)
+      const { data } = await getSupabase()
+        .from("posts")
+        .select("title, status, scheduled_at, editoria")
+        .gte("scheduled_at", monday.toISOString().split("T")[0])
+        .lte("scheduled_at", sunday.toISOString().split("T")[0] + "T23:59:59")
+      const byDay: Record<string, WeekPost[]> = {}
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        byDay[d.toISOString().split("T")[0]] = []
+      }
+      for (const post of data || []) {
+        const k = (post.scheduled_at || "").split("T")[0]
+        if (k && byDay[k]) byDay[k].push(post as WeekPost)
+      }
+      setWeekPosts(byDay)
+      setLoadingWeek(false)
+    }
+    loadWeek()
+  }, [weekOffset])
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -452,6 +538,82 @@ function MidiasSociais() {
       </div>
 
       <div>
+        {(() => {
+          const { monday } = getWeekBounds(weekOffset)
+          const todayStr = new Date().toISOString().split("T")[0]
+          const DAY_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+          const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(monday)
+            d.setDate(monday.getDate() + i)
+            return { label: DAY_SHORT[i], dateKey: d.toISOString().split("T")[0], date: d }
+          })
+          const weekLabel = weekOffset === 0 ? "Esta semana"
+            : weekOffset === -1 ? "Semana passada"
+            : weekOffset === 1 ? "Próxima semana"
+            : weekOffset > 0 ? `+${weekOffset} semanas` : `${weekOffset} semanas`
+          return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 2px" }}>Posts da Semana</h3>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+                    {days[0].date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} – {days[6].date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setWeekOffset(o => o - 1)} style={{ background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: T.font, display: "flex", alignItems: "center" }}>
+                    <ChevronLeft size={14} color={T.cinza600} />
+                  </button>
+                  <span style={{ fontSize: 12, color: T.mutedFg, minWidth: 110, textAlign: "center" }}>{weekLabel}</span>
+                  <button onClick={() => setWeekOffset(o => o + 1)} style={{ background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: T.font, display: "flex", alignItems: "center" }}>
+                    <ChevronRight size={14} color={T.cinza600} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+                {days.map(({ label, dateKey, date }) => {
+                  const posts = weekPosts[dateKey] || []
+                  const isToday = dateKey === todayStr
+                  return (
+                    <div key={dateKey} style={{
+                      background: isToday ? `${T.primary}0d` : T.card,
+                      border: `1px solid ${isToday ? T.primary : T.border}`,
+                      borderRadius: 10, padding: "10px 6px", minHeight: 80,
+                      boxShadow: T.elevSm,
+                    }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: isToday ? T.primary : T.cinza400, margin: "0 0 1px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: isToday ? T.primary : T.fg, margin: "0 0 8px", textAlign: "center" }}>{date.getDate()}</p>
+                      {loadingWeek ? (
+                        <div style={{ height: 16, background: T.cinza100, borderRadius: 4 }} />
+                      ) : posts.length === 0 ? (
+                        <p style={{ fontSize: 10, color: T.cinza200, textAlign: "center", margin: 0 }}>—</p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {posts.map((p, i) => {
+                            const bg = p.status === "publicado" ? "#d1fae5" : p.status === "agendado" ? "#dbeafe" : "#fef9c3"
+                            const fg = p.status === "publicado" ? "#065f46" : p.status === "agendado" ? "#1e40af" : "#92400e"
+                            const badgeLabel = p.status === "publicado" ? "✓ Publicado" : p.status === "agendado" ? "⏰ Agendado" : p.status
+                            return (
+                              <div key={i} style={{ background: bg, borderRadius: 5, padding: "3px 5px" }}>
+                                <p style={{ fontSize: 9, fontWeight: 700, color: fg, margin: "0 0 1px", textTransform: "uppercase", letterSpacing: "0.3px" }}>{badgeLabel}</p>
+                                <p style={{ fontSize: 10, color: "#374151", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }} title={p.title || p.editoria}>
+                                  {p.title || p.editoria}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
+      </div>
+
+      <div>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 12px" }}>Calendário Semanal</h3>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.elevSm }}>
           <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
@@ -482,6 +644,269 @@ function MidiasSociais() {
         </div>
       </div>
 
+    </div>
+  )
+}
+
+// ── Marketing de Ativação ────────────────────────────────
+
+interface EntregavelItem {
+  item: string
+  status: "pendente" | "entregue" | "parcial"
+}
+
+interface AtivacaoEvento {
+  id: string
+  nome: string
+  data_evento: string | null
+  entregaveis: EntregavelItem[]
+  resultado_esperado: string
+  resultado_entregue: string
+  custo_previsto: number
+  custo_realizado: number
+}
+
+const ENTREGAVEL_STYLE: Record<string, { bg: string; fg: string; label: string }> = {
+  pendente: { bg: "#fef9c3", fg: "#92400e", label: "Pendente" },
+  entregue: { bg: "#d1fae5", fg: "#065f46", label: "Entregue" },
+  parcial:  { bg: "#dbeafe", fg: "#1e40af", label: "Parcial"  },
+}
+
+const EMPTY_EVENTO: Omit<AtivacaoEvento, "id"> = {
+  nome: "", data_evento: null, entregaveis: [],
+  resultado_esperado: "", resultado_entregue: "",
+  custo_previsto: 0, custo_realizado: 0,
+}
+
+function AtivacaoSection() {
+  const [eventos, setEventos] = useState<AtivacaoEvento[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [form, setForm]         = useState<Omit<AtivacaoEvento, "id">>(EMPTY_EVENTO)
+  const [saving, setSaving]     = useState(false)
+
+  async function load() {
+    const { data } = await getSupabase()
+      .from("ativacao_eventos").select("*").order("created_at", { ascending: true })
+    setEventos((data as AtivacaoEvento[]) || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  function startNew()                  { setEditingId("new"); setForm({ ...EMPTY_EVENTO }) }
+  function startEdit(e: AtivacaoEvento){ const { id, ...rest } = e; setEditingId(id); setForm(rest) }
+  function cancel()                    { setEditingId(null) }
+
+  async function save() {
+    if (!form.nome.trim()) return
+    setSaving(true)
+    if (editingId === "new") {
+      await getSupabase().from("ativacao_eventos").insert(form)
+    } else {
+      await getSupabase().from("ativacao_eventos").update({ ...form, updated_at: new Date().toISOString() }).eq("id", editingId)
+    }
+    await load()
+    setEditingId(null)
+    setSaving(false)
+  }
+
+  async function del(id: string) {
+    if (!confirm("Remover este evento?")) return
+    await getSupabase().from("ativacao_eventos").delete().eq("id", id)
+    setEventos(ev => ev.filter(e => e.id !== id))
+  }
+
+  const inp: React.CSSProperties = {
+    width: "100%", padding: "8px 12px", fontSize: 13, borderRadius: 8,
+    border: `1px solid ${T.border}`, background: T.muted, color: T.fg, fontFamily: T.font,
+  }
+  const lbl: React.CSSProperties = {
+    fontSize: 11, fontWeight: 600, color: T.mutedFg, display: "block",
+    marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.4px",
+  }
+
+  function renderForm() {
+    return (
+      <div style={{ background: T.card, border: `2px solid ${T.primary}`, borderRadius: 14, padding: 24, boxShadow: T.elevSm, display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 14, alignItems: "start" }}>
+          <div>
+            <label style={lbl}>Nome do Evento</label>
+            <input style={inp} value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: Anitápolis" />
+          </div>
+          <div>
+            <label style={lbl}>Data</label>
+            <input type="date" style={{ ...inp, width: "auto" }} value={form.data_evento || ""} onChange={e => setForm(f => ({ ...f, data_evento: e.target.value || null }))} />
+          </div>
+        </div>
+
+        <div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={lbl}>Entregáveis</span>
+            <button onClick={() => setForm(f => ({ ...f, entregaveis: [...f.entregaveis, { item: "", status: "pendente" }] }))}
+              style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: T.primary, background: "none", border: "none", cursor: "pointer", fontFamily: T.font, fontWeight: 600 }}>
+              <Plus size={13} /> Adicionar
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {form.entregaveis.length === 0 && <p style={{ fontSize: 12, color: T.cinza400, margin: 0 }}>Nenhum entregável ainda.</p>}
+            {form.entregaveis.map((e, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input style={{ ...inp, flex: 1 }} value={e.item}
+                  onChange={ev => setForm(f => ({ ...f, entregaveis: f.entregaveis.map((x, j) => j === i ? { ...x, item: ev.target.value } : x) }))}
+                  placeholder="Descreva o entregável" />
+                <select value={e.status}
+                  onChange={ev => setForm(f => ({ ...f, entregaveis: f.entregaveis.map((x, j) => j === i ? { ...x, status: ev.target.value as EntregavelItem["status"] } : x) }))}
+                  style={{ ...inp, width: 120 }}>
+                  <option value="pendente">Pendente</option>
+                  <option value="entregue">Entregue</option>
+                  <option value="parcial">Parcial</option>
+                </select>
+                <button onClick={() => setForm(f => ({ ...f, entregaveis: f.entregaveis.filter((_, j) => j !== i) }))}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "0 4px", display: "flex" }}>
+                  <X size={14} />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div>
+            <label style={lbl}>Resultado Esperado</label>
+            <input style={inp} value={form.resultado_esperado} onChange={e => setForm(f => ({ ...f, resultado_esperado: e.target.value }))} placeholder="Ex: 50 leads" />
+          </div>
+          <div>
+            <label style={lbl}>Resultado Entregue</label>
+            <input style={inp} value={form.resultado_entregue} onChange={e => setForm(f => ({ ...f, resultado_entregue: e.target.value }))} placeholder="Ex: 38 leads" />
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div>
+            <label style={lbl}>Custo Previsto (R$)</label>
+            <input type="number" style={inp} value={form.custo_previsto || ""} onChange={e => setForm(f => ({ ...f, custo_previsto: Number(e.target.value) || 0 }))} placeholder="0" />
+          </div>
+          <div>
+            <label style={lbl}>Custo Realizado (R$)</label>
+            <input type="number" style={inp} value={form.custo_realizado || ""} onChange={e => setForm(f => ({ ...f, custo_realizado: Number(e.target.value) || 0 }))} placeholder="0" />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={cancel} style={{ padding: "8px 20px", fontSize: 13, borderRadius: 8, border: `1px solid ${T.border}`, background: T.cinza50, color: T.cinza600, cursor: "pointer", fontFamily: T.font }}>
+            Cancelar
+          </button>
+          <button onClick={save} disabled={saving} style={{ padding: "8px 20px", fontSize: 13, borderRadius: 8, border: "none", background: T.primary, color: "#fff", cursor: saving ? "not-allowed" : "pointer", fontFamily: T.font, fontWeight: 600, opacity: saving ? 0.7 : 1 }}>
+            {saving ? "Salvando..." : editingId === "new" ? "Criar Evento" : "Salvar"}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) return (
+    <div style={{ height: 120, background: T.cinza50, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <span style={{ fontSize: 13, color: T.cinza400 }}>Carregando eventos...</span>
+    </div>
+  )
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        {editingId === null && (
+          <button onClick={startNew} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", fontSize: 13, borderRadius: 10, border: "none", background: T.primary, color: "#fff", cursor: "pointer", fontFamily: T.font, fontWeight: 600 }}>
+            <Plus size={14} /> Novo Evento
+          </button>
+        )}
+      </div>
+
+      {editingId === "new" && renderForm()}
+
+      {eventos.length === 0 && editingId !== "new" && (
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "32px 24px", textAlign: "center", boxShadow: T.elevSm }}>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Nenhum evento cadastrado ainda. Clique em "Novo Evento" para começar.</p>
+        </div>
+      )}
+
+      {eventos.map(evento => (
+        <div key={evento.id}>
+          {editingId === evento.id ? renderForm() : (
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 24, boxShadow: T.elevSm }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 20 }}>
+                <div>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, color: T.fg, margin: "0 0 2px" }}>{evento.nome}</h3>
+                  {evento.data_evento && (
+                    <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+                      {new Date(evento.data_evento + "T12:00:00").toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                    </p>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => startEdit(evento)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", fontSize: 12, borderRadius: 8, border: `1px solid ${T.border}`, background: T.cinza50, color: T.cinza600, cursor: "pointer", fontFamily: T.font }}>
+                    <Pencil size={12} /> Editar
+                  </button>
+                  <button onClick={() => del(evento.id)} style={{ padding: "6px 10px", borderRadius: 8, border: "1px solid #fecaca", background: "#fef2f2", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Entregáveis</p>
+                  {evento.entregaveis.length === 0 ? <p style={{ fontSize: 13, color: T.cinza400, margin: 0 }}>—</p> : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                      {evento.entregaveis.map((e, i) => {
+                        const s = ENTREGAVEL_STYLE[e.status] || ENTREGAVEL_STYLE.pendente
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ fontSize: 13, color: T.fg }}>{e.item || "—"}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 6, background: s.bg, color: s.fg, flexShrink: 0 }}>{s.label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Resultados</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      {[["Esperado", evento.resultado_esperado], ["Entregue", evento.resultado_entregue]].map(([rotulo, val]) => (
+                        <div key={rotulo} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                          <span style={{ color: T.mutedFg }}>{rotulo}</span>
+                          <span style={{ fontWeight: 600, color: T.fg }}>{val || "—"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: "0.4px" }}>Custos</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                        <span style={{ color: T.mutedFg }}>Previsto</span>
+                        <span style={{ fontWeight: 600 }}>{fmt(evento.custo_previsto, "R$")}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                        <span style={{ color: T.mutedFg }}>Realizado</span>
+                        <span style={{ fontWeight: 600, color: evento.custo_previsto > 0 && evento.custo_realizado > evento.custo_previsto ? "#ef4444" : "#10b981" }}>
+                          {fmt(evento.custo_realizado, "R$")}
+                        </span>
+                      </div>
+                      {evento.custo_previsto > 0 && (
+                        <div style={{ width: "100%", background: T.cinza100, borderRadius: 4, height: 5, marginTop: 4 }}>
+                          <div style={{ width: `${Math.min((evento.custo_realizado / evento.custo_previsto) * 100, 100)}%`, height: 5, borderRadius: 4, background: evento.custo_realizado > evento.custo_previsto ? "#ef4444" : "#10b981" }} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
@@ -576,11 +1001,6 @@ export default function MarketingGeral() {
   }, [])
 
   const PENDING_SECTIONS = [
-    { id: "criacao",         label: "Criação",               color: T.roxo600    },
-    { id: "pmm-szi",         label: "PMM SZI",               color: T.primary    },
-    { id: "pmm-szs",         label: "PMM SZS",               color: T.primary    },
-    { id: "pmm-mktplace",    label: "PMM Mkt Place",         color: T.primary    },
-    { id: "ativacao",        label: "Marketing de Ativação", color: T.verde600   },
     { id: "growth-paga",     label: "Growth Mídia Paga",     color: T.laranja500 },
     { id: "growth-nao-paga", label: "Growth Mídia Não Paga", color: T.laranja500 },
   ]
@@ -628,6 +1048,31 @@ export default function MarketingGeral() {
         <section>
           <SectionHeader title="Mídias Sociais" desc="Calendário editorial e seguidores" color={T.teal600} />
           <MidiasSociais />
+        </section>
+
+        <section>
+          <SectionHeader title="Criação" desc="Meta compartilhada — mesmo número que as vendas do mês" color={T.roxo600} />
+          <Criacao />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM SZI" desc="Jaque · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={0} />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM SZS" desc="Henrique · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={1} />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM Mkt Place" desc="Johny · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={2} />
+        </section>
+
+        <section>
+          <SectionHeader title="Marketing de Ativação" desc="Eventos, entregáveis e resultados" color={T.verde600} />
+          <AtivacaoSection />
         </section>
 
         {PENDING_SECTIONS.map(s => (
