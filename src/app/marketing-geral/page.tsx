@@ -54,7 +54,7 @@ function barColor(pct: number) {
   return "#ef4444"
 }
 
-function MetasAbril() {
+function MetasAbril({ only }: { only?: number } = {}) {
   const [dados, setDados] = useState<{ pago: number; naoPago: number }[]>([
     { pago: 0, naoPago: 0 },
     { pago: 0, naoPago: 0 },
@@ -88,6 +88,7 @@ function MetasAbril() {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
       {METAS_ABRIL.map((meta, i) => {
+        if (only !== undefined && only !== i) return null
         const { pago, naoPago } = dados[i]
         const totalReal = pago + naoPago
         const totalMeta = meta.metaPago + meta.metaNaoPago
@@ -737,9 +738,6 @@ export default function MarketingGeral() {
   }, [])
 
   const PENDING_SECTIONS = [
-    { id: "pmm-szi",         label: "PMM SZI",               color: T.primary    },
-    { id: "pmm-szs",         label: "PMM SZS",               color: T.primary    },
-    { id: "pmm-mktplace",    label: "PMM Mkt Place",         color: T.primary    },
     { id: "ativacao",        label: "Marketing de Ativação", color: T.verde600   },
     { id: "growth-paga",     label: "Growth Mídia Paga",     color: T.laranja500 },
     { id: "growth-nao-paga", label: "Growth Mídia Não Paga", color: T.laranja500 },
@@ -793,6 +791,21 @@ export default function MarketingGeral() {
         <section>
           <SectionHeader title="Criação" desc="Meta compartilhada — mesmo número que as vendas do mês" color={T.roxo600} />
           <Criacao />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM SZI" desc="Jaque · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={0} />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM SZS" desc="Henrique · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={1} />
+        </section>
+
+        <section>
+          <SectionHeader title="PMM Mkt Place" desc="Johny · meta compartilhada com Criação" color={T.primary} />
+          <MetasAbril only={2} />
         </section>
 
         {PENDING_SECTIONS.map(s => (
