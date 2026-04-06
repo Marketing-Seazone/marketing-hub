@@ -152,9 +152,11 @@ function MetasAbril() {
 // ── Criação ───────────────────────────────────────────────
 
 const CRIACAO_DONOS = [
-  { vertical: "SZI",       color: T.laranja500, dono: "Designer 1" },
-  { vertical: "SZS",       color: T.roxo600,    dono: "Designer 2" },
-  { vertical: "MKT PLACE", color: T.teal600,    dono: "Designer 3" },
+  { vertical: "SZI",       color: T.laranja500, dono: "Jaque",   papel: "Design"         },
+  { vertical: "SZS",       color: T.roxo600,    dono: "Henrique", papel: "Design"        },
+  { vertical: "MKT PLACE", color: T.teal600,    dono: "Johny",   papel: "Design"         },
+  { vertical: "Todas",     color: T.cinza300,   dono: "Gabriel", papel: "Copy"           },
+  { vertical: "Gestão",    color: T.primary,    dono: "Anna",    papel: "Coordenadora"   },
 ]
 
 function Criacao() {
@@ -168,18 +170,11 @@ function Criacao() {
             <div key={d.vertical} style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{d.vertical}</p>
+                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{d.papel} · {d.vertical}</p>
                 <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>{d.dono}</p>
               </div>
             </div>
           ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
-            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.cinza300, flexShrink: 0 }} />
-            <div>
-              <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>Todas</p>
-              <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>Copy</p>
-            </div>
-          </div>
         </div>
         <p style={{ fontSize: 11, color: T.cinza400, margin: "14px 0 0" }}>
           Meta compartilhada — o time de criação como um todo é responsável pelos mesmos números de vendas.
