@@ -156,7 +156,7 @@ const CRIACAO_DONOS = [
   { vertical: "SZI",       color: T.laranja500, dono: "Jaque",   papel: "Design"         },
   { vertical: "SZS",       color: T.roxo600,    dono: "Henrique", papel: "Design"        },
   { vertical: "MKT PLACE", color: T.teal600,    dono: "Johny",   papel: "Design"         },
-  { vertical: "Todas",     color: T.cinza300,   dono: "Gabriel", papel: "Copy"           },
+  { vertical: "Todas",     color: T.cinza400,   dono: "Gabriel", papel: "Copy"           },
   { vertical: "Gestão",    color: T.primary,    dono: "Anna",    papel: "Coordenadora"   },
 ]
 
