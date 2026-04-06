@@ -57,8 +57,6 @@ function MetasAbril() {
         sziPago, szsPago, mktpPago,
         sziNP,   szsNP,   mktpNP,
       ] = await Promise.all([
-        // Vertical por pipeline_id: SZI=7,28 | SZS=14 | MKTP=37
-        // Pago = rd_campanha contém "paga" | Não pago = não contém "paga"
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
         queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
@@ -77,86 +75,78 @@ function MetasAbril() {
   }, [])
 
   return (
-    <div style={{ marginBottom: 36 }}>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: T.fg, margin: "0 0 4px" }}>Metas Abril</h2>
-        <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>WON por vertical — abril 2026</p>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
-        {METAS_ABRIL.map((meta, i) => {
-          const { pago, naoPago } = dados[i]
-          const totalReal = pago + naoPago
-          const totalMeta = meta.metaPago + meta.metaNaoPago
-          const pctTotal  = totalMeta > 0 ? Math.round((totalReal / totalMeta) * 100) : 0
-          const pctPago   = meta.metaPago > 0 ? Math.round((pago / meta.metaPago) * 100) : 0
-          const pctNP     = meta.metaNaoPago > 0 ? Math.round((naoPago / meta.metaNaoPago) * 100) : 0
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+      {METAS_ABRIL.map((meta, i) => {
+        const { pago, naoPago } = dados[i]
+        const totalReal = pago + naoPago
+        const totalMeta = meta.metaPago + meta.metaNaoPago
+        const pctTotal  = totalMeta > 0 ? Math.round((totalReal / totalMeta) * 100) : 0
+        const pctPago   = meta.metaPago > 0 ? Math.round((pago / meta.metaPago) * 100) : 0
+        const pctNP     = meta.metaNaoPago > 0 ? Math.round((naoPago / meta.metaNaoPago) * 100) : 0
 
-          return (
-            <div key={meta.label} style={{
-              background: T.card, border: `1px solid ${T.border}`,
-              borderRadius: 14, padding: "18px 20px",
-              boxShadow: T.elevSm, display: "flex", flexDirection: "column", gap: 14,
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color }} />
-                  <span style={{ fontSize: 13, fontWeight: 700, color: T.cardFg }}>{meta.label}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                  {loading
-                    ? <div style={{ width: 32, height: 20, background: T.cinza100, borderRadius: 4 }} />
-                    : <span style={{ fontSize: 22, fontWeight: 800, color: T.fg, letterSpacing: "-0.5px" }}>{totalReal}</span>
-                  }
-                  <span style={{ fontSize: 12, color: T.cinza400 }}>/ {totalMeta}</span>
-                  {!loading && <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pctTotal), marginLeft: 4 }}>{pctTotal}%</span>}
-                </div>
+        return (
+          <div key={meta.label} style={{
+            background: T.card, border: `1px solid ${T.border}`,
+            borderRadius: 14, padding: "18px 20px",
+            boxShadow: T.elevSm, display: "flex", flexDirection: "column", gap: 14,
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: meta.color }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.cardFg }}>{meta.label}</span>
               </div>
-
-              <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 6 }}>
-                <div style={{ width: `${Math.min(pctTotal, 100)}%`, height: 6, borderRadius: 6, background: barColor(pctTotal), transition: "width 0.6s ease" }} />
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { rotulo: "Mídia Paga",     real: pago,    metaV: meta.metaPago,    pct: pctPago },
-                  { rotulo: "Mídia Não Paga",  real: naoPago, metaV: meta.metaNaoPago, pct: pctNP   },
-                ].map(row => (
-                  <div key={row.rotulo}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, color: T.cinza600 }}>{row.rotulo}</span>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                        {loading
-                          ? <div style={{ width: 24, height: 14, background: T.cinza100, borderRadius: 3 }} />
-                          : <span style={{ fontSize: 12, fontWeight: 600, color: T.fg }}>{row.real}</span>
-                        }
-                        <span style={{ fontSize: 11, color: T.cinza400 }}>/ {row.metaV}</span>
-                      </div>
-                    </div>
-                    <div style={{ width: "100%", background: T.cinza100, borderRadius: 4, height: 4 }}>
-                      <div style={{ width: `${Math.min(row.pct, 100)}%`, height: 4, borderRadius: 4, background: barColor(row.pct), transition: "width 0.6s ease" }} />
-                    </div>
-                  </div>
-                ))}
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                {loading
+                  ? <div style={{ width: 32, height: 20, background: T.cinza100, borderRadius: 4 }} />
+                  : <span style={{ fontSize: 22, fontWeight: 800, color: T.fg, letterSpacing: "-0.5px" }}>{totalReal}</span>
+                }
+                <span style={{ fontSize: 12, color: T.cinza400 }}>/ {totalMeta}</span>
+                {!loading && <span style={{ fontSize: 12, fontWeight: 700, color: barColor(pctTotal), marginLeft: 4 }}>{pctTotal}%</span>}
               </div>
             </div>
-          )
-        })}
-      </div>
+
+            <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 6 }}>
+              <div style={{ width: `${Math.min(pctTotal, 100)}%`, height: 6, borderRadius: 6, background: barColor(pctTotal), transition: "width 0.6s ease" }} />
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { rotulo: "Mídia Paga",    real: pago,    metaV: meta.metaPago,    pct: pctPago },
+                { rotulo: "Mídia Não Paga", real: naoPago, metaV: meta.metaNaoPago, pct: pctNP   },
+              ].map(row => (
+                <div key={row.rotulo}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: T.cinza600 }}>{row.rotulo}</span>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                      {loading
+                        ? <div style={{ width: 24, height: 14, background: T.cinza100, borderRadius: 3 }} />
+                        : <span style={{ fontSize: 12, fontWeight: 600, color: T.fg }}>{row.real}</span>
+                      }
+                      <span style={{ fontSize: 11, color: T.cinza400 }}>/ {row.metaV}</span>
+                    </div>
+                  </div>
+                  <div style={{ width: "100%", background: T.cinza100, borderRadius: 4, height: 4 }}>
+                    <div style={{ width: `${Math.min(row.pct, 100)}%`, height: 4, borderRadius: 4, background: barColor(row.pct), transition: "width 0.6s ease" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
 
-// ── Metas (fixas — você edita aqui) ──────────────────────
+// ── Metas fixas ──────────────────────────────────────────
 
 const METAS = {
-  cacSzi:         { label: "CAC Tráfego Pago SZI",       meta: 10190, unit: "R$",  tipo: "menor" as const },
-  cacSzs:         { label: "CAC Tráfego Pago SZS",       meta: 1442,  unit: "R$",  tipo: "menor" as const },
-  crescimento:    { label: "Crescimento SP + Salvador",   meta: 107,   unit: "",    tipo: "maior" as const },
-  vendasSzi:      { label: "Vendas SZI no Trimestre",     meta: 295,   unit: "",    tipo: "maior" as const },
-  vendasSzs:      { label: "Vendas SZS no Trimestre",     meta: 852,   unit: "",    tipo: "maior" as const },
+  cacSzi:      { label: "CAC Tráfego Pago SZI",     meta: 10190, unit: "R$", tipo: "menor" as const },
+  cacSzs:      { label: "CAC Tráfego Pago SZS",     meta: 1442,  unit: "R$", tipo: "menor" as const },
+  crescimento: { label: "Crescimento SP + Salvador", meta: 107,   unit: "",   tipo: "maior" as const },
+  vendasSzi:   { label: "Vendas SZI no Trimestre",   meta: 295,   unit: "",   tipo: "maior" as const },
+  vendasSzs:   { label: "Vendas SZS no Trimestre",   meta: 852,   unit: "",   tipo: "maior" as const },
 }
-
-// ── Utilidades ───────────────────────────────────────────
 
 function fmt(n: number | null, unit: string) {
   if (n === null) return "—"
@@ -164,19 +154,17 @@ function fmt(n: number | null, unit: string) {
   return n.toLocaleString("pt-BR")
 }
 
-// Para "menor é melhor": verde se real < meta
-// Para "maior é melhor": porcentagem normal
 function calcAting(real: number | null, meta: number, tipo: "menor" | "maior") {
   if (real === null) return null
-  if (tipo === "menor") return Math.round((meta / real) * 100)   // >100% = abaixo da meta = bom
-  return Math.round((real / meta) * 100)                          // >100% = acima da meta = bom
+  if (tipo === "menor") return Math.round((meta / real) * 100)
+  return Math.round((real / meta) * 100)
 }
 
 function statusColor(pct: number | null) {
   if (pct === null) return T.cinza200
-  if (pct >= 100) return "#10b981"  // verde — meta atingida
-  if (pct >= 75)  return "#f59e0b"  // amarelo — perto
-  return "#ef4444"                   // vermelho — longe
+  if (pct >= 100) return "#10b981"
+  if (pct >= 75)  return "#f59e0b"
+  return "#ef4444"
 }
 
 function statusBg(pct: number | null) {
@@ -193,11 +181,7 @@ function statusBorder(pct: number | null) {
   return "#fecaca"
 }
 
-// ── Componente do card de meta ───────────────────────────
-
-function MetaCard({
-  label, meta, real, unit, tipo, loading,
-}: {
+function MetaCard({ label, meta, real, unit, tipo, loading }: {
   label: string; meta: number; real: number | null; unit: string
   tipo: "menor" | "maior"; loading: boolean
 }) {
@@ -206,49 +190,32 @@ function MetaCard({
 
   return (
     <div style={{
-      background: T.card,
-      border: `1px solid ${statusBorder(pct)}`,
-      borderRadius: 16,
-      padding: "28px 28px 24px",
-      boxShadow: T.elevSm,
-      display: "flex",
-      flexDirection: "column",
-      gap: 16,
+      background: T.card, border: `1px solid ${statusBorder(pct)}`,
+      borderRadius: 16, padding: "28px 28px 24px",
+      boxShadow: T.elevSm, display: "flex", flexDirection: "column", gap: 16,
     }}>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: T.mutedFg, lineHeight: 1.4 }}>{label}</span>
         <div style={{
           display: "flex", alignItems: "center", gap: 4,
-          background: statusBg(pct),
-          border: `1px solid ${statusBorder(pct)}`,
+          background: statusBg(pct), border: `1px solid ${statusBorder(pct)}`,
           borderRadius: 8, padding: "4px 10px", flexShrink: 0,
         }}>
-          {tipo === "menor"
-            ? <TrendingDown size={12} color={statusColor(pct)} />
-            : <TrendingUp size={12} color={statusColor(pct)} />
-          }
+          {tipo === "menor" ? <TrendingDown size={12} color={statusColor(pct)} /> : <TrendingUp size={12} color={statusColor(pct)} />}
           <span style={{ fontSize: 12, fontWeight: 700, color: statusColor(pct) }}>
             {tipo === "menor" ? "< " : "> "}{fmt(meta, unit)}
           </span>
         </div>
       </div>
-
-      {/* Valor atual */}
       <div>
-        {loading ? (
-          <div style={{ height: 40, background: T.cinza100, borderRadius: 8, width: "60%", animation: "pulse 1.5s infinite" }} />
-        ) : (
-          <span style={{ fontSize: 36, fontWeight: 800, color: T.fg, letterSpacing: "-1px" }}>
-            {fmt(real, unit)}
-          </span>
-        )}
+        {loading
+          ? <div style={{ height: 40, background: T.cinza100, borderRadius: 8, width: "60%" }} />
+          : <span style={{ fontSize: 36, fontWeight: 800, color: T.fg, letterSpacing: "-1px" }}>{fmt(real, unit)}</span>
+        }
         <p style={{ fontSize: 12, color: T.cinza400, margin: "4px 0 0" }}>
           {tipo === "menor" ? "atual (meta: abaixo de " : "atual (meta: acima de "}{fmt(meta, unit)})
         </p>
       </div>
-
-      {/* Barra de atingimento */}
       <div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
           <span style={{ fontSize: 12, color: T.mutedFg }}>Atingimento</span>
@@ -257,16 +224,9 @@ function MetaCard({
           </span>
         </div>
         <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 8, overflow: "hidden" }}>
-          <div style={{
-            width: `${pct !== null ? Math.min(pct, 100) : 0}%`,
-            height: 8, borderRadius: 6,
-            background: statusColor(pct),
-            transition: "width 0.6s ease",
-          }} />
+          <div style={{ width: `${pct !== null ? Math.min(pct, 100) : 0}%`, height: 8, borderRadius: 6, background: statusColor(pct), transition: "width 0.6s ease" }} />
         </div>
-        {atingido && (
-          <p style={{ fontSize: 11, color: "#10b981", fontWeight: 600, marginTop: 6 }}>✓ Meta atingida</p>
-        )}
+        {atingido && <p style={{ fontSize: 11, color: "#10b981", fontWeight: 600, marginTop: 6 }}>✓ Meta atingida</p>}
       </div>
     </div>
   )
@@ -328,8 +288,6 @@ function MidiasSociais() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-
-      {/* Seletor de mês */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, color: T.mutedFg, marginRight: 4 }}>Mês:</span>
         {MONTHS.map(m => (
@@ -344,7 +302,6 @@ function MidiasSociais() {
         ))}
       </div>
 
-      {/* Seguidores por conta */}
       <div>
         <div style={{ marginBottom: 16 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Seguidores por Conta</h3>
@@ -375,7 +332,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      {/* Roadmap de seguidores */}
       <div>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 12px" }}>Roadmap de Seguidores (Abr → Dez/2025)</h3>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "auto", boxShadow: T.elevSm }}>
@@ -408,7 +364,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      {/* Aderência editorial */}
       <div>
         <div style={{ marginBottom: 12 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Calendário Editorial — Aderência</h3>
@@ -447,7 +402,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      {/* Calendário semanal */}
       <div>
         <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 12px" }}>Calendário Semanal</h3>
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden", boxShadow: T.elevSm }}>
@@ -479,7 +433,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      {/* Mix de editorias */}
       <div>
         <div style={{ marginBottom: 12 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Mix de Editorias</h3>
@@ -516,31 +469,40 @@ function MidiasSociais() {
           </div>
         </div>
       </div>
-
     </div>
   )
 }
 
-// ── Tabs (para expansão futura) ─────────────────────────
+// ── Helpers visuais ──────────────────────────────────────
 
-function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function SectionHeader({ title, desc, color = T.primary }: { title: string; desc?: string; color?: string }) {
   return (
-    <button onClick={onClick} style={{
-      padding: "12px 16px", fontSize: 13, whiteSpace: "nowrap",
-      background: "none", border: "none", cursor: "pointer",
-      borderBottom: active ? `2px solid ${T.primary}` : "2px solid transparent",
-      color: active ? T.primary : T.mutedFg,
-      fontWeight: active ? 600 : 400, fontFamily: T.font,
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 20 }}>
+      <div style={{ width: 4, height: 32, background: color, borderRadius: 2, flexShrink: 0 }} />
+      <div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: T.fg, margin: 0, lineHeight: 1.2 }}>{title}</h2>
+        {desc && <p style={{ fontSize: 13, color: T.mutedFg, margin: "4px 0 0" }}>{desc}</p>}
+      </div>
+    </div>
+  )
+}
+
+function EmConstrucao({ label }: { label: string }) {
+  return (
+    <div style={{
+      background: T.card, border: `1px solid ${T.border}`,
+      borderRadius: 14, padding: "36px 32px",
+      textAlign: "center", boxShadow: T.elevSm,
     }}>
-      {label}
-    </button>
+      <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>Em construção</p>
+      <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Os artefatos de {label} aparecerão aqui.</p>
+    </div>
   )
 }
 
 // ── Página principal ─────────────────────────────────────
 
 export default function MarketingGeral() {
-  const [activeTab, setActiveTab] = useState("visao-geral")
   const [loading, setLoading] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [reais, setReais] = useState<Record<string, number | null>>({
@@ -566,7 +528,6 @@ export default function MarketingGeral() {
       }
 
       const [cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs] = await Promise.all([
-        // CAC SZI = spend tráfego pago SZI / won deals canal marketing SZI
         safe("cacSzi", `
           SELECT
             (SELECT SUM(spend) FROM nekt_silver.ads_unificado
@@ -580,7 +541,6 @@ export default function MarketingGeral() {
                  AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
             0) AS valor
         `),
-        // CAC SZS = spend tráfego pago SZS / won deals canal marketing SZS
         safe("cacSzs", `
           SELECT
             (SELECT SUM(spend) FROM nekt_silver.ads_unificado
@@ -594,7 +554,6 @@ export default function MarketingGeral() {
                  AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
             0) AS valor
         `),
-        // Crescimento SP + Salvador = won SZS nessas cidades no trimestre
         safe("crescimento", `
           SELECT COUNT(DISTINCT id) AS valor
           FROM nekt_silver.deals_pipedrive_join_marketing
@@ -625,16 +584,14 @@ export default function MarketingGeral() {
     load()
   }, [])
 
-  const tabs = [
-    { id: "visao-geral",       label: "Visão Geral" },
-    { id: "midias-sociais",    label: "Mídias Sociais" },
-    { id: "criacao",           label: "Criação" },
-    { id: "pmm-szi",           label: "PMM SZI" },
-    { id: "pmm-szs",           label: "PMM SZS" },
-    { id: "pmm-mktplace",      label: "PMM Mkt Place" },
-    { id: "ativacao",          label: "Marketing de Ativação" },
-    { id: "growth-paga",       label: "Growth Mídia Paga" },
-    { id: "growth-nao-paga",   label: "Growth Mídia Não Paga" },
+  const PENDING_SECTIONS = [
+    { id: "criacao",         label: "Criação",               color: T.roxo600    },
+    { id: "pmm-szi",         label: "PMM SZI",               color: T.primary    },
+    { id: "pmm-szs",         label: "PMM SZS",               color: T.primary    },
+    { id: "pmm-mktplace",    label: "PMM Mkt Place",         color: T.primary    },
+    { id: "ativacao",        label: "Marketing de Ativação", color: T.verde600   },
+    { id: "growth-paga",     label: "Growth Mídia Paga",     color: T.laranja500 },
+    { id: "growth-nao-paga", label: "Growth Mídia Não Paga", color: T.laranja500 },
   ]
 
   return (
@@ -643,49 +600,55 @@ export default function MarketingGeral() {
       {/* Header */}
       <header style={{
         background: T.card, borderBottom: `1px solid ${T.border}`,
-        padding: "0 24px", position: "sticky", top: 0, zIndex: 40, boxShadow: T.elevSm,
+        padding: "0 24px", height: 52,
+        display: "flex", alignItems: "center",
+        position: "sticky", top: 0, zIndex: 40, boxShadow: T.elevSm,
       }}>
-        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, height: 52 }}>
-            <Link href="/" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}>
-              <ChevronLeft size={14} /> Menu
-            </Link>
-            <span style={{ color: T.border }}>|</span>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.primary }} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Marketing Geral</span>
-            {loading && (
-              <span style={{ fontSize: 11, color: T.cinza400, marginLeft: "auto" }}>Carregando dados...</span>
-            )}
-          </div>
-          <div style={{ display: "flex", overflowX: "auto", marginBottom: -1 }}>
-            {tabs.map(t => (
-              <TabButton key={t.id} label={t.label} active={activeTab === t.id} onClick={() => setActiveTab(t.id)} />
-            ))}
-          </div>
+        <div style={{ maxWidth: 1000, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
+          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}>
+            <ChevronLeft size={14} /> Menu
+          </Link>
+          <span style={{ color: T.border }}>|</span>
+          <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.primary }} />
+          <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Visão Geral</span>
+          {loading && (
+            <span style={{ fontSize: 11, color: T.cinza400, marginLeft: "auto" }}>Carregando dados...</span>
+          )}
         </div>
       </header>
 
-      {/* Content */}
-      <main style={{ padding: "36px 24px", maxWidth: 1000, margin: "0 auto" }}>
+      {/* Conteúdo em seções */}
+      <main style={{ padding: "40px 24px 64px", maxWidth: 1000, margin: "0 auto", display: "flex", flexDirection: "column", gap: 56 }}>
 
-        {activeTab === "visao-geral" && (
-          <>
-            <MetasAbril />
-          </>
-        )}
+        <section>
+          <SectionHeader title="Metas do Mês" desc="WON por vertical — mês corrente" color={T.primary} />
+          <MetasAbril />
+        </section>
 
-        {activeTab === "midias-sociais" && <MidiasSociais />}
-
-        {activeTab !== "visao-geral" && activeTab !== "midias-sociais" && (
-          <div style={{
-            background: T.card, border: `1px solid ${T.border}`,
-            borderRadius: 14, padding: "48px 32px",
-            textAlign: "center", boxShadow: T.elevSm,
-          }}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, margin: "0 0 6px" }}>Em construção</p>
-            <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Esta aba será desenvolvida em breve.</p>
+        <section>
+          <SectionHeader title="KPIs Trimestrais" desc="Últimos 90 dias" color={T.laranja500} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
+            {Object.entries(METAS).map(([key, m]) => (
+              <MetaCard key={key} label={m.label} meta={m.meta} real={reais[key] ?? null}
+                unit={m.unit} tipo={m.tipo} loading={loading} />
+            ))}
           </div>
-        )}
+          {Object.keys(errors).length > 0 && (
+            <p style={{ fontSize: 12, color: T.mutedFg, marginTop: 8 }}>Alguns dados não puderam ser carregados.</p>
+          )}
+        </section>
+
+        <section>
+          <SectionHeader title="Mídias Sociais" desc="Calendário editorial e seguidores" color={T.teal600} />
+          <MidiasSociais />
+        </section>
+
+        {PENDING_SECTIONS.map(s => (
+          <section key={s.id}>
+            <SectionHeader title={s.label} color={s.color} />
+            <EmConstrucao label={s.label} />
+          </section>
+        ))}
 
       </main>
     </div>
