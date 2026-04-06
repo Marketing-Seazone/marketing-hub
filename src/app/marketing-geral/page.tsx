@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ChevronLeft, TrendingDown, TrendingUp } from "lucide-react"
+import { ChevronLeft, ChevronRight, TrendingDown, TrendingUp } from "lucide-react"
 import { createClient } from "@supabase/supabase-js"
 import { T } from "@/lib/constants"
 
@@ -275,6 +275,26 @@ interface AdherenceData {
   byDay: { day: string; count: number; planned: number }[]
 }
 
+interface WeekPost {
+  title: string
+  status: string
+  scheduled_at: string
+  editoria: string
+}
+
+function getWeekBounds(offset: number) {
+  const now = new Date()
+  const dow = now.getDay() // 0=Sun
+  const mondayDelta = dow === 0 ? -6 : 1 - dow
+  const monday = new Date(now)
+  monday.setDate(now.getDate() + mondayDelta + offset * 7)
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59, 999)
+  return { monday, sunday }
+}
+
 
 function MidiasSociais() {
   const [mes, setMes] = useState<Month>("abr")
@@ -316,6 +336,35 @@ function MidiasSociais() {
     }
     load()
   }, [mes])
+
+  const [weekOffset, setWeekOffset] = useState(0)
+  const [weekPosts, setWeekPosts] = useState<Record<string, WeekPost[]>>({})
+  const [loadingWeek, setLoadingWeek] = useState(true)
+
+  useEffect(() => {
+    async function loadWeek() {
+      setLoadingWeek(true)
+      const { monday, sunday } = getWeekBounds(weekOffset)
+      const { data } = await getSupabase()
+        .from("posts")
+        .select("title, status, scheduled_at, editoria")
+        .gte("scheduled_at", monday.toISOString().split("T")[0])
+        .lte("scheduled_at", sunday.toISOString().split("T")[0] + "T23:59:59")
+      const byDay: Record<string, WeekPost[]> = {}
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(monday)
+        d.setDate(monday.getDate() + i)
+        byDay[d.toISOString().split("T")[0]] = []
+      }
+      for (const post of data || []) {
+        const k = (post.scheduled_at || "").split("T")[0]
+        if (k && byDay[k]) byDay[k].push(post as WeekPost)
+      }
+      setWeekPosts(byDay)
+      setLoadingWeek(false)
+    }
+    loadWeek()
+  }, [weekOffset])
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -449,6 +498,82 @@ function MidiasSociais() {
             </div>
           </div>
         )}
+      </div>
+
+      <div>
+        {(() => {
+          const { monday } = getWeekBounds(weekOffset)
+          const todayStr = new Date().toISOString().split("T")[0]
+          const DAY_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+          const days = Array.from({ length: 7 }, (_, i) => {
+            const d = new Date(monday)
+            d.setDate(monday.getDate() + i)
+            return { label: DAY_SHORT[i], dateKey: d.toISOString().split("T")[0], date: d }
+          })
+          const weekLabel = weekOffset === 0 ? "Esta semana"
+            : weekOffset === -1 ? "Semana passada"
+            : weekOffset === 1 ? "Próxima semana"
+            : weekOffset > 0 ? `+${weekOffset} semanas` : `${weekOffset} semanas`
+          return (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div>
+                  <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 2px" }}>Posts da Semana</h3>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+                    {days[0].date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} – {days[6].date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                  </p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <button onClick={() => setWeekOffset(o => o - 1)} style={{ background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: T.font, display: "flex", alignItems: "center" }}>
+                    <ChevronLeft size={14} color={T.cinza600} />
+                  </button>
+                  <span style={{ fontSize: 12, color: T.mutedFg, minWidth: 110, textAlign: "center" }}>{weekLabel}</span>
+                  <button onClick={() => setWeekOffset(o => o + 1)} style={{ background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontFamily: T.font, display: "flex", alignItems: "center" }}>
+                    <ChevronRight size={14} color={T.cinza600} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+                {days.map(({ label, dateKey, date }) => {
+                  const posts = weekPosts[dateKey] || []
+                  const isToday = dateKey === todayStr
+                  return (
+                    <div key={dateKey} style={{
+                      background: isToday ? `${T.primary}0d` : T.card,
+                      border: `1px solid ${isToday ? T.primary : T.border}`,
+                      borderRadius: 10, padding: "10px 6px", minHeight: 80,
+                      boxShadow: T.elevSm,
+                    }}>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: isToday ? T.primary : T.cinza400, margin: "0 0 1px", textAlign: "center", textTransform: "uppercase", letterSpacing: "0.4px" }}>{label}</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: isToday ? T.primary : T.fg, margin: "0 0 8px", textAlign: "center" }}>{date.getDate()}</p>
+                      {loadingWeek ? (
+                        <div style={{ height: 16, background: T.cinza100, borderRadius: 4 }} />
+                      ) : posts.length === 0 ? (
+                        <p style={{ fontSize: 10, color: T.cinza200, textAlign: "center", margin: 0 }}>—</p>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {posts.map((p, i) => {
+                            const bg = p.status === "publicado" ? "#d1fae5" : p.status === "agendado" ? "#dbeafe" : "#fef9c3"
+                            const fg = p.status === "publicado" ? "#065f46" : p.status === "agendado" ? "#1e40af" : "#92400e"
+                            const badgeLabel = p.status === "publicado" ? "✓ Publicado" : p.status === "agendado" ? "⏰ Agendado" : p.status
+                            return (
+                              <div key={i} style={{ background: bg, borderRadius: 5, padding: "3px 5px" }}>
+                                <p style={{ fontSize: 9, fontWeight: 700, color: fg, margin: "0 0 1px", textTransform: "uppercase", letterSpacing: "0.3px" }}>{badgeLabel}</p>
+                                <p style={{ fontSize: 10, color: "#374151", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", lineHeight: 1.3 }} title={p.title || p.editoria}>
+                                  {p.title || p.editoria}
+                                </p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       <div>
