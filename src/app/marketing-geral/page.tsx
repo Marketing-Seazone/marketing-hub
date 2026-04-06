@@ -140,12 +140,9 @@ function MetasAbril() {
 
 // ── Metas fixas ──────────────────────────────────────────
 
-const METAS = {
-  cacSzi:      { label: "CAC Tráfego Pago SZI",     meta: 10190, unit: "R$", tipo: "menor" as const },
-  cacSzs:      { label: "CAC Tráfego Pago SZS",     meta: 1442,  unit: "R$", tipo: "menor" as const },
-  crescimento: { label: "Crescimento SP + Salvador", meta: 107,   unit: "",   tipo: "maior" as const },
-  vendasSzi:   { label: "Vendas SZI no Trimestre",   meta: 295,   unit: "",   tipo: "maior" as const },
-  vendasSzs:   { label: "Vendas SZS no Trimestre",   meta: 852,   unit: "",   tipo: "maior" as const },
+const METAS_CAC = {
+  cacSzi: { label: "CAC Tráfego Pago SZI", meta: 5000, unit: "R$", tipo: "menor" as const },
+  cacSzs: { label: "CAC Tráfego Pago SZS", meta: 1290, unit: "R$", tipo: "menor" as const },
 }
 
 function fmt(n: number | null, unit: string) {
@@ -506,7 +503,7 @@ export default function MarketingGeral() {
   const [loading, setLoading] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [reais, setReais] = useState<Record<string, number | null>>({
-    cacSzi: null, cacSzs: null, crescimento: null, vendasSzi: null, vendasSzs: null,
+    cacSzi: null, cacSzs: null,
   })
 
   useEffect(() => {
@@ -527,58 +524,36 @@ export default function MarketingGeral() {
         }
       }
 
-      const [cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs] = await Promise.all([
+      const [cacSzi, cacSzs] = await Promise.all([
         safe("cacSzi", `
           SELECT
             (SELECT SUM(spend) FROM nekt_silver.ads_unificado
              WHERE vertical = 'Investimentos'
-               AND date >= CURRENT_DATE - INTERVAL '90' DAY)
+               AND date >= CURRENT_DATE - INTERVAL '30' DAY)
             /
             NULLIF(
               (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
                WHERE status = 'won'
                  AND rd_campanha LIKE '%[SI]%'
-                 AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
+                 AND ganho_em >= CURRENT_DATE - INTERVAL '30' DAY),
             0) AS valor
         `),
         safe("cacSzs", `
           SELECT
             (SELECT SUM(spend) FROM nekt_silver.ads_unificado
              WHERE vertical ILIKE '%serv%'
-               AND date >= CURRENT_DATE - INTERVAL '90' DAY)
+               AND date >= CURRENT_DATE - INTERVAL '30' DAY)
             /
             NULLIF(
               (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
                WHERE status = 'won'
                  AND rd_campanha LIKE '%[SS]%'
-                 AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY),
+                 AND ganho_em >= CURRENT_DATE - INTERVAL '30' DAY),
             0) AS valor
-        `),
-        safe("crescimento", `
-          SELECT COUNT(DISTINCT id) AS valor
-          FROM nekt_silver.deals_pipedrive_join_marketing
-          WHERE status = 'won'
-            AND rd_campanha LIKE '%[SS]%'
-            AND ganho_em >= CURRENT_DATE - INTERVAL '90' DAY
-            AND (rd_campanha ILIKE '%salvador%'
-                 OR rd_campanha ILIKE '%sao paulo%'
-                 OR rd_campanha ILIKE '%são paulo%'
-                 OR title ILIKE '%salvador%'
-                 OR title ILIKE '%são paulo%')
-        `),
-        safe("vendasSzi", `
-          SELECT COALESCE(SUM(won_szi), 0) AS valor
-          FROM nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable
-          WHERE data >= CURRENT_DATE - INTERVAL '90' DAY
-        `),
-        safe("vendasSzs", `
-          SELECT COALESCE(SUM(won_szs), 0) AS valor
-          FROM nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable
-          WHERE data >= CURRENT_DATE - INTERVAL '90' DAY
         `),
       ])
 
-      setReais({ cacSzi, cacSzs, crescimento, vendasSzi, vendasSzs })
+      setReais({ cacSzi, cacSzs })
       setLoading(false)
     }
     load()
@@ -623,12 +598,8 @@ export default function MarketingGeral() {
         <section>
           <SectionHeader title="Metas do Mês" desc="WON por vertical — mês corrente" color={T.primary} />
           <MetasAbril />
-        </section>
-
-        <section>
-          <SectionHeader title="KPIs Trimestrais" desc="Últimos 90 dias" color={T.laranja500} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16 }}>
-            {Object.entries(METAS).map(([key, m]) => (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 16, marginTop: 16 }}>
+            {Object.entries(METAS_CAC).map(([key, m]) => (
               <MetaCard key={key} label={m.label} meta={m.meta} real={reais[key] ?? null}
                 unit={m.unit} tipo={m.tipo} loading={loading} />
             ))}
