@@ -3,7 +3,18 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChevronLeft, TrendingDown, TrendingUp } from "lucide-react"
+import { createClient } from "@supabase/supabase-js"
 import { T } from "@/lib/constants"
+
+const CALENDAR_START = "2026-04-07"
+
+
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
 
 // ── Types ──────────────────────────────────────────────────
 
@@ -251,28 +262,7 @@ const EDITORIAL_CALENDAR = [
   { day: "Domingo", editoria: "Autoridade Seazone",      format: "Bastidor/institucional",    channels: ["Instagram"] },
 ]
 
-const EDITORIAL_COMPLIANCE = {
-  total: { published: 18, planned: 22 },
-  byDay: [
-    { day: "Seg", count: 4, planned: 4 },
-    { day: "Ter", count: 3, planned: 4 },
-    { day: "Qua", count: 3, planned: 4 },
-    { day: "Qui", count: 2, planned: 3 },
-    { day: "Sex", count: 3, planned: 3 },
-    { day: "Sáb", count: 2, planned: 3 },
-    { day: "Dom", count: 1, planned: 1 },
-  ],
-}
-
-const EDITORIAL_MIX = [
-  { editoria: "Inteligência de Mercado", real: 5, planned: 5 },
-  { editoria: "Dono no Controle",        real: 2, planned: 4 },
-  { editoria: "Onde Investir",           real: 2, planned: 4 },
-  { editoria: "Resultados Reais",        real: 5, planned: 4 },
-  { editoria: "Destinos Seazone",        real: 4, planned: 5 },
-  { editoria: "Autoridade Seazone",      real: 5, planned: 4 },
-  { editoria: "Por dentro do Airbnb",    real: 3, planned: 4 },
-]
+// removido — dados agora vêm do Supabase em tempo real
 
 function fmtN(n: number) {
   if (n >= 1000000) return `${(n/1000000).toFixed(1)}M`
@@ -280,8 +270,52 @@ function fmtN(n: number) {
   return n.toLocaleString("pt-BR")
 }
 
+interface AdherenceData {
+  total: { published: number; planned: number }
+  byDay: { day: string; count: number; planned: number }[]
+}
+
+
 function MidiasSociais() {
   const [mes, setMes] = useState<Month>("abr")
+  const [adherence, setAdherence] = useState<AdherenceData | null>(null)
+  const [loadingAdherence, setLoadingAdherence] = useState(true)
+
+  useEffect(() => {
+    async function load() {
+      setLoadingAdherence(true)
+      const today = new Date().toISOString().split("T")[0]
+      const { data, error } = await getSupabase()
+        .from("posts")
+        .select("status, scheduled_at, editoria")
+        .gte("scheduled_at", CALENDAR_START)
+        .lte("scheduled_at", today + "T23:59:59")
+
+      if (error || !data) { setLoadingAdherence(false); return }
+
+      // Aderência por dia da semana (ordem: Seg=1 … Dom=0)
+      const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"]
+      const planned = [0,0,0,0,0,0,0]
+      const published = [0,0,0,0,0,0,0]
+      for (const post of data) {
+        if (!post.scheduled_at) continue
+        const dow = new Date(post.scheduled_at).getDay()
+        planned[dow]++
+        if (post.status === "publicado") published[dow]++
+      }
+      const ORDER = [1,2,3,4,5,6,0]
+      setAdherence({
+        total: {
+          planned: data.length,
+          published: data.filter(p => p.status === "publicado").length,
+        },
+        byDay: ORDER.map(i => ({ day: DAY_LABELS[i], count: published[i], planned: planned[i] })),
+      })
+
+      setLoadingAdherence(false)
+    }
+    load()
+  }, [mes])
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
@@ -364,39 +398,57 @@ function MidiasSociais() {
       <div>
         <div style={{ marginBottom: 12 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Calendário Editorial — Aderência</h3>
-          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Posts publicados na data planejada ÷ total planejado</p>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
+            Posts publicados ÷ planejados — a partir de {new Date(CALENDAR_START + "T12:00:00").toLocaleDateString("pt-BR")}
+          </p>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14 }}>
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
-            <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 8px" }}>Aderência geral</p>
-            <p style={{ fontSize: 36, fontWeight: 800, color: T.fg, margin: "0 0 4px" }}>
-              {Math.round((EDITORIAL_COMPLIANCE.total.published / EDITORIAL_COMPLIANCE.total.planned) * 100)}%
-            </p>
-            <p style={{ fontSize: 12, color: T.cinza400, margin: "0 0 12px" }}>{EDITORIAL_COMPLIANCE.total.published} de {EDITORIAL_COMPLIANCE.total.planned} posts</p>
-            <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 8 }}>
-              <div style={{ width: `${Math.round((EDITORIAL_COMPLIANCE.total.published/EDITORIAL_COMPLIANCE.total.planned)*100)}%`, height: 8, borderRadius: 6, background: T.primary }} />
-            </div>
+        {loadingAdherence ? (
+          <div style={{ height: 120, background: T.cinza50, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span style={{ fontSize: 13, color: T.cinza400 }}>Carregando dados do calendário...</span>
           </div>
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
-            <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 12px" }}>Status por dia da semana</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-              {EDITORIAL_COMPLIANCE.byDay.map(d => {
-                const ok = d.count >= d.planned
-                return (
-                  <div key={d.day} style={{ textAlign: "center" }}>
-                    <p style={{ fontSize: 11, fontWeight: 500, color: T.cinza600, margin: "0 0 6px" }}>{d.day}</p>
-                    <div style={{ background: T.cinza50, borderRadius: 8, padding: "8px 4px" }}>
-                      <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>{d.count}/{d.planned}</p>
-                      <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 4px", borderRadius: 6, background: ok ? "#d1fae5" : "#fef3c7", color: ok ? "#065f46" : "#92400e" }}>
-                        {ok ? "OK" : "Parcial"}
-                      </span>
+        ) : !adherence || adherence.total.planned === 0 ? (
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "24px 20px", textAlign: "center", boxShadow: T.elevSm }}>
+            <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Nenhum post planejado encontrado a partir de {new Date(CALENDAR_START + "T12:00:00").toLocaleDateString("pt-BR")}.</p>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 14 }}>
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
+              <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 8px" }}>Aderência geral</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: T.fg, margin: "0 0 4px" }}>
+                {Math.round((adherence.total.published / adherence.total.planned) * 100)}%
+              </p>
+              <p style={{ fontSize: 12, color: T.cinza400, margin: "0 0 12px" }}>{adherence.total.published} de {adherence.total.planned} posts</p>
+              <div style={{ width: "100%", background: T.cinza100, borderRadius: 6, height: 8 }}>
+                <div style={{ width: `${Math.round((adherence.total.published / adherence.total.planned) * 100)}%`, height: 8, borderRadius: 6, background: T.primary }} />
+              </div>
+            </div>
+            <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
+              <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 12px" }}>Status por dia da semana</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+                {adherence.byDay.map(d => {
+                  const ok = d.planned === 0 || d.count >= d.planned
+                  const future = d.planned === 0
+                  return (
+                    <div key={d.day} style={{ textAlign: "center" }}>
+                      <p style={{ fontSize: 11, fontWeight: 500, color: T.cinza600, margin: "0 0 6px" }}>{d.day}</p>
+                      <div style={{ background: T.cinza50, borderRadius: 8, padding: "8px 4px" }}>
+                        <p style={{ fontSize: 15, fontWeight: 700, margin: "0 0 4px" }}>
+                          {future ? "—" : `${d.count}/${d.planned}`}
+                        </p>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 4px", borderRadius: 6,
+                          background: future ? T.cinza100 : ok ? "#d1fae5" : "#fef3c7",
+                          color:      future ? T.cinza400 : ok ? "#065f46" : "#92400e",
+                        }}>
+                          {future ? "—" : ok ? "OK" : "Parcial"}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div>
@@ -430,42 +482,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      <div>
-        <div style={{ marginBottom: 12 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Mix de Editorias</h3>
-          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Distribuição real vs planejada de publicações por editoria no mês</p>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {EDITORIAL_MIX.map(e => {
-              const maxVal = Math.max(e.real, e.planned)
-              return (
-                <div key={e.editoria} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 13, width: 200, flexShrink: 0, color: T.cardFg }}>{e.editoria}</span>
-                  <div style={{ flex: 1, background: T.cinza100, borderRadius: 10, height: 20, overflow: "hidden" }}>
-                    <div style={{
-                      width: `${(e.real / maxVal) * 100}%`, height: 20,
-                      background: T.primary, borderRadius: "10px 0 0 10px",
-                      display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6,
-                    }}>
-                      <span style={{ fontSize: 10, color: "#fff", fontWeight: 600 }}>{e.real}</span>
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 12, color: T.cinza400, width: 56, flexShrink: 0 }}>Meta: {e.planned}</span>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
-              <div style={{ width: 12, height: 12, background: T.primary, borderRadius: 3 }} /> Real
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
-              <div style={{ width: 12, height: 12, background: T.cinza100, borderRadius: 3 }} /> Planejado
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
