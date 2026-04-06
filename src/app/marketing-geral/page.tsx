@@ -8,15 +8,6 @@ import { T } from "@/lib/constants"
 
 const CALENDAR_START = "2026-04-07"
 
-const EDITORIA_LABELS: Record<string, string> = {
-  inteligencia_mercado: "Inteligência de Mercado",
-  dono_controle:        "Dono no Controle",
-  onde_investir:        "Onde Investir",
-  resultados_reais:     "Resultados Reais",
-  destinos_seazone:     "Destinos Seazone",
-  autoridade_seazone:   "Autoridade Seazone",
-  por_dentro_airbnb:    "Por dentro do Airbnb",
-}
 
 function getSupabase() {
   return createClient(
@@ -284,12 +275,10 @@ interface AdherenceData {
   byDay: { day: string; count: number; planned: number }[]
 }
 
-interface MixItem { editoria: string; real: number; planned: number }
 
 function MidiasSociais() {
   const [mes, setMes] = useState<Month>("abr")
   const [adherence, setAdherence] = useState<AdherenceData | null>(null)
-  const [mix, setMix] = useState<MixItem[]>([])
   const [loadingAdherence, setLoadingAdherence] = useState(true)
 
   useEffect(() => {
@@ -322,31 +311,6 @@ function MidiasSociais() {
         },
         byDay: ORDER.map(i => ({ day: DAY_LABELS[i], count: published[i], planned: planned[i] })),
       })
-
-      // Mix de editorias — mês selecionado no seletor
-      const mesIdx = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"].indexOf(mes)
-      const year = 2026
-      const mesStart = new Date(year, mesIdx, 1).toISOString().split("T")[0]
-      const mesEnd   = new Date(year, mesIdx + 1, 0).toISOString().split("T")[0]
-      const { data: mixData } = await getSupabase()
-        .from("posts")
-        .select("status, editoria")
-        .gte("scheduled_at", mesStart)
-        .lte("scheduled_at", mesEnd + "T23:59:59")
-
-      if (mixData) {
-        const mixMap: Record<string, { real: number; planned: number }> = {}
-        for (const slug of Object.keys(EDITORIA_LABELS)) mixMap[slug] = { real: 0, planned: 0 }
-        for (const p of mixData) {
-          if (!mixMap[p.editoria]) mixMap[p.editoria] = { real: 0, planned: 0 }
-          mixMap[p.editoria].planned++
-          if (p.status === "publicado") mixMap[p.editoria].real++
-        }
-        setMix(Object.entries(mixMap)
-          .filter(([, v]) => v.planned > 0)
-          .map(([slug, v]) => ({ editoria: EDITORIA_LABELS[slug] ?? slug, ...v }))
-        )
-      }
 
       setLoadingAdherence(false)
     }
@@ -518,48 +482,6 @@ function MidiasSociais() {
         </div>
       </div>
 
-      <div>
-        <div style={{ marginBottom: 12 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 700, color: T.fg, margin: "0 0 4px" }}>Mix de Editorias</h3>
-          <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Distribuição real vs planejada de publicações por editoria no mês</p>
-        </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 20, boxShadow: T.elevSm }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {mix.length === 0 ? (
-              <p style={{ fontSize: 13, color: T.cinza400, textAlign: "center", padding: "12px 0" }}>
-                Nenhum post planejado para este mês ainda.
-              </p>
-            ) : mix.map(e => {
-              const maxVal = Math.max(e.real, e.planned, 1)
-              return (
-                <div key={e.editoria} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 13, width: 200, flexShrink: 0, color: T.cardFg }}>{e.editoria}</span>
-                  <div style={{ flex: 1, background: T.cinza100, borderRadius: 10, height: 20, overflow: "hidden" }}>
-                    <div style={{
-                      width: `${(e.real / maxVal) * 100}%`, height: 20,
-                      background: T.primary, borderRadius: "10px 0 0 10px",
-                      display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 6,
-                    }}>
-                      {e.real > 0 && <span style={{ fontSize: 10, color: "#fff", fontWeight: 600 }}>{e.real}</span>}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 12, color: T.cinza400, width: 70, flexShrink: 0 }}>
-                    {e.real}/{e.planned} planej.
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
-              <div style={{ width: 12, height: 12, background: T.primary, borderRadius: 3 }} /> Real
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: T.mutedFg }}>
-              <div style={{ width: 12, height: 12, background: T.cinza100, borderRadius: 3 }} /> Planejado
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }
