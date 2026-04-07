@@ -150,36 +150,61 @@ function MetasAbril({ only }: { only?: number } = {}) {
   )
 }
 
-// ── Criação ───────────────────────────────────────────────
+// ── Squads ────────────────────────────────────────────────
 
-const CRIACAO_DONOS = [
-  { vertical: "SZI",       color: T.laranja500, dono: "Jaque",   papel: "Design"         },
-  { vertical: "SZS",       color: T.roxo600,    dono: "Henrique", papel: "Design"        },
-  { vertical: "MKT PLACE", color: T.teal600,    dono: "Johny",   papel: "Design"         },
-  { vertical: "Todas",     color: T.cinza400,   dono: "Gabriel", papel: "Copy"           },
-  { vertical: "Gestão",    color: T.primary,    dono: "Anna",    papel: "Coordenadora"   },
-]
+const SQUADS = [
+  {
+    id: "szi", label: "Squad SZI", vertical: 0, color: T.laranja500,
+    membros: [
+      { nome: "Jaque",   papel: "Design" },
+      { nome: "Jean",    papel: "PMM"    },
+      { nome: "Gabriel", papel: "Copy"   },
+    ],
+  },
+  {
+    id: "szs", label: "Squad SZS", vertical: 1, color: T.roxo600,
+    membros: [
+      { nome: "Laura",   papel: "PMM"    },
+      { nome: "Henrique",papel: "Design" },
+      { nome: "Gabriel", papel: "Copy"   },
+    ],
+  },
+  {
+    id: "mktplace", label: "Squad Mkt Place", vertical: 2, color: T.teal600,
+    membros: [
+      { nome: "Johny",   papel: "Design" },
+      { nome: "Rodrigo", papel: "PMM"    },
+      { nome: "Gabriel", papel: "Copy"   },
+    ],
+  },
+] as const
 
-function Criacao() {
+function SquadSection({ squad }: { squad: typeof SQUADS[number] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <MetasAbril />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <MetasAbril only={squad.vertical} />
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 20px", boxShadow: T.elevSm }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, margin: "0 0 14px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Responsável por vertical</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-          {CRIACAO_DONOS.map(d => (
-            <div key={d.vertical} style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: d.color, flexShrink: 0 }} />
+        <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, margin: "0 0 12px", textTransform: "uppercase" as const, letterSpacing: "0.5px" }}>Time</p>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+          {squad.membros.map(m => (
+            <div key={m.nome + m.papel} style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: squad.color, flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{d.papel} · {d.vertical}</p>
-                <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>{d.dono}</p>
+                <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>{m.papel}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>{m.nome}</p>
               </div>
             </div>
           ))}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: T.cinza50, borderRadius: 10, padding: "10px 14px" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: T.primary, flexShrink: 0 }} />
+            <div>
+              <p style={{ fontSize: 11, color: T.cinza400, margin: "0 0 2px" }}>Coordenadora</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: T.fg, margin: 0 }}>Anna</p>
+            </div>
+          </div>
         </div>
-        <p style={{ fontSize: 11, color: T.cinza400, margin: "14px 0 0" }}>
-          Meta compartilhada — o time de criação como um todo é responsável pelos mesmos números de vendas.
-          O dono de cada vertical acompanha o placar semanal e aciona ajustes nos criativos quando necessário.
+        <p style={{ fontSize: 11, color: T.cinza400, margin: "12px 0 0" }}>
+          Meta compartilhada — Design, PMM e Copy são responsáveis juntos pelo resultado de vendas da vertical.
         </p>
       </div>
     </div>
@@ -1050,25 +1075,12 @@ export default function MarketingGeral() {
           <MidiasSociais />
         </section>
 
-        <section>
-          <SectionHeader title="Criação" desc="Meta compartilhada — mesmo número que as vendas do mês" color={T.roxo600} />
-          <Criacao />
-        </section>
-
-        <section>
-          <SectionHeader title="PMM SZI" desc="Jaque · meta compartilhada com Criação" color={T.primary} />
-          <MetasAbril only={0} />
-        </section>
-
-        <section>
-          <SectionHeader title="PMM SZS" desc="Henrique · meta compartilhada com Criação" color={T.primary} />
-          <MetasAbril only={1} />
-        </section>
-
-        <section>
-          <SectionHeader title="PMM Mkt Place" desc="Johny · meta compartilhada com Criação" color={T.primary} />
-          <MetasAbril only={2} />
-        </section>
+        {SQUADS.map(squad => (
+          <section key={squad.id}>
+            <SectionHeader title={squad.label} desc="Design · PMM · Copy — meta de vendas compartilhada" color={squad.color} />
+            <SquadSection squad={squad} />
+          </section>
+        ))}
 
         <section>
           <SectionHeader title="Marketing de Ativação" desc="Eventos, entregáveis e resultados" color={T.verde600} />
