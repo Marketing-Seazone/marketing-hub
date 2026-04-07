@@ -61,6 +61,57 @@ const TABLES = [
     ],
   },
   {
+    name: "nekt_silver.ads_unificado_historico",
+    label: "Ads Unificado — Histórico completo",
+    description: "Igual ao Ads Unificado, mas sem limite de janela de datas. Usar quando precisar de análises além de 90 dias.",
+    color: T.indigo600,
+    columns: [
+      { name: "date",               type: "date",    desc: "Data da métrica" },
+      { name: "ad_id",              type: "text",    desc: "ID do anúncio no Meta" },
+      { name: "ad_name",            type: "text",    desc: "Nome do anúncio" },
+      { name: "adset_id",           type: "text",    desc: "ID do conjunto de anúncios" },
+      { name: "adset_name",         type: "text",    desc: "Nome do conjunto de anúncios" },
+      { name: "campaign_name",      type: "text",    desc: "Nome da campanha" },
+      { name: "vertical",           type: "text",    desc: "Vertical (Investimentos / Servicos / Marketplace)" },
+      { name: "plataforma",         type: "text",    desc: "Plataforma (facebook / instagram)" },
+      { name: "impressions",        type: "número",  desc: "Impressões" },
+      { name: "reach",              type: "número",  desc: "Alcance único" },
+      { name: "clicks",             type: "número",  desc: "Cliques no link" },
+      { name: "spend",              type: "número",  desc: "Investimento em R$" },
+      { name: "ctr",                type: "número",  desc: "CTR (cliques / impressões)" },
+      { name: "frequency",          type: "número",  desc: "Frequência média" },
+      { name: "lead",               type: "número",  desc: "Leads gerados" },
+      { name: "mql",                type: "número",  desc: "MQL atribuído" },
+      { name: "sql",                type: "número",  desc: "SQL atribuído" },
+      { name: "opp",                type: "número",  desc: "Oportunidade atribuída" },
+      { name: "won",                type: "número",  desc: "Venda ganha atribuída" },
+      { name: "dias_ativos",        type: "número",  desc: "Dias que o anúncio ficou ativo" },
+      { name: "first_day_ad",       type: "date",    desc: "Primeiro dia de veiculação do anúncio" },
+      { name: "first_day_adset",    type: "date",    desc: "Primeiro dia do conjunto" },
+      { name: "first_day_campaign", type: "date",    desc: "Primeiro dia da campanha" },
+      { name: "status",             type: "text",    desc: "Status do anúncio (unreliable — usar Meta API)" },
+    ],
+  },
+  {
+    name: "nekt_silver.pipedrive_deals_readable",
+    label: "Pipedrive Deals — Fonte principal",
+    description: "Deals do Pipedrive com atribuição correta via rd_campanha. Preferir esta sobre deals_pipedrive_join_marketing — sem duplicatas, pipelines separados por vertical.",
+    color: T.teal600,
+    columns: [
+      { name: "rd_campanha",           type: "texto",   desc: "Atribuição: formato {ad_id}_{campanha} — ex: 120240863696830716_[SS]_..." },
+      { name: "pipeline_id",           type: "número",  desc: "Pipeline: 14 = SZS, 28 = SZI, 37 = Marketplace" },
+      { name: "status",                type: "texto",   desc: "'won', 'lost', 'open'" },
+      { name: "negocio_criado_em",     type: "data",    desc: "Data de criação do deal → MQL" },
+      { name: "data_de_qualificacao",  type: "data",    desc: "Data de qualificação → SQL" },
+      { name: "data_da_reuniao",       type: "data",    desc: "Data da reunião → Oportunidade" },
+      { name: "ganho_em",              type: "data",    desc: "Data de fechamento → WON" },
+      { name: "id",                    type: "texto",   desc: "ID do deal no Pipedrive" },
+      { name: "value",                 type: "número",  desc: "Valor do deal em R$" },
+      { name: "owner_name",            type: "texto",   desc: "Nome do responsável (SDR/consultor)" },
+      { name: "stage_id",              type: "texto",   desc: "ID da etapa atual no pipeline" },
+    ],
+  },
+  {
     name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",
     label: "Funil SZI (Investimentos)",
     description: "Funil pré-agregado de mídia paga para o vertical de Investimentos (Seazone Investimentos).",
@@ -110,6 +161,37 @@ WHERE date >= CURRENT_DATE - INTERVAL '30' DAY
 GROUP BY 1
 ORDER BY spend DESC
 LIMIT 20`,
+  },
+  {
+    label: "Top anúncios SZS por WON (atribuição correta)",
+    sql: `WITH pipe AS (
+  SELECT
+    SPLIT_PART(rd_campanha, '_', 1) AS ad_id,
+    COUNT(*)                         AS won
+  FROM nekt_silver.pipedrive_deals_readable
+  WHERE pipeline_id = 14
+    AND status = 'won'
+    AND rd_campanha IS NOT NULL AND rd_campanha != ''
+  GROUP BY 1
+),
+meta AS (
+  SELECT
+    ad_id,
+    MAX(ad_name)       AS ad_name,
+    MAX(campaign_name) AS campaign_name,
+    SUM(spend)         AS spend
+  FROM nekt_silver.ads_unificado_historico
+  WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
+  GROUP BY 1
+)
+SELECT
+  m.ad_id, m.ad_name, m.campaign_name,
+  p.won, m.spend,
+  ROUND(m.spend / NULLIF(p.won, 0), 2) AS cac_won
+FROM pipe p
+JOIN meta m ON m.ad_id = p.ad_id
+ORDER BY p.won DESC
+LIMIT 50`,
   },
   {
     label: "Deals WON com campanha (últimos 90 dias)",
@@ -538,11 +620,13 @@ da tabela nekt_silver.ads_unificado."`}</div>
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { name: "nekt_silver.ads_unificado",                              color: T.primary,    label: "Ads Unificado",         use: "Performance de anúncios Meta — spend, impressões, MQL, WON por anúncio/dia" },
-                  { name: "nekt_silver.deals_pipedrive_join_marketing",             color: T.verde600,   label: "Deals Pipedrive",        use: "Deals com atribuição de campanha — funil completo e status WON" },
-                  { name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",    color: T.laranja500, label: "Funil SZI",              use: "Funil pré-agregado de Investimentos (SZI) por dia" },
-                  { name: "nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable",   color: T.teal600,    label: "Funil Marketplace",      use: "Funil pré-agregado de Marketplace por dia" },
-                  { name: "nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable",    color: T.roxo600,    label: "Funil SZS",              use: "Funil pré-agregado de Serviços (SZS) por dia" },
+                  { name: "nekt_silver.ads_unificado",                              color: T.primary,    label: "Ads Unificado",              use: "Performance de anúncios Meta — spend, impressões, MQL, WON por anúncio/dia (últimos ~90 dias)" },
+                  { name: "nekt_silver.ads_unificado_historico",                    color: T.indigo600,  label: "Ads Unificado Histórico",    use: "Igual ao Ads Unificado, mas sem limite de data — usar para análises de longo prazo" },
+                  { name: "nekt_silver.pipedrive_deals_readable",                   color: T.teal600,    label: "Pipedrive Deals (preferido)", use: "Deals com atribuição correta via rd_campanha — fonte principal para WON por anúncio" },
+                  { name: "nekt_silver.deals_pipedrive_join_marketing",             color: T.verde600,   label: "Deals Pipedrive × Marketing", use: "Deals com atribuição de campanha — funil completo e status WON (legado)" },
+                  { name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",    color: T.laranja500, label: "Funil SZI",                  use: "Funil pré-agregado de Investimentos (SZI) por dia" },
+                  { name: "nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable",   color: T.teal600,    label: "Funil Marketplace",          use: "Funil pré-agregado de Marketplace por dia" },
+                  { name: "nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable",    color: T.roxo600,    label: "Funil SZS",                  use: "Funil pré-agregado de Serviços (SZS) por dia" },
                 ].map(t => (
                   <div key={t.name} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0, marginTop: 5 }} />

@@ -64,11 +64,37 @@ Response: { "columns": [...], "rows": [...] }
 
 | Tabela | Uso |
 |--------|-----|
-| `nekt_silver.ads_unificado` | Performance diária de anúncios Meta — spend, impressões, MQL, WON por anúncio |
-| `nekt_silver.deals_pipedrive_join_marketing` | Deals do Pipedrive com atribuição de campanha — funil completo, status WON |
+| `nekt_silver.ads_unificado` | Performance diária de anúncios Meta — spend, impressões, MQL, WON por anúncio (últimos ~90 dias) |
+| `nekt_silver.ads_unificado_historico` | Igual ao anterior, sem limite de data — usar para análises de longo prazo |
+| `nekt_silver.pipedrive_deals_readable` | **Fonte principal de WON/OPP/SQL** — atribuição correta via `rd_campanha` ({ad_id}_{campanha}), pipelines: 14=SZS, 28=SZI, 37=Marketplace |
+| `nekt_silver.deals_pipedrive_join_marketing` | Deals Pipedrive com atribuição de campanha (legado, tem duplicatas) |
 | `nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable` | Funil pré-agregado Investimentos (SZI) por dia |
 | `nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable` | Funil pré-agregado Marketplace por dia |
 | `nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable` | Funil pré-agregado Serviços (SZS) por dia |
+
+### Atribuição correta de WON por anúncio
+
+`ads_unificado` atribui WON pela data de criação do deal — erra quando o deal foi criado antes do anúncio existir. Para ranking correto de anúncios por WON, usar `pipedrive_deals_readable` + `ads_unificado_historico`:
+
+```sql
+WITH pipe AS (
+  SELECT SPLIT_PART(rd_campanha, '_', 1) AS ad_id, COUNT(*) AS won
+  FROM nekt_silver.pipedrive_deals_readable
+  WHERE pipeline_id = 14 AND status = 'won'   -- 14=SZS, 28=SZI, 37=Marketplace
+    AND rd_campanha IS NOT NULL AND rd_campanha != ''
+  GROUP BY 1
+),
+meta AS (
+  SELECT ad_id, MAX(ad_name) AS ad_name, MAX(campaign_name) AS campaign_name, SUM(spend) AS spend
+  FROM nekt_silver.ads_unificado_historico
+  WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
+  GROUP BY 1
+)
+SELECT m.ad_id, m.ad_name, m.campaign_name, p.won, m.spend,
+       ROUND(m.spend / NULLIF(p.won, 0), 2) AS cac_won
+FROM pipe p JOIN meta m ON m.ad_id = p.ad_id
+ORDER BY p.won DESC LIMIT 50
+```
 
 ### Padrão para buscar dados em um artefato
 
