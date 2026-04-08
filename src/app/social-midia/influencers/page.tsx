@@ -6,26 +6,28 @@ import { T } from "@/lib/constants"
 import { getSupabase } from "@/app/social-midia/calendario-seazone/_lib/supabase"
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
-type Tab = "expansao_sp" | "expansao_salvador" | "vistas" | "seazone"
+type Tab = "geral" | "expansao_sp" | "expansao_salvador" | "vistas" | "seazone"
 type Row = Record<string, unknown>
 
 const TABS = [
-  { id: "expansao_sp"       as Tab, label: "Expansão SP",       table: "influencers_expansao_sp" },
-  { id: "expansao_salvador" as Tab, label: "Expansão Salvador", table: "influencers_expansao_salvador" },
-  { id: "vistas"            as Tab, label: "Vistas de Anitá",   table: "influencers_vistas" },
-  { id: "seazone"           as Tab, label: "Seazone",           table: "influencers_seazone" },
+  { id: "geral"            as Tab, label: "Geral",             table: "" },
+  { id: "expansao_sp"      as Tab, label: "Expansão SP",       table: "influencers_expansao_sp" },
+  { id: "expansao_salvador"as Tab, label: "Expansão Salvador", table: "influencers_expansao_salvador" },
+  { id: "vistas"           as Tab, label: "Vistas de Anitá",   table: "influencers_vistas" },
+  { id: "seazone"          as Tab, label: "Seazone",           table: "influencers_seazone" },
 ]
+
+const DATA_TABS = TABS.filter(t => t.id !== "geral")
 
 type ColDef = {
   key: string
   label: string
-  w: number          // largura mínima em px
-  type?: string      // "status" | "links" | "multiline"
-  filterType?: string // "select" | "text"
+  w: number
+  type?: string
+  filterType?: string
 }
 
-// Colunas por aba — todas visíveis na tabela
-const COLS_BY_TAB: Record<Tab, ColDef[]> = {
+const COLS_BY_TAB: Record<string, ColDef[]> = {
   expansao_sp: [
     { key: "ano",                    label: "Ano",          w: 52,  filterType: "select" },
     { key: "mes",                    label: "Mês",          w: 100, filterType: "select" },
@@ -49,7 +51,6 @@ const COLS_BY_TAB: Record<Tab, ColDef[]> = {
     { key: "valor_total_reservas",   label: "Vl. Res.",     w: 90,  filterType: "text" },
   ],
   expansao_salvador: [
-    // sem coluna cidade
     { key: "ano",                    label: "Ano",          w: 52,  filterType: "select" },
     { key: "mes",                    label: "Mês",          w: 100, filterType: "select" },
     { key: "categoria",              label: "Cat.",         w: 64,  filterType: "select" },
@@ -126,6 +127,221 @@ function getStatusStyle(val: string) {
   if (v === "aguardando")     return { bg: "#fef9c3", color: "#854d0e" }
   if (v === "permuta")        return { bg: "#e0e7ff", color: "#3730a3" }
   return { bg: "#f3f4f6", color: "#374151" }
+}
+
+function parseBRL(val: unknown): number {
+  if (!val || val === "—") return 0
+  const s = String(val).replace("R$", "").replace(/\s/g, "").replace(/\./g, "").replace(",", ".")
+  return parseFloat(s) || 0
+}
+
+function formatBRL(n: number): string {
+  return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+// ── Aba Geral ─────────────────────────────────────────────────────────────────
+function GeralTab() {
+  const [orcamento, setOrcamento] = useState("")
+  const [orcamentoInput, setOrcamentoInput] = useState("")
+  const [allRows, setAllRows] = useState<Record<string, Row[]>>({})
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const saved = localStorage.getItem("influencers_orcamento_total") || ""
+    setOrcamento(saved)
+    setOrcamentoInput(saved)
+  }, [])
+
+  useEffect(() => {
+    async function loadAll() {
+      setLoading(true)
+      const results: Record<string, Row[]> = {}
+      for (const t of DATA_TABS) {
+        const { data } = await getSupabase().from(t.table).select("status_contrato,valor_trabalho")
+        results[t.id] = data ?? []
+      }
+      setAllRows(results)
+      setLoading(false)
+    }
+    loadAll()
+  }, [])
+
+  function saveOrcamento() {
+    setOrcamento(orcamentoInput)
+    localStorage.setItem("influencers_orcamento_total", orcamentoInput)
+  }
+
+  const totalBudget = parseBRL(orcamento)
+
+  const breakdown = DATA_TABS.map(t => {
+    const rows = allRows[t.id] ?? []
+    const contratados = rows.filter(r => String(r.status_contrato ?? "").toLowerCase().trim() === "contratado")
+    const gasto = contratados.reduce((acc, r) => acc + parseBRL(r.valor_trabalho), 0)
+    return { id: t.id, label: t.label, contratados: contratados.length, gasto }
+  })
+
+  const totalGasto = breakdown.reduce((acc, b) => acc + b.gasto, 0)
+  const saldoLivre = totalBudget - totalGasto
+  const pct = totalBudget > 0 ? Math.min(100, Math.round((totalGasto / totalBudget) * 100)) : 0
+  const barColor = pct > 85 ? "#ef4444" : pct > 60 ? "#f59e0b" : "#0d9488"
+
+  const CAMPAIGN_COLORS: Record<string, string> = {
+    expansao_sp:       "#185FA5",
+    expansao_salvador: "#B45309",
+    vistas:            "#7C3D8F",
+    seazone:           "#0d9488",
+  }
+
+  return (
+    <div>
+      {/* Orçamento input */}
+      <div style={{
+        background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
+        padding: "18px 20px", marginBottom: 16, boxShadow: T.elevSm,
+      }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: "0 0 10px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+          Orçamento total de marketing
+        </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <input
+            value={orcamentoInput}
+            onChange={e => setOrcamentoInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") saveOrcamento() }}
+            placeholder="Ex: R$ 50.000,00"
+            style={{
+              background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
+              padding: "8px 12px", fontSize: 14, color: T.cardFg, outline: "none",
+              width: 220,
+            }}
+          />
+          <button onClick={saveOrcamento} style={{
+            background: "#0d9488", border: "none", borderRadius: 8,
+            padding: "8px 18px", fontSize: 13, color: "#fff",
+            fontWeight: 600, cursor: "pointer",
+          }}>Salvar</button>
+          <span style={{ fontSize: 12, color: T.mutedFg }}>
+            Pressione Enter ou clique em Salvar para atualizar
+          </span>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: "center", color: T.mutedFg, fontSize: 13 }}>Carregando dados…</div>
+      ) : (
+        <>
+          {/* Cards de métricas */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 16 }}>
+            {[
+              { label: "Orçamento total",  value: formatBRL(totalBudget), color: T.cardFg },
+              { label: "Já utilizado",      value: formatBRL(totalGasto),  color: "#185FA5" },
+              { label: "Saldo livre",       value: formatBRL(saldoLivre),  color: saldoLivre < 0 ? "#991b1b" : "#065f46" },
+            ].map(card => (
+              <div key={card.label} style={{
+                background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
+                padding: "16px 18px", boxShadow: T.elevSm,
+              }}>
+                <p style={{ fontSize: 11, color: T.mutedFg, fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                  {card.label}
+                </p>
+                <p style={{ fontSize: 22, fontWeight: 700, color: card.color, margin: 0 }}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Barra de progresso */}
+          <div style={{
+            background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
+            padding: "16px 20px", marginBottom: 16, boxShadow: T.elevSm,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: T.mutedFg, fontWeight: 600 }}>Utilização do orçamento</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: barColor }}>{pct}%</span>
+            </div>
+            <div style={{ height: 10, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}>
+              <div style={{
+                height: "100%", width: `${pct}%`, background: barColor,
+                borderRadius: 20, transition: "width .4s ease",
+              }} />
+            </div>
+          </div>
+
+          {/* Breakdown por campanha */}
+          <div style={{
+            background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
+            boxShadow: T.elevSm, overflow: "hidden",
+          }}>
+            <div style={{ padding: "14px 20px", borderBottom: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: 0 }}>Breakdown por campanha</p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr style={{ background: T.bg }}>
+                  {["Campanha", "Contratados", "Gasto", "% do orçamento"].map(h => (
+                    <th key={h} style={{
+                      padding: "10px 16px", textAlign: "left", fontSize: 11,
+                      fontWeight: 700, color: T.mutedFg, textTransform: "uppercase",
+                      letterSpacing: ".04em", borderBottom: `1px solid ${T.border}`,
+                    }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {breakdown.map((b, i) => {
+                  const campPct = totalBudget > 0 ? Math.min(100, Math.round((b.gasto / totalBudget) * 100)) : 0
+                  const color = CAMPAIGN_COLORS[b.id] ?? "#0d9488"
+                  return (
+                    <tr key={b.id} style={{ borderBottom: i < breakdown.length - 1 ? `1px solid ${T.border}` : "none" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{
+                          display: "inline-block", padding: "3px 10px", borderRadius: 20,
+                          fontSize: 12, fontWeight: 600,
+                          background: color + "18", color: color,
+                        }}>{b.label}</span>
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, color: T.cardFg }}>
+                        {b.contratados} influencer{b.contratados !== 1 ? "s" : ""}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 600, color: T.cardFg }}>
+                        {formatBRL(b.gasto)}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ flex: 1, height: 6, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                            <div style={{ height: "100%", width: `${campPct}%`, background: color, borderRadius: 20 }} />
+                          </div>
+                          <span style={{ fontSize: 12, color: T.mutedFg, minWidth: 32, textAlign: "right" }}>{campPct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+                {/* Linha de total */}
+                <tr style={{ background: T.bg, borderTop: `2px solid ${T.border}` }}>
+                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: T.cardFg }}>Total</td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 600, color: T.cardFg }}>
+                    {breakdown.reduce((a, b) => a + b.contratados, 0)} influencers
+                  </td>
+                  <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 700, color: "#185FA5" }}>
+                    {formatBRL(totalGasto)}
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, height: 6, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 20 }} />
+                      </div>
+                      <span style={{ fontSize: 12, color: T.mutedFg, minWidth: 32, textAlign: "right" }}>{pct}%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
 
 // ── Status dropdown ───────────────────────────────────────────────────────────
@@ -205,7 +421,6 @@ function ColFilter({ col, rows, filter, setFilter }: {
           boxShadow: "0 4px 20px rgba(0,0,0,0.12)", minWidth: 180,
           maxHeight: 260, display: "flex", flexDirection: "column",
         }}>
-          {/* Busca dentro do filtro */}
           <div style={{ padding: "8px 10px", borderBottom: `1px solid ${T.border}` }}>
             <input
               autoFocus
@@ -275,7 +490,6 @@ function EditableCell({ value, colKey, rowId, tableName, type, onSaved }: {
     onSaved()
   }
 
-  // Links — múltiplos
   if (type === "links") {
     const links = (val || "").split(/[\n\s]+/).filter(l => l.startsWith("http"))
     return (
@@ -309,7 +523,6 @@ function EditableCell({ value, colKey, rowId, tableName, type, onSaved }: {
     )
   }
 
-  // Multiline (observações, conteúdo)
   if (type === "multiline") {
     return editing ? (
       <textarea ref={inputRef} value={val}
@@ -333,7 +546,6 @@ function EditableCell({ value, colKey, rowId, tableName, type, onSaved }: {
     )
   }
 
-  // Status — dropdown flutuante
   if (type === "status") {
     const s = getStatusStyle(val)
     return (
@@ -353,7 +565,6 @@ function EditableCell({ value, colKey, rowId, tableName, type, onSaved }: {
     )
   }
 
-  // Texto padrão
   return editing ? (
     <input ref={inputRef} value={val}
       onChange={e => setVal(e.target.value)}
@@ -380,8 +591,8 @@ function EditableCell({ value, colKey, rowId, tableName, type, onSaved }: {
 }
 
 // ── Modal novo influencer ─────────────────────────────────────────────────────
-function NewModal({ tab, cols, tableName, onClose, onSaved }: {
-  tab: Tab; cols: ColDef[]; tableName: string; onClose: () => void; onSaved: () => void
+function NewModal({ cols, tableName, onClose, onSaved }: {
+  cols: ColDef[]; tableName: string; onClose: () => void; onSaved: () => void
 }) {
   const multiline = ["link_publicacao", "conteudo_orcado", "observacoes"]
   const [form, setForm] = useState<Record<string, string>>(() => {
@@ -466,16 +677,17 @@ function NewModal({ tab, cols, tableName, onClose, onSaved }: {
 
 // ── Página principal ──────────────────────────────────────────────────────────
 export default function Page() {
-  const [activeTab, setActiveTab] = useState<Tab>("expansao_sp")
+  const [activeTab, setActiveTab] = useState<Tab>("geral")
   const [rows, setRows]           = useState<Row[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [loading, setLoading]     = useState(false)
   const [filters, setFilters]     = useState<Record<string, string>>({})
   const [showNew, setShowNew]     = useState(false)
 
   const tabInfo = TABS.find(t => t.id === activeTab)!
-  const cols    = COLS_BY_TAB[activeTab]
+  const cols    = activeTab !== "geral" ? (COLS_BY_TAB[activeTab] ?? []) : []
 
   async function load() {
+    if (activeTab === "geral" || !tabInfo.table) return
     setLoading(true)
     const { data } = await getSupabase()
       .from(tabInfo.table)
@@ -486,7 +698,7 @@ export default function Page() {
     setLoading(false)
   }
 
-  useEffect(() => { setFilters({}); load() }, [activeTab])
+  useEffect(() => { setFilters({}); setRows([]); load() }, [activeTab])
 
   async function deleteRow(id: unknown) {
     if (!confirm("Excluir este influencer?")) return
@@ -501,7 +713,7 @@ export default function Page() {
   )
 
   const activeFiltersCount = Object.values(filters).filter(Boolean).length
-  const totalW = cols.reduce((s, c) => s + c.w, 0) + 52 // +52 para coluna de ações
+  const totalW = cols.reduce((s, c) => s + c.w, 0) + 52
 
   return (
     <TeamLayout teamId="social-midia">
@@ -528,115 +740,117 @@ export default function Page() {
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center" }}>
-        {activeFiltersCount > 0 && (
-          <button onClick={() => setFilters({})} style={{
-            background: "#fee2e2", border: "none", borderRadius: 8,
-            padding: "7px 14px", fontSize: 12, color: "#991b1b",
-            fontWeight: 600, cursor: "pointer",
-          }}>
-            ✕ Limpar filtros ({activeFiltersCount})
-          </button>
-        )}
-        <div style={{ flex: 1 }} />
-        <p style={{ margin: 0, fontSize: 12, color: T.mutedFg }}>
-          {loading ? "Carregando…" : `${filtered.length} influencer${filtered.length !== 1 ? "s" : ""}`}
-        </p>
-        <button onClick={() => setShowNew(true)} style={{
-          background: "#0d9488", border: "none", borderRadius: 8,
-          padding: "8px 18px", fontSize: 13, color: "#fff",
-          fontWeight: 600, cursor: "pointer",
-        }}>+ Novo</button>
-      </div>
+      {/* Aba Geral */}
+      {activeTab === "geral" && <GeralTab />}
 
-      {/* Tabela com scroll horizontal quando necessário */}
-      <div style={{
-        borderRadius: 12, border: `1px solid ${T.border}`,
-        background: T.card, boxShadow: T.elevSm,
-        overflowX: "auto",
-      }}>
-        <div style={{ minWidth: totalW }}>
-
-          {/* Cabeçalho */}
-          <div style={{
-            display: "flex", borderBottom: `2px solid ${T.border}`,
-            background: T.bg, position: "sticky", top: 0, zIndex: 10,
-          }}>
-            {cols.map(col => (
-              <div key={col.key} style={{
-                width: col.w, flexShrink: 0, padding: "8px 6px",
-                borderRight: `1px solid ${T.border}`,
+      {/* Abas de dados */}
+      {activeTab !== "geral" && (
+        <>
+          {/* Toolbar */}
+          <div style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "center" }}>
+            {activeFiltersCount > 0 && (
+              <button onClick={() => setFilters({})} style={{
+                background: "#fee2e2", border: "none", borderRadius: 8,
+                padding: "7px 14px", fontSize: 12, color: "#991b1b",
+                fontWeight: 600, cursor: "pointer",
               }}>
-                <ColFilter
-                  col={col} rows={rows}
-                  filter={filters[col.key] ?? ""}
-                  setFilter={v => setFilters(p => ({ ...p, [col.key]: v }))}
-                />
-              </div>
-            ))}
-            <div style={{ width: 52, flexShrink: 0, padding: "8px 6px" }} />
+                ✕ Limpar filtros ({activeFiltersCount})
+              </button>
+            )}
+            <div style={{ flex: 1 }} />
+            <p style={{ margin: 0, fontSize: 12, color: T.mutedFg }}>
+              {loading ? "Carregando…" : `${filtered.length} influencer${filtered.length !== 1 ? "s" : ""}`}
+            </p>
+            <button onClick={() => setShowNew(true)} style={{
+              background: "#0d9488", border: "none", borderRadius: 8,
+              padding: "8px 18px", fontSize: 13, color: "#fff",
+              fontWeight: 600, cursor: "pointer",
+            }}>+ Novo</button>
           </div>
 
-          {/* Linhas */}
-          {loading ? (
-            <div style={{ padding: 40, textAlign: "center", color: T.mutedFg, fontSize: 13 }}>
-              Carregando…
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 40, textAlign: "center", color: T.mutedFg, fontSize: 13 }}>
-              Nenhum resultado.
-            </div>
-          ) : filtered.map((row, i) => (
-            <div key={String(row.id)} style={{
-              display: "flex", transition: "background .1s",
-              borderBottom: i < filtered.length - 1 ? `1px solid ${T.border}` : "none",
-            }}
-              onMouseEnter={e => (e.currentTarget.style.background = T.bg)}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              {cols.map(col => (
-                <div key={col.key} style={{
-                  width: col.w, flexShrink: 0, padding: "6px 6px",
-                  borderRight: `1px solid ${T.border}`,
-                  display: "flex", alignItems: "center", minHeight: 36,
-                }}>
-                  <EditableCell
-                    value={String(row[col.key] ?? "")}
-                    colKey={col.key}
-                    rowId={row.id}
-                    tableName={tabInfo.table}
-                    type={col.type}
-                    onSaved={load}
-                  />
+          {/* Tabela */}
+          <div style={{
+            borderRadius: 12, border: `1px solid ${T.border}`,
+            background: T.card, boxShadow: T.elevSm,
+            overflowX: "auto",
+          }}>
+            <div style={{ minWidth: totalW }}>
+              <div style={{
+                display: "flex", borderBottom: `2px solid ${T.border}`,
+                background: T.bg, position: "sticky", top: 0, zIndex: 10,
+              }}>
+                {cols.map(col => (
+                  <div key={col.key} style={{
+                    width: col.w, flexShrink: 0, padding: "8px 6px",
+                    borderRight: `1px solid ${T.border}`,
+                  }}>
+                    <ColFilter
+                      col={col} rows={rows}
+                      filter={filters[col.key] ?? ""}
+                      setFilter={v => setFilters(p => ({ ...p, [col.key]: v }))}
+                    />
+                  </div>
+                ))}
+                <div style={{ width: 52, flexShrink: 0, padding: "8px 6px" }} />
+              </div>
+
+              {loading ? (
+                <div style={{ padding: 40, textAlign: "center", color: T.mutedFg, fontSize: 13 }}>
+                  Carregando…
+                </div>
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: 40, textAlign: "center", color: T.mutedFg, fontSize: 13 }}>
+                  Nenhum resultado.
+                </div>
+              ) : filtered.map((row, i) => (
+                <div key={String(row.id)} style={{
+                  display: "flex", transition: "background .1s",
+                  borderBottom: i < filtered.length - 1 ? `1px solid ${T.border}` : "none",
+                }}
+                  onMouseEnter={e => (e.currentTarget.style.background = T.bg)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  {cols.map(col => (
+                    <div key={col.key} style={{
+                      width: col.w, flexShrink: 0, padding: "6px 6px",
+                      borderRight: `1px solid ${T.border}`,
+                      display: "flex", alignItems: "center", minHeight: 36,
+                    }}>
+                      <EditableCell
+                        value={String(row[col.key] ?? "")}
+                        colKey={col.key}
+                        rowId={row.id}
+                        tableName={tabInfo.table}
+                        type={col.type}
+                        onSaved={load}
+                      />
+                    </div>
+                  ))}
+                  <div style={{
+                    width: 52, flexShrink: 0, display: "flex",
+                    alignItems: "center", justifyContent: "center", gap: 2,
+                  }}>
+                    <button onClick={() => deleteRow(row.id)} title="Excluir" style={{
+                      background: "transparent", border: "none",
+                      cursor: "pointer", fontSize: 12, color: "#ef4444",
+                      padding: "3px 5px", borderRadius: 4,
+                    }}>🗑</button>
+                  </div>
                 </div>
               ))}
-              <div style={{
-                width: 52, flexShrink: 0, display: "flex",
-                alignItems: "center", justifyContent: "center", gap: 2,
-              }}>
-                <button onClick={() => deleteRow(row.id)} title="Excluir" style={{
-                  background: "transparent", border: "none",
-                  cursor: "pointer", fontSize: 12, color: "#ef4444",
-                  padding: "3px 5px", borderRadius: 4,
-                }}>🗑</button>
-              </div>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Modal novo */}
-      {showNew && (
-        <NewModal
-          tab={activeTab}
-          cols={cols}
-          tableName={tabInfo.table}
-          onClose={() => setShowNew(false)}
-          onSaved={load}
-        />
+          {showNew && (
+            <NewModal
+              cols={cols}
+              tableName={tabInfo.table}
+              onClose={() => setShowNew(false)}
+              onSaved={load}
+            />
+          )}
+        </>
       )}
     </TeamLayout>
   )
 }
-
