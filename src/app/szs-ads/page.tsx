@@ -16,7 +16,6 @@ interface AdRow {
   adset_name: string
   investimento: number
   impressoes: number
-  cliques: number
   leads: number
   mql: number
   won: number
@@ -26,7 +25,6 @@ interface CampRow {
   campaign_name: string
   investimento: number
   impressoes: number
-  cliques: number
   leads: number
   mql: number
   won: number
@@ -50,63 +48,63 @@ export default function SzsAdsPage() {
   const [campFilter, setCampFilter] = useState("Todas")
   const [busca, setBusca] = useState("")
 
-  async function fetchData() {
-    setLoading(true)
-    setError("")
-    try {
-      const [adRes, campRes] = await Promise.all([
-        fetch("/api/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(clicks) AS cliques, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'Servicos' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
+  useEffect(() => {
+    // vertical = 'Servicos' é o valor correto conforme documentado em CLAUDE.md (sem acento)
+    async function fetchData() {
+      setLoading(true)
+      setError("")
+      try {
+        const [adRes, campRes] = await Promise.all([
+          fetch("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'Servicos' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
+            }),
           }),
-        }),
-        fetch("/api/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(clicks) AS cliques, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'Servicos' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY campaign_name ORDER BY investimento DESC`,
+          fetch("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'Servicos' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY campaign_name ORDER BY investimento DESC`,
+            }),
           }),
-        }),
-      ])
+        ])
 
-      const adData = await adRes.json()
-      const campData = await campRes.json()
+        const adData = await adRes.json()
+        const campData = await campRes.json()
 
-      if (!adRes.ok) throw new Error(adData.error || "Erro ao buscar anúncios")
-      if (!campRes.ok) throw new Error(campData.error || "Erro ao buscar campanhas")
+        if (!adRes.ok) throw new Error(adData.error || "Erro ao buscar anúncios")
+        if (!campRes.ok) throw new Error(campData.error || "Erro ao buscar campanhas")
 
-      setAllAdRows((adData.rows || []).map((r: Record<string, string | number | null>) => ({
-        ad_name: String(r.ad_name || ""),
-        ad_id: String(r.ad_id || ""),
-        campaign_name: String(r.campaign_name || ""),
-        adset_name: String(r.adset_name || ""),
-        investimento: Number(r.investimento) || 0,
-        impressoes: Number(r.impressoes) || 0,
-        cliques: Number(r.cliques) || 0,
-        leads: Number(r.leads) || 0,
-        mql: Number(r.mql) || 0,
-        won: Number(r.won) || 0,
-      })))
+        setAllAdRows((adData.rows || []).map((r: Record<string, string | number | null>) => ({
+          ad_name: String(r.ad_name || ""),
+          ad_id: String(r.ad_id || ""),
+          campaign_name: String(r.campaign_name || ""),
+          adset_name: String(r.adset_name || ""),
+          investimento: Number(r.investimento) || 0,
+          impressoes: Number(r.impressoes) || 0,
+          leads: Number(r.leads) || 0,
+          mql: Number(r.mql) || 0,
+          won: Number(r.won) || 0,
+        })))
 
-      setAllCampRows((campData.rows || []).map((r: Record<string, string | number | null>) => ({
-        campaign_name: String(r.campaign_name || ""),
-        investimento: Number(r.investimento) || 0,
-        impressoes: Number(r.impressoes) || 0,
-        cliques: Number(r.cliques) || 0,
-        leads: Number(r.leads) || 0,
-        mql: Number(r.mql) || 0,
-        won: Number(r.won) || 0,
-      })))
-    } catch (e) {
-      setError(String(e))
-    } finally {
-      setLoading(false)
+        setAllCampRows((campData.rows || []).map((r: Record<string, string | number | null>) => ({
+          campaign_name: String(r.campaign_name || ""),
+          investimento: Number(r.investimento) || 0,
+          impressoes: Number(r.impressoes) || 0,
+          leads: Number(r.leads) || 0,
+          mql: Number(r.mql) || 0,
+          won: Number(r.won) || 0,
+        })))
+      } catch (e) {
+        setError(String(e))
+      } finally {
+        setLoading(false)
+      }
     }
-  }
-
-  useEffect(() => { fetchData() }, [dataInicio, dataFim])
+    fetchData()
+  }, [dataInicio, dataFim])
 
   const campanhas = useMemo(() => {
     const set = new Set(allAdRows.map(r => r.campaign_name))
@@ -137,7 +135,6 @@ export default function SzsAdsPage() {
     return {
       investimento: rows.reduce((s, r) => s + r.investimento, 0),
       impressoes: rows.reduce((s, r) => s + r.impressoes, 0),
-      cliques: rows.reduce((s, r) => s + r.cliques, 0),
       leads: rows.reduce((s, r) => s + r.leads, 0),
       mql: rows.reduce((s, r) => s + r.mql, 0),
       won: rows.reduce((s, r) => s + r.won, 0),
