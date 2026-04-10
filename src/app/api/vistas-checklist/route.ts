@@ -10,6 +10,9 @@ export interface Task {
   done: boolean
   deadline: string | null
   link: string | null
+  notes: string | null
+  section: string | null   // "midia-paga" | "website" | "geral"
+  isWarning: boolean
   createdAt: string
 }
 
@@ -39,7 +42,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { title, deadline, link } = await req.json()
+  const { title, deadline, link, notes, section, isWarning } = await req.json()
   if (!title?.trim()) return NextResponse.json({ error: "Título obrigatório" }, { status: 400 })
   const tasks = await kvGet()
   const task: Task = {
@@ -48,6 +51,9 @@ export async function POST(req: NextRequest) {
     done: false,
     deadline: deadline || null,
     link: link || null,
+    notes: notes || null,
+    section: section || null,
+    isWarning: isWarning || false,
     createdAt: new Date().toISOString(),
   }
   tasks.push(task)
