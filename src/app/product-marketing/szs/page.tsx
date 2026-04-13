@@ -1,7 +1,35 @@
-export default function PmmSzsPage() {
+"use client";
+import { useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+
+function SzsInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const subPath = searchParams.get("path") || "";
+  const iframeSrc = `https://seazone-pmm-servicos.vercel.app${subPath}`;
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.data?.type === "szs-navigate" && typeof event.data.path === "string") {
+        const path = event.data.path as string;
+        const params = new URLSearchParams(window.location.search);
+        if (path === "/" || path === "") {
+          params.delete("path");
+        } else {
+          params.set("path", path);
+        }
+        const qs = params.toString();
+        const newUrl = `/product-marketing/szs${qs ? `?${qs}` : ""}`;
+        window.history.replaceState(null, "", newUrl);
+      }
+    }
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, []);
+
   return (
     <iframe
-      src="https://seazone-pmm-servicos.vercel.app"
+      src={iframeSrc}
       title="PMM SZS"
       style={{
         position: "fixed",
@@ -14,5 +42,13 @@ export default function PmmSzsPage() {
       }}
       allow="clipboard-write"
     />
-  )
+  );
+}
+
+export default function PmmSzsPage() {
+  return (
+    <Suspense>
+      <SzsInner />
+    </Suspense>
+  );
 }
