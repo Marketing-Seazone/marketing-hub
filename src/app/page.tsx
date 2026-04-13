@@ -21,7 +21,6 @@ const SUB_CARDS = [
   { label: "PMM | MKT PLACE",      desc: "Go-to-market e posicionamento Marketplace",        href: "/product-marketing",           color: T.primary,    Icon: BarChart2   },
   { label: "Mídias Sociais",       desc: "Calendário editorial e performance de conteúdo",   href: "/social-midia",                color: T.teal600,    Icon: Megaphone   },
   { label: "Criativos MKTP",      desc: "Dashboard de criativos do Marketplace",            href: "/marketplace-ads",             color: T.teal600,    Icon: BarChart2   },
-  { label: "Criativos SZS",       desc: "Dashboard de criativos de Proprietários (SZS)",     href: "/szs-ads",                     color: T.roxo600,    Icon: BarChart2   },
   { label: "Vistas de Anitá",    desc: "Reservas, plano de ação e criativos — Hóspedes",    href: "/vistas-hospedes",             color: "#7C3AED",    Icon: BarChart2   },
 ]
 
