@@ -334,6 +334,24 @@ export default function VistasHospedesPage() {
                 <ChevronRight size={20} color={T.mutedFg} />
               </div>
             </Link>
+
+            <Link href="/vistas-hospedes/midia-paga" style={{ textDecoration: "none" }}>
+              <div style={{
+                background: T.card, border: `1px solid ${T.border}`, borderRadius: 12,
+                padding: "18px 20px", boxShadow: T.elevSm, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                borderLeft: `4px solid ${T.primary}`,
+              }}>
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.primary, margin: "0 0 4px" }}>
+                    Mídia Paga
+                  </p>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>Gastos por dia</p>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>Meta Ads · Google Ads · Explorar Nekt</p>
+                </div>
+                <ChevronRight size={20} color={T.mutedFg} />
+              </div>
+            </Link>
           </div>
         </section>
 

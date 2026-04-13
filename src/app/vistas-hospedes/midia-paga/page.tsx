@@ -319,12 +319,12 @@ export default function HospedesMidiaPagaPage() {
         padding: "0 24px", height: 52, display: "flex", alignItems: "center",
         gap: 12, position: "sticky", top: 0, zIndex: 40, boxShadow: T.elevSm,
       }}>
-        <Link href="/product-marketing/szs" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}>
+        <Link href="/vistas-hospedes" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}>
           <ChevronLeft size={14} />
-          PMM SZS
+          Vistas de Anitá
         </Link>
         <span style={{ color: T.border }}>|</span>
-        <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.primary, flexShrink: 0 }} />
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#7C3AED", flexShrink: 0 }} />
         <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Mídia Paga — Hóspedes</span>
       </header>
 
