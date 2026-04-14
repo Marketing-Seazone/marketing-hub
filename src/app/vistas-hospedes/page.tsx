@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-feat/vistas-hospedes
 import Link from "next/link"
 import { ChevronLeft, Loader2, AlertCircle, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil } from "lucide-react"
 import { T } from "@/lib/constants"
@@ -11,18 +10,7 @@ import type { Task } from "@/app/api/vistas-checklist/route"
 const META_DIA = 7
 const COR = "#7C3AED"
 
-=======
-// useCallback retained for fetchReservas memoization
-import Link from "next/link"
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from "lucide-react"
-import { T } from "@/lib/constants"
-import type { DayData } from "@/app/api/vistas-reservas/route"
-
-const META_DIA = 7
-const COR = "#7C3AED" // roxo Vistas
-
 /* ── helpers ── */
-main
 const fmt2 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 function fmtDate(iso: string | null) {
   if (!iso) return ""
@@ -34,7 +22,6 @@ function statusColor(v: number, meta: number) {
   if (v >= meta * 0.7) return T.statusWarn ?? "#f59e0b"
   return T.destructive ?? "#ef4444"
 }
-feat/vistas-hospedes
 function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
   const parts = text.split(/(https?:\/\/[^\s]+)/g)
   return (
@@ -49,7 +36,6 @@ function TextWithLinks({ text, style }: { text: string; style?: React.CSSPropert
 }
 
 /* ── Mini gráfico SVG ── */
-main
 function ReservasChart({ days }: { days: DayData[] }) {
   const W = 680, H = 130, PL = 28, PB = 22, PT = 8, PR = 8
   const cW = W - PL - PR, cH = H - PT - PB
@@ -57,7 +43,6 @@ function ReservasChart({ days }: { days: DayData[] }) {
   const xs = (i: number) => PL + (i / (days.length - 1)) * cW
   const ys = (v: number) => PT + cH - (v / maxV) * cH
   const metaY = ys(META_DIA)
-feat/vistas-hospedes
   const barW = Math.max(2, (cW / days.length) - 2)
   const avgPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvg)}`).join(" ")
   return (
@@ -76,23 +61,19 @@ feat/vistas-hospedes
           stroke={T.border} strokeWidth={0.5} />
       ))}
       {/* Bars */}
-main
       {days.map((d, i) => {
         const bh = Math.max(2, (d.count / maxV) * cH)
         const fill = d.count >= META_DIA ? "#10b98133" : `${T.destructive}22`
         const stroke = d.count >= META_DIA ? "#10b981" : T.destructive
         return (
-feat/vistas-hospedes
           <rect key={i} x={xs(i) - barW / 2} y={ys(d.count)} width={barW} height={bh} fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
           <rect key={i}
             x={xs(i) - barW / 2} y={ys(d.count)} width={barW} height={bh}
             fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
-main
             <title>{fmtDate(d.date)}: {d.count} reserva{d.count !== 1 ? "s" : ""}</title>
           </rect>
         )
       })}
-feat/vistas-hospedes
       <line x1={PL} x2={W - PR} y1={metaY} y2={metaY} stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 3" />
       <text x={W - PR + 3} y={metaY + 4} fontSize={9} fill="#10b981" fontWeight={700}>7</text>
       <path d={avgPath} fill="none" stroke={COR} strokeWidth={2} strokeLinejoin="round" />
@@ -109,13 +90,11 @@ feat/vistas-hospedes
         <text key={i} x={xs(i)} y={H - 4} fontSize={8} fill={T.mutedFg ?? "#888"} textAnchor="middle">
           {fmtDate(days[i]?.date ?? "")}
         </text>
-main
       ))}
     </svg>
   )
 }
 
-feat/vistas-hospedes
 const SECTION_META: Record<string, { label: string; live: string | null }> = {
   "midia-paga": { label: "Mídia Paga — Retargeting", live: "25 abr" },
   "website": { label: "Website — Melhorias de Conversão", live: "30 abr" },
@@ -315,7 +294,6 @@ function ChecklistSection() {
 }
 
 /* ── Criativos Ativos ── */
-main
 interface CriativoRow { campaign_name: string; ad_name: string; investimento: number; leads: number; won: number; vertical: string }
 
 function CriativosSection() {
@@ -327,7 +305,6 @@ function CriativosSection() {
   useEffect(() => {
     async function load() {
       try {
-feat/vistas-hospedes
         const discRes = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql: `SELECT DISTINCT campaign_name, vertical FROM nekt_silver.ads_unificado WHERE (LOWER(campaign_name) LIKE '%vistas%' OR LOWER(campaign_name) LIKE '%anit%') AND date >= DATE '2026-01-01' ORDER BY campaign_name` }) })
         const discData = await discRes.json()
         const found: string[] = (discData.rows || []).map((r: Record<string, unknown>) => String(r.campaign_name || ""))
@@ -369,7 +346,6 @@ feat/vistas-hospedes
           won: Number(r.won) || 0,
           vertical: "",
         })))
-main
       } catch (e) { setError(String(e)) } finally { setLoading(false) }
     }
     load()
@@ -378,7 +354,6 @@ main
   const fmt = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-BR")
 
-feat/vistas-hospedes
   if (loading) return <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.mutedFg, fontSize: 13 }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Buscando criativos na Nekt...</div>
   if (error) return <div style={{ fontSize: 13, color: T.destructive, background: `${T.destructive}10`, padding: "10px 14px", borderRadius: 8 }}>Erro: {error}</div>
   if (campaigns.length === 0) return <div style={{ fontSize: 13, color: T.mutedFg, fontStyle: "italic", background: T.muted, padding: "12px 16px", borderRadius: 8, border: `1px solid ${T.border}` }}>Nenhuma campanha com "vistas" ou "anita" encontrada na Nekt ainda.</div>
@@ -814,14 +789,12 @@ function InfluenciadoresSection() {
                 <td style={{ padding: "7px 10px", color: T.primary, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{fmtInt(row.won)}</td>
                 <td style={{ padding: "7px 10px", color: T.destructive, fontFamily: "monospace", whiteSpace: "nowrap" }}>
                   {row.won > 0 ? `R$ ${fmt(row.investimento / row.won)}` : "—"}
-main
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-feat/vistas-hospedes
       <p style={{ fontSize: 12, color: T.mutedFg, marginTop: 6 }}>💡 Clique duplo para editar texto · Dropdowns de Categoria e Status clicáveis direto · Cole URLs e viram links 🔗</p>
     </div>
   )
@@ -873,25 +846,20 @@ function SocialMediaSection() {
         </div>
       )}
       <div style={{ marginTop: 8 }}><InfluenciadoresSection /></div>
-main
     </div>
   )
 }
 
-feat/vistas-hospedes
 /* ── Page ── */
-main
 export default function VistasHospedesPage() {
   const [days, setDays] = useState<DayData[]>([])
   const [loadingRes, setLoadingRes] = useState(true)
   const [errorRes, setErrorRes] = useState("")
 
   const fetchReservas = useCallback(async () => {
-feat/vistas-hospedes
     setLoadingRes(true); setErrorRes("")
     setLoadingRes(true)
     setErrorRes("")
-main
     try {
       const res = await fetch("/api/vistas-reservas", { cache: "no-store" })
       const data = await res.json()
@@ -909,7 +877,6 @@ main
   return (
     <div style={{ minHeight: "100vh", background: T.muted, fontFamily: T.font }}>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-feat/vistas-hospedes
       <header style={{ background: T.card, borderBottom: `1px solid ${T.border}`, padding: "0 24px", height: 52, display: "flex", alignItems: "center", gap: 12, position: "sticky", top: 0, zIndex: 40, boxShadow: T.elevSm }}>
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}><ChevronLeft size={14} /> Menu</Link>
 
@@ -923,12 +890,10 @@ feat/vistas-hospedes
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: 4, color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500 }}>
           <ChevronLeft size={14} /> Menu
         </Link>
-main
         <span style={{ color: T.border }}>|</span>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: COR, flexShrink: 0 }} />
         <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Vistas de Anitá — Hóspedes</span>
       </header>
-feat/vistas-hospedes
       <main style={{ padding: "24px 24px 64px", maxWidth: 1100, margin: "0 auto" }}>
         <section style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
@@ -975,7 +940,6 @@ feat/vistas-hospedes
           ) : (
             <>
               {/* KPI Cards */}
-main
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 16 }}>
                 {[
                   { label: "Hoje", value: loadingRes ? "—" : String(today), color: statusColor(today, META_DIA) },
@@ -983,19 +947,16 @@ main
                   { label: "Meta diária", value: String(META_DIA), color: "#10b981" },
                   { label: "Status", value: loadingRes ? "—" : avg30r >= META_DIA ? "✓ Acima da meta" : "Abaixo da meta", color: statusColor(avg30r, META_DIA) },
                 ].map(kpi => (
-feat/vistas-hospedes
                   <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", boxShadow: T.elevSm }}>
                   <div key={kpi.label} style={{
                     background: T.card, border: `1px solid ${T.border}`, borderRadius: 10,
                     padding: "12px 16px", boxShadow: T.elevSm,
                   }}>
-main
                     <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
                     <p style={{ fontSize: 18, fontWeight: 800, color: kpi.color, margin: 0 }}>{kpi.value}</p>
                   </div>
                 ))}
               </div>
-feat/vistas-hospedes
               {!loadingRes && days.length > 0 && (
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 20px", boxShadow: T.elevSm }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10, fontSize: 11, color: T.mutedFg }}>
@@ -1016,12 +977,10 @@ feat/vistas-hospedes
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <span style={{ width: 14, height: 2, background: "#10b981", borderTop: "2px dashed #10b981", display: "inline-block" }} /> Meta (7/dia)
                     </span>
-main
                   </div>
                   <ReservasChart days={days} />
                 </div>
               )}
-feat/vistas-hospedes
               {loadingRes && <div style={{ textAlign: "center", padding: 32, background: T.card, borderRadius: 12, border: `1px solid ${T.border}` }}><Loader2 size={20} color={COR} style={{ animation: "spin 1s linear infinite" }} /></div>}
             </>
           )}
@@ -1136,4 +1095,3 @@ feat/vistas-hospedes
     </div>
   )
 }
-main
