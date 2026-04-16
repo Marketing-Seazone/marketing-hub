@@ -173,10 +173,19 @@ export default function SzsAdsPage() {
     setShowAnalysis(true)
     setTimeout(() => analysisPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100)
     try {
-      /* step 1: busca thumbnails via Meta API (apenas por anúncio) */
-      let thumbnailData: { ad_id: string; thumbnail_url: string }[] = []
+      /* step 1: busca copy + frames via Meta API (apenas por anúncio) */
+      interface CreativeData {
+        ad_id: string
+        object_type?: string
+        headline?: string
+        body?: string
+        thumbnail_url?: string
+        image_url?: string
+        video_frames?: string[]
+      }
+      let creativeData: CreativeData[] = []
       if (groupBy === "anuncio") {
-        setAnalyzeStep("Buscando thumbnails no Meta Ads...")
+        setAnalyzeStep("Buscando criativos (copy + frames) no Meta Ads...")
         const topIds = filteredAds.slice(0, 20).map(r => r.ad_id)
         try {
           const metaRes = await fetch("/api/meta-creatives", {
@@ -186,10 +195,10 @@ export default function SzsAdsPage() {
           })
           if (metaRes.ok) {
             const metaData = await metaRes.json()
-            thumbnailData = metaData.results || []
+            creativeData = metaData.results || []
           }
         } catch {
-          // silencia falha de thumbnail — análise continua sem visual
+          // silencia falha — análise continua sem dados visuais/copy
         }
       }
 
@@ -198,7 +207,7 @@ export default function SzsAdsPage() {
       const res = await fetch("/api/analyze-creatives", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, groupBy, dataInicio, dataFim, thumbnailData }),
+        body: JSON.stringify({ rows, groupBy, dataInicio, dataFim, creativeData }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Erro na análise")
@@ -575,7 +584,7 @@ export default function SzsAdsPage() {
                     )}
                     {analysisMeta.hadThumbnails && (
                       <span style={{ fontSize: 10, fontWeight: 600, padding: "2px 7px", borderRadius: 4, background: `${T.laranja500}15`, color: T.laranja500 }}>
-                        + Análise visual
+                        + Visual + Copy
                       </span>
                     )}
                   </div>

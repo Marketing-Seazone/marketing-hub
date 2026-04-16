@@ -25,7 +25,10 @@ Você receberá:
 1. Performance dos criativos/campanhas no período selecionado
 2. Benchmarks históricos do canal SZS (últimos 180 dias)
 3. Tendência semanal dos principais criativos (se disponível)
-4. Thumbnails visuais dos criativos (se disponível) — analise o que aparece: pessoas, texto na tela, estilo visual, paleta
+4. **Copy real dos criativos** (headline e body extraídos diretamente da API Meta) — USE ESSES DADOS como texto de copy; não tente ler ou inferir texto a partir das imagens
+5. **Imagens dos criativos**: para estáticos, a imagem do anúncio; para vídeos, frames distribuídos ao longo do vídeo (Frame 1 = abertura, frames seguintes = progressão)
+
+**IMPORTANTE sobre as imagens:** As imagens servem para análise VISUAL — composição, presença humana, cores, estilo, qualidade estética, gancho visual. Para o texto de copy, use apenas os dados da seção "COPY DOS CRIATIVOS". Nunca invente ou adivinhe copy que não esteja nos dados fornecidos.
 
 Com esses dados, produza um diagnóstico estruturado em Markdown com EXATAMENTE estas seções:
 
@@ -33,15 +36,17 @@ Com esses dados, produza um diagnóstico estruturado em Markdown com EXATAMENTE 
 Resumo executivo: total investido, CAC do período vs. benchmark histórico. Indique se está acima/abaixo do benchmark com contexto. Mencione CPL apenas como métrica de funil intermediário (qualidade do tráfego).
 
 ## Padrões de Copy e Formato
-Analise os nomes dos criativos/campanhas para identificar padrões. Busque correlações entre:
-- Formato (vídeo, carrossel, estático, depoimento, UGC, apresentadora)
-- Tema/hook (renda, gestão, facilidade, destino, depoimento, comparativo)
-- Público (proprietário ativo, proprietário potencial, retargeting)
-Mostre qual combinação de formato+tema gera menor CAC. Se WON = 0 em todos, use taxa Lead→MQL como proxy.
+Use a copy real (headline/body da seção "COPY DOS CRIATIVOS") para identificar padrões. Busque correlações entre:
+- Formato (vídeo, carrossel, estático, depoimento, UGC, apresentadora) — detectado pelo nome do criativo e pelo tipo visual
+- Ângulo do hook na copy: renda/retorno financeiro, facilidade/gestão, prova social/depoimento, urgência/oportunidade, comparativo
+- Público implícito (proprietário ativo, potencial, retargeting)
+Mostre qual combinação de formato + ângulo de copy gera menor CAC. Se WON = 0 em todos, use taxa Lead→MQL como proxy.
 
 ## Análise Visual (Frames)
-Se imagens foram fornecidas: identifique o que os thumbnails dos melhores criativos (menor CAC) têm em comum vs. os piores.
-Elementos para avaliar: presença humana, texto na tela, cor dominante, estilo (lifestyle vs. produto vs. texto).
+Para cada criativo com imagens disponíveis, descreva o que aparece:
+- **Vídeos** (múltiplos frames): analise a progressão visual. Frame 1 = gancho de abertura. Identifique tipo de conteúdo (depoimento, lifestyle, animação de texto, apresentadora, produto). Avalie se o gancho visual do Frame 1 é forte ou fraco.
+- **Imagens estáticas**: composição, presença humana, texto visível sobreposto (se legível na imagem), cor dominante, estilo (lifestyle, produto, texto, UGC).
+Cruze o visual com a copy real para avaliar a proposta completa de cada criativo. Destaque o que os melhores criativos (menor CAC) têm em comum visualmente vs. os piores.
 Se não há imagens: indique que a análise visual requer META_ACCESS_TOKEN configurado.
 
 ## Tendência (Últimas Semanas)
@@ -63,8 +68,8 @@ Liste separando por gravidade:
 Mínimo 5 ações concretas baseadas em CAC vs. meta R$ 1.400, com verbo de ação explícito:
 - **Pausar**: [nome do criativo] — motivo (CAC > R$ 2.100 ou 0 WON com alto gasto)
 - **Escalar**: [nome] — aumentar budget em X% — motivo (CAC ≤ R$ 1.400, abaixo da meta)
-- **Duplicar e testar**: [nome] com variação de [elemento]
-- **Criar novo criativo**: baseado em [padrão de formato+tema com melhor CAC]
+- **Duplicar e testar**: [nome] com variação de [elemento de copy ou visual]
+- **Criar novo criativo**: baseado em [padrão de formato+ângulo de copy com melhor CAC] + [elemento visual dos melhores]
 - **Revisar segmentação**: [adset] — motivo
 
 Seja direto, use dados numéricos, evite generalidades. Se WON = 0 em um criativo, trate como dado crítico — não ignore.`
@@ -93,9 +98,14 @@ interface CampRow {
   won: number
 }
 
-interface ThumbnailData {
+interface CreativeData {
   ad_id: string
-  thumbnail_url: string
+  object_type?: string
+  headline?: string
+  body?: string
+  thumbnail_url?: string
+  image_url?: string
+  video_frames?: string[]
 }
 
 /* ─────────────────────────────────────────────
@@ -321,12 +331,12 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { rows, groupBy, dataInicio, dataFim, thumbnailData } = await req.json() as {
+    const { rows, groupBy, dataInicio, dataFim, creativeData } = await req.json() as {
       rows: AdRow[] | CampRow[]
       groupBy: "anuncio" | "campanha"
       dataInicio: string
       dataFim: string
-      thumbnailData?: ThumbnailData[]
+      creativeData?: CreativeData[]
     }
 
     if (!rows || !Array.isArray(rows)) {
@@ -355,10 +365,10 @@ export async function POST(req: NextRequest) {
     const trends = trendRes.status === "fulfilled" ? (trendRes.value ?? []) : []
 
     /* ── monta prompt ── */
-    const hasThumbnails = thumbnailData && thumbnailData.length > 0
-    const thumbMap: Record<string, string> = {}
-    if (hasThumbnails) {
-      for (const t of thumbnailData!) thumbMap[t.ad_id] = t.thumbnail_url
+    const hasCreativeData = creativeData && creativeData.length > 0
+    const creativeMap: Record<string, CreativeData> = {}
+    if (hasCreativeData) {
+      for (const c of creativeData!) creativeMap[c.ad_id] = c
     }
 
     const dataSection = groupBy === "anuncio"
@@ -371,9 +381,24 @@ export async function POST(req: NextRequest) {
 
     const benchmarkSection = benchmarks ? formatBenchmarks(benchmarks) : "(benchmark histórico não disponível)"
 
-    const thumbsAvailable = hasThumbnails
-      ? `${thumbnailData!.length} thumbnail(s) incluídos para análise visual (ad_ids: ${thumbnailData!.map(t => t.ad_id).join(", ")})`
-      : "Nenhum thumbnail disponível (META_ACCESS_TOKEN não configurado)"
+    /* Seção de copy real (headline + body da API Meta) */
+    const copySection = hasCreativeData
+      ? adRows
+          .filter(r => creativeMap[r.ad_id]?.headline || creativeMap[r.ad_id]?.body)
+          .map(r => {
+            const c = creativeMap[r.ad_id]
+            const lines = [`• "${r.ad_name}" [${r.ad_id}]`]
+            if (c.headline) lines.push(`  Headline: "${c.headline}"`)
+            if (c.body) lines.push(`  Body: "${c.body}"`)
+            return lines.join("\n")
+          })
+          .join("\n") || "(nenhum criativo com copy disponível nesta seleção)"
+      : "(copy não disponível — META_ACCESS_TOKEN não configurado)"
+
+    const hasVideoFrames = creativeData?.some(c => (c.video_frames?.length ?? 0) > 0) ?? false
+    const visualSummary = hasCreativeData
+      ? `${creativeData!.length} criativo(s) com dados visuais${hasVideoFrames ? " — inclui frames de vídeo (frame a frame)" : ""} — imagens seguem abaixo`
+      : "Nenhum visual disponível (META_ACCESS_TOKEN não configurado)"
 
     const userText = `Período analisado: ${dataInicio} a ${dataFim}
 Agrupamento: ${groupBy === "anuncio" ? "por anúncio" : "por campanha"}
@@ -385,33 +410,104 @@ ${benchmarkSection}
 **DADOS DO PERÍODO:**
 ${dataSection}
 
+**COPY DOS CRIATIVOS (dados diretos da API Meta — use estes como texto real, não OCR):**
+${copySection}
+
 **TENDÊNCIA SEMANAL (8 semanas):**
 ${trendSection}
 
 **ANÁLISE VISUAL:**
-${thumbsAvailable}`
+${visualSummary}`
 
-    /* ── monta content com imagens (se disponíveis) ── */
+    /* ── baixa imagens como base64 (Anthropic não aceita URLs externas de CDN) ── */
+    async function fetchBase64(url: string): Promise<string | null> {
+      try {
+        const res = await fetch(url, {
+          signal: AbortSignal.timeout(8000),
+          headers: { "User-Agent": "Mozilla/5.0" },
+        })
+        if (!res.ok) return null
+        const buf = await res.arrayBuffer()
+        const b64 = Buffer.from(buf).toString("base64")
+        const mime = res.headers.get("content-type")?.split(";")[0] || "image/jpeg"
+        return `data:${mime};base64,${b64}`
+      } catch {
+        return null
+      }
+    }
+
+    /* Coleta URLs únicas de imagens que serão enviadas */
     type ContentBlock =
       | { type: "text"; text: string }
       | { type: "image_url"; image_url: { url: string; detail: "low" } }
 
-    const userContent: ContentBlock[] = [{ type: "text", text: userText }]
+    // Monta estrutura de ads com imagens a baixar
+    interface AdVisual {
+      ad: (typeof adRows)[0]
+      isVideo: boolean
+      urls: string[]
+    }
 
-    if (hasThumbnails) {
-      // top 8 thumbnails por ordem de investimento
-      const sortedThumbs = thumbnailData!
-        .filter(t => thumbMap[t.ad_id])
-        .slice(0, 8)
-
-      for (const thumb of sortedThumbs) {
-        const adName = adRows.find(r => r.ad_id === thumb.ad_id)?.ad_name || thumb.ad_id
-        userContent.push({ type: "text", text: `\nThumbnail de "${adName}":` })
-        userContent.push({ type: "image_url", image_url: { url: thumb.thumbnail_url, detail: "low" } })
+    const adVisuals: AdVisual[] = []
+    if (hasCreativeData) {
+      let urlCount = 0
+      for (const ad of adRows.slice(0, 10)) {
+        if (urlCount >= 30) break
+        const c = creativeMap[ad.ad_id]
+        if (!c) continue
+        const isVideo = (c.video_frames?.length ?? 0) > 0
+        const imgUrls = isVideo
+          ? c.video_frames!.slice(0, 4)   // max 4 frames por vídeo
+          : [c.image_url || c.thumbnail_url].filter(Boolean) as string[]
+        if (imgUrls.length === 0) continue
+        adVisuals.push({ ad, isVideo, urls: imgUrls })
+        urlCount += imgUrls.length
       }
     }
 
-    /* ── chama OpenRouter ── */
+    // Baixa todas as imagens em paralelo
+    const allUrls = adVisuals.flatMap(v => v.urls)
+    const base64Map: Record<string, string> = {}
+    if (allUrls.length > 0) {
+      const results = await Promise.allSettled(
+        allUrls.map(async url => ({ url, data: await fetchBase64(url) }))
+      )
+      for (const r of results) {
+        if (r.status === "fulfilled" && r.value.data) {
+          base64Map[r.value.url] = r.value.data
+        }
+      }
+    }
+
+    /* ── monta content com imagens por criativo ── */
+    const userContent: ContentBlock[] = [{ type: "text", text: userText }]
+
+    for (const { ad, isVideo, urls } of adVisuals) {
+      const b64Urls = urls.map(u => base64Map[u]).filter(Boolean)
+      if (b64Urls.length === 0) continue
+
+      const label = isVideo
+        ? `\n▶ Vídeo: "${ad.ad_name}" (${b64Urls.length} frames):`
+        : `\n🖼 Imagem: "${ad.ad_name}":`
+      userContent.push({ type: "text", text: label })
+
+      if (isVideo) {
+        for (let fi = 0; fi < b64Urls.length; fi++) {
+          userContent.push({ type: "text", text: `  Frame ${fi + 1}/${b64Urls.length}:` })
+          userContent.push({ type: "image_url", image_url: { url: b64Urls[fi], detail: "low" } })
+        }
+      } else {
+        userContent.push({ type: "image_url", image_url: { url: b64Urls[0], detail: "low" } })
+      }
+    }
+
+    const hasVisualContent = userContent.length > 1
+
+    /* ── chama OpenRouter — força Anthropic quando há imagens ── */
+    const providerConfig = hasVisualContent
+      ? { provider: { order: ["Anthropic"], allow_fallbacks: false } }
+      : {}
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -420,11 +516,12 @@ ${thumbsAvailable}`
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4-5",
-        max_tokens: 2000,
+        max_tokens: 2500,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: hasThumbnails ? userContent : userText },
+          { role: "user", content: hasVisualContent ? userContent : userText },
         ],
+        ...providerConfig,
       }),
     })
 
@@ -440,7 +537,12 @@ ${thumbsAvailable}`
     const analysis: string = data.choices[0].message.content
 
     return NextResponse.json(
-      { analysis, hadThumbnails: hasThumbnails, hadBenchmarks: !!benchmarks, hadTrends: trends.length > 0 },
+      {
+        analysis,
+        hadThumbnails: hasVisualContent,
+        hadBenchmarks: !!benchmarks,
+        hadTrends: trends.length > 0,
+      },
       { headers: { "Cache-Control": "no-store" } }
     )
   } catch (err) {
