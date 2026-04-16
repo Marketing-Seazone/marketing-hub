@@ -83,7 +83,7 @@ export default function Page() {
         </div>
 
         {/* Seguidores */}
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elev5m }}>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elevSm }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: '0 0 16px' }}>Seguidores</p>
           {loadingSeguidores && <p style={{ color: T.mutedFg, fontSize: 13 }}>Carregando...</p>}
           {erroSeguidores && <p style={{ color: '#EF4444', fontSize: 13 }}>Erro: {erroSeguidores}</p>}
@@ -109,7 +109,7 @@ export default function Page() {
         </div>
 
         {/* Métricas do Período */}
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elev5m }}>
+        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elevSm }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' as const, gap: 8 }}>
             <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: 0 }}>Métricas do Período</p>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -130,14 +130,12 @@ export default function Page() {
             </p>
           )}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const, marginBottom: 12 }}>
-            {metCard('Novos Seguidores', metricas?.novos_seguidores ?? null, '#7C3AED', '👥')}
-            {metCard('Visualizações Stories', metricas?.visualizacoes_stories ?? null, '#0EA5E9', '👁️')}
-            {metCard('Alcance Reels', metricas?.alcance_reels ?? null, '#F59E0B', '🎬')}
+            {metCard('Novos Seguidores',    metricas?.novos_seguidores ?? null,  '#7C3AED', '👥')}
+            {metCard('Alcance Reels',       metricas?.alcance_reels ?? null,     '#F59E0B', '🎬')}
+            {metCard('Interações Posts',    metricas?.interacoes_posts ?? null,  '#10B981', '❤️')}
           </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const }}>
-            {metCard('Interações Posts', metricas?.interacoes_posts ?? null, '#10B981', '❤️')}
-            {metCard('Alcance Posts', metricas?.alcance_posts ?? null, '#6366F1', '📸')}
-            {metCard('Views Stories', metricas?.views_stories ?? null, '#EC4899', '📊')}
+            {metCard('Views Stories',       metricas?.views_stories ?? null,     '#EC4899', '📸')}
           </div>
         </div>
 

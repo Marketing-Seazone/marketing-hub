@@ -19,7 +19,6 @@ export async function GET(request: Request) {
         end: hoje,
         integration_id: INTEGRATION_ID,
         metrics: [
-          // Novos seguidores
           {
             id: 'f4b55367-406e-4e81-ba6a-b22dac9e65f4',
             reference_key: 'ig:new_followers_count',
@@ -28,7 +27,6 @@ export async function GET(request: Request) {
             dimensions: [], filters: [], filter: null, sort: [], chart_type: null,
             custom: [], type: 'new_followers',
           },
-          // Interações em posts (datatable → retorna total)
           {
             id: '4ae20a6f-6a90-4784-8434-31cd0315f992',
             reference_key: 'ig:post_total_interactions_count',
@@ -38,7 +36,6 @@ export async function GET(request: Request) {
             sort: [{ field: 'total_interactions', direction: 'desc' }],
             chart_type: null, custom: [], type: [],
           },
-          // Alcance de reels (datatable → retorna total)
           {
             id: '555e60e2-2a60-4a4f-b2c3-623b1b0d41f6',
             reference_key: 'ig:reels_total',
@@ -48,7 +45,6 @@ export async function GET(request: Request) {
             sort: [{ field: 'reach', direction: 'desc' }],
             chart_type: null, custom: [], type: [],
           },
-          // Views de stories (datatable → retorna total)
           {
             id: 'bffca06-66b7-4bfc-a2a5-68111d8008d6',
             reference_key: 'ig:stories_views',
@@ -57,15 +53,6 @@ export async function GET(request: Request) {
             dimensions: ['story'], filters: [], filter: null,
             sort: [{ field: 'views', direction: 'desc' }],
             chart_type: null, custom: [], type: [],
-          },
-          // Impressões totais de stories
-          {
-            id: '9112f570-eb00-4e09-9e5d-741f24e672dd4',
-            reference_key: 'ig:stories_impressions',
-            component: 'number_v1',
-            metrics: ['views'],
-            dimensions: [], filters: [], filter: null, sort: [], chart_type: null,
-            custom: [], type: [],
           },
         ],
       }),
@@ -83,12 +70,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       periodo: { inicio, fim: hoje, dias },
-      novos_seguidores:      v(d['f4b55367-406e-4e81-ba6a-b22dac9e65f4']),
-      interacoes_posts:      v(d['4ae20a6f-6a90-4784-8434-31cd0315f992']),
-      alcance_reels:         v(d['555e60e2-2a60-4a4f-b2c3-623b1b0d41f6']),
-      views_stories:         v(d['bffca06-66b7-4bfc-a2a5-68111d8008d6']),
-      visualizacoes_stories: v(d['9112f570-eb00-4e09-9e5d-741f24e672dd4']),
-      alcance_posts:         null,
+      novos_seguidores:  v(d['f4b55367-406e-4e81-ba6a-b22dac9e65f4']),
+      interacoes_posts:  v(d['4ae20a6f-6a90-4784-8434-31cd0315f992']),
+      alcance_reels:     v(d['555e60e2-2a60-4a4f-b2c3-623b1b0d41f6']),
+      views_stories:     v(d['bffca06-66b7-4bfc-a2a5-68111d8008d6']),
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
