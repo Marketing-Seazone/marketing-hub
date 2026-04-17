@@ -25,10 +25,10 @@ Você receberá:
 1. Performance dos criativos/campanhas no período selecionado
 2. Benchmarks históricos do canal SZS (últimos 180 dias)
 3. Tendência semanal dos principais criativos (se disponível)
-4. **Copy real dos criativos** (headline e body extraídos diretamente da API Meta) — USE ESSES DADOS como texto de copy; não tente ler ou inferir texto a partir das imagens
+4. **Copy dos criativos**: quando disponível na seção "COPY DOS CRIATIVOS", use esses dados (headline/body da API Meta) como o texto real do anúncio. Quando um criativo NÃO aparecer nessa seção (comum para anúncios do tipo SHARE — posts impulsionados), **leia o texto visível na própria imagem**: esses criativos têm a mensagem principal embutida diretamente no visual (ex: "Gerenciamos seu imóvel no Airbnb com total liberdade", "Alugar seu imóvel no Airbnb não precisa ser tão trabalhoso"). Transcreva esse texto como a copy do criativo.
 5. **Imagens dos criativos**: para estáticos, a imagem do anúncio; para vídeos, frames distribuídos ao longo do vídeo (Frame 1 = abertura, frames seguintes = progressão)
 
-**IMPORTANTE sobre as imagens:** As imagens servem para análise VISUAL — composição, presença humana, cores, estilo, qualidade estética, gancho visual. Para o texto de copy, use apenas os dados da seção "COPY DOS CRIATIVOS". Nunca invente ou adivinhe copy que não esteja nos dados fornecidos.
+**IMPORTANTE sobre as imagens:** As imagens servem tanto para análise VISUAL (composição, presença humana, cores, estilo) quanto para leitura de copy quando o campo de texto da API estiver ausente. Nunca invente copy — se não há dados de API e a imagem não contém texto legível, indique explicitamente.
 
 Com esses dados, produza um diagnóstico estruturado em Markdown com EXATAMENTE estas seções:
 
@@ -81,7 +81,10 @@ const RANKING_SYSTEM_PROMPT = `Você é um especialista sênior em criação de 
 
 MÉTRICA PRINCIPAL: **CAC (investimento / WON)**. Meta: R$ 1.400. Piores são os com maior CAC ou 0 WON com alto gasto.
 
-**Copy real dos criativos** (headline e body extraídos diretamente da API Meta) será fornecida quando disponível — use como a copy real. Imagens são para análise VISUAL, não OCR.
+**Sobre a copy dos criativos:**
+- Quando o campo "Headline" ou "Body" estiver presente nos dados → use como copy real do anúncio (texto do post/legenda)
+- Quando esses campos estiverem ausentes → o criativo é do tipo SHARE (post impulsionado): **leia o texto visível na própria imagem/thumbnail**. Esses criativos têm a mensagem principal embutida diretamente na imagem (ex: "Gerenciamos seu imóvel no Airbnb com total liberdade", "Alugar seu imóvel no Airbnb não precisa ser tão trabalhoso"). Leia e transcreva esse texto como a copy do criativo.
+- Nunca invente copy. Se não há dados de API e a imagem não contém texto legível, indique explicitamente.
 
 Você receberá os **3 MELHORES** criativos (menor CAC) e os **3 PIORES** (maior CAC ou 0 WON).
 Seu objetivo: dissecar o que diferencia os dois grupos e transformar isso em diretrizes concretas para novos criativos.
@@ -90,38 +93,38 @@ Produza análise em Markdown com EXATAMENTE estas seções:
 
 ## Por que os 3 Melhores Convertem
 Para cada um dos 3 melhores, uma análise focada:
-- **Copy**: qual é o ângulo do hook? (renda/retorno financeiro, facilidade/gestão, prova social, urgência, comparativo). Se copy não disponível, infere pelo nome do criativo.
-- **Visual**: o que aparece no thumbnail/frames? Presença humana? Estilo? Abertura do vídeo (frame 1)?
-- **Formato**: vídeo narrado / apresentadora / estático / carrossel / UGC — infere pelo nome
+- **Copy** (texto lido da imagem ou da API): transcreva a mensagem principal e analise o ângulo do hook (renda/retorno financeiro, facilidade/gestão, prova social, urgência, comparativo)
+- **Visual**: descreva o que aparece na imagem/thumbnail — cores, estilo, presença humana, composição, texto sobreposto
+- **Formato**: estático com texto na imagem / vídeo narrado / apresentadora / carrossel / UGC — infere pelo visual e nome
 - **Hipótese de conversão**: em 1 frase, por que esse criativo converte proprietários?
 
 ## Por que os 3 Piores Falham
 Para cada um dos 3 piores:
-- **Problema principal**: copy genérica? sem gancho? formato errado? público inadequado?
-- **Visual**: o que o thumbnail/frame revela de problemático?
+- **Copy** (texto lido da imagem ou da API): transcreva a mensagem e identifique o problema — copy genérica? gancho fraco? promessa vaga?
+- **Visual**: descreva o que aparece e o que pode estar afastando o público
 - Se 0 WON com alto gasto: onde o funil quebra? (leads chegam mas não convertem → problema de qualidade do tráfego ou de expectativa criada pelo criativo)
 - **O que mudar**: 1 elemento concreto que poderia transformar esse criativo
 
 ## Padrões Diferenciais
 O que os 3 melhores têm em COMUM que os 3 piores não têm?
-Liste de 3 a 5 padrões claros:
+Liste de 3 a 5 padrões claros com base no que você realmente viu nas imagens e leu nas copies:
 - Formato: [vídeo > estático? apresentadora > narrado?]
-- Copy: [especificidade > genérico? dado numérico > promessa vaga?]
-- Visual: [presença humana > texto animado? contexto geográfico (Floripa, SP) > genérico?]
-- Gancho: [pergunta direta > afirmação? urgência > benefício?]
+- Copy: [especificidade > genérico? dado numérico > promessa vaga? pergunta > afirmação?]
+- Visual: [presença humana > só texto? cor de destaque? contexto geográfico (Floripa, SP) > genérico?]
+- Gancho: [urgência > benefício? problema > solução?]
 
 ## 5 Briefs para Novos Criativos
 Com base nos padrões dos melhores, escreva 5 briefs práticos e específicos:
 
 1. **[Formato] — [Ângulo de copy]**
-   - Hook de abertura (primeiros 3s ou texto principal): "[frase específica]"
-   - Visual: [o que mostrar — pessoa, cena, estilo]
+   - Texto principal / hook de abertura: "[frase específica — pode ser inspirada na copy dos melhores]"
+   - Visual: [o que mostrar — pessoa, cena, cores, estilo]
    - Diferencial vs. piores: [o que esse brief evita de errado]
    - Público sugerido: [proprietário ativo / potencial / retargeting]
 
 (Repita para os 5 briefs)
 
-Seja específico — cite nomes reais de criativos como referência. Evite generalidades. O objetivo é que a equipe de criação consiga executar esses briefs diretamente.`
+Seja específico — transcreva copies reais que você leu nas imagens, cite nomes de criativos como referência. Evite generalidades. O objetivo é que a equipe de criação consiga executar esses briefs diretamente.`
 
 /* ─────────────────────────────────────────────
    TYPES
@@ -212,7 +215,7 @@ async function fetchBenchmarks(): Promise<Benchmarks> {
       ROUND(CAST(SUM(mql) AS DOUBLE) / NULLIF(SUM(lead), 0) * 100, 1) AS tx_mql,
       COUNT(DISTINCT ad_id) AS total_criativos
     FROM nekt_silver.ads_unificado_historico
-    WHERE vertical = 'SZS'
+    WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
       AND date >= CURRENT_DATE - INTERVAL '180' DAY
   `)
   const row = result.rows[0] || {}
@@ -237,7 +240,7 @@ async function fetchTrends(topAdIds: string[]): Promise<TrendRow[]> {
       SUM(spend) AS spend,
       SUM(lead) AS leads
     FROM nekt_silver.ads_unificado_historico
-    WHERE vertical = 'SZS'
+    WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
       AND ad_id IN (${idsStr})
       AND date >= CURRENT_DATE - INTERVAL '56' DAY
     GROUP BY ad_id, semana

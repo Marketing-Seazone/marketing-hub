@@ -79,13 +79,13 @@ export default function SzsAdsPage() {
   const [showAdsSquad, setShowAdsSquad] = useState(false)
 
   useEffect(() => {
-    // vertical = 'SZS' é o valor correto conforme documentado em CLAUDE.md
+    // vertical IN ('Serviços', 'Servicos', 'SZS') — cobre variantes do valor na Nekt
     // somenteAtivos: filtra por ad_id/campaign_name que tiveram spend nos últimos 7 dias
     const ativoAdFilter = somenteAtivos
-      ? `AND ad_id IN (SELECT DISTINCT ad_id FROM nekt_silver.ads_unificado WHERE vertical = 'SZS' AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
+      ? `AND ad_id IN (SELECT DISTINCT ad_id FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
       : ""
     const ativoCampFilter = somenteAtivos
-      ? `AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_silver.ads_unificado WHERE vertical = 'SZS' AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
+      ? `AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
       : ""
 
     async function fetchData() {
@@ -97,14 +97,14 @@ export default function SzsAdsPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'SZS' AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoAdFilter} GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
+              sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoAdFilter} GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
             }),
           }),
           fetch("/api/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical = 'SZS' AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoCampFilter} GROUP BY campaign_name ORDER BY investimento DESC`,
+              sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoCampFilter} GROUP BY campaign_name ORDER BY investimento DESC`,
             }),
           }),
         ])
@@ -664,7 +664,7 @@ export default function SzsAdsPage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: T.muted }}>
-                    {["Criativo", "Campanha", "Conjunto", "Investimento", "Impressões", "Leads", "MQL", "WON", "CPL", "CAC"].map(col => (
+                    {["Criativo", "ID do Criativo", "Campanha", "Conjunto", "Investimento", "Impressões", "Leads", "MQL", "WON", "CPL", "CAC"].map(col => (
                       <th key={col} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: T.mutedFg, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>
                         {col}
                       </th>
@@ -679,6 +679,11 @@ export default function SzsAdsPage() {
                     >
                       <td style={{ padding: "7px 10px", color: T.cardFg, maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.ad_name}>
                         {row.ad_name}
+                      </td>
+                      <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>
+                        <code style={{ fontSize: 11, fontFamily: "monospace", color: T.mutedFg, background: T.muted, padding: "2px 6px", borderRadius: 4 }}>
+                          {row.ad_id}
+                        </code>
                       </td>
                       <td style={{ padding: "7px 10px", color: T.cardFg, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.campaign_name}>
                         <span style={{ background: `${T.roxo600}15`, color: T.roxo600, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
