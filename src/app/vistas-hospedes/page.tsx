@@ -855,13 +855,6 @@ export default function VistasHospedesPage() {
 
         <section style={{ marginBottom: 28 }}>
           <div style={{ marginBottom: 14 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Plano de Ação</p>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: T.cardFg, margin: 0 }}>Vistas de Anitá — 10 a 30 de abril</h2>
-          </div>
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px", boxShadow: T.elevSm }}><ChecklistSection /></div>
-        </section>
-        <section style={{ marginBottom: 28 }}>
-          <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Nekt · Meta Ads</p>
             <h2 style={{ fontSize: 18, fontWeight: 800, color: T.cardFg, margin: 0 }}>Criativos Ativos</h2>
           </div>
