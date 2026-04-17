@@ -504,7 +504,6 @@ export default function PlanoDeAcaoPage() {
     setSavingSection(false)
   }
 
-  // Only root sections (no parent)
   const rootSections = sections.filter(s => s.parentId === null).sort((a, b) => a.order - b.order)
 
   const totalTasks = tasks.length
