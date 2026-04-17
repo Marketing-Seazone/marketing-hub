@@ -127,6 +127,98 @@ Com base nos padrões dos melhores, escreva 5 briefs práticos e específicos:
 Seja específico — transcreva copies reais que você leu nas imagens, cite nomes de criativos como referência. Evite generalidades. O objetivo é que a equipe de criação consiga executar esses briefs diretamente.`
 
 /* ─────────────────────────────────────────────
+   SYSTEM PROMPT — MODO VISTAS HÓSPEDES
+───────────────────────────────────────────── */
+const VISTAS_SYSTEM_PROMPT = `Você é um analista sênior de mídia paga do time de Marketing da Seazone — empresa de gestão de aluguel por temporada.
+
+Você está analisando criativos da frente de **Hóspedes**, produto **Vistas de Anitá** (campanhas [SH] — Seazone Hóspedes).
+
+CONTEXTO OBRIGATÓRIO:
+- Campanhas de tráfego, alcance e vendas via remarketing — objetivo é gerar reservas de hóspedes
+- **NÃO há dados de WON ou CAC neste painel** — o funil de conversão de hóspedes não é rastreado aqui; não mencione essas métricas
+- As métricas relevantes são exclusivamente: **Investimento** e **Impressões**
+- Calcule o **CPM implícito** de cada criativo: (investimento / impressões) × 1000
+- Velocidade de impressões = eficiência do criativo em atrair visualizações com o orçamento disponível
+- A variação D-1 (hoje vs. ontem) revela qual criativo o algoritmo do Meta está priorizando agora
+
+Você receberá uma tabela com os criativos ativos no período, contendo:
+- ad_name, ad_id, campanha, investimento total, impressões totais
+- gasto_hoje, gasto_ontem, imp_hoje, imp_ontem (variação D-1)
+
+Produza análise em Markdown com EXATAMENTE estas seções:
+
+## Destaque por Impressões
+Ranqueie todos os criativos por total de impressões. Destaque qual acumulou mais e calcule o CPM de cada um. Qual entrega mais impressões por real investido?
+
+## Concentração de Investimento
+Qual criativo está recebendo mais investimento agora? Com base na variação D-1 de gasto, qual está em aceleração? Quando o Meta concentra budget, geralmente é sinal de performance — analise o que isso indica.
+
+## Tendência D-1
+Com base em gasto_hoje vs. gasto_ontem e imp_hoje vs. imp_ontem: quais criativos estão acelerando, estáveis ou desacelerando? Destaque os que tiveram maior variação positiva e os que estão caindo.
+
+## Recomendações
+3 a 5 ações concretas:
+- Qual criativo merece mais orçamento (melhor CPM + acelerando)
+- Qual pode estar saturando (impressões caindo apesar do investimento)
+- O que testar a seguir com base no que está funcionando
+
+Use os números reais. Calcule CPM para cada criativo. Não mencione WON, CAC ou leads como métricas relevantes.`
+
+/* ─────────────────────────────────────────────
+   VISTAS ANALYSIS HANDLER
+───────────────────────────────────────────── */
+async function handleVistaAnalysis({
+  rows, dataInicio, dataFim,
+}: {
+  rows: Record<string, unknown>[]
+  dataInicio: string
+  dataFim: string
+}) {
+  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
+  if (!OPENROUTER_API_KEY) return NextResponse.json({ error: "OPENROUTER_API_KEY não configurada." }, { status: 500 })
+
+  const fmt = (n: number) => `R$${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+  const fmtInt = (n: number) => Math.round(Number(n)).toLocaleString("pt-BR")
+
+  const tabela = rows.map((r, i) => {
+    const inv = Number(r.investimento) || 0
+    const imp = Number(r.impressoes) || 0
+    const cpm = imp > 0 ? (inv / imp) * 1000 : 0
+    const dGasto = Number(r.gasto_hoje) - Number(r.gasto_ontem)
+    const dImp = Number(r.imp_hoje) - Number(r.imp_ontem)
+    return [
+      `${i + 1}. "${r.ad_name}" [${r.ad_id}]`,
+      `   Campanha: ${r.campaign_name}`,
+      `   Invest: ${fmt(inv)} | Impressões: ${fmtInt(imp)} | CPM implícito: ${fmt(cpm)}`,
+      `   D-1 gasto: ${dGasto >= 0 ? "+" : ""}${fmt(dGasto)} | D-1 impressões: ${dImp >= 0 ? "+" : ""}${fmtInt(dImp)}`,
+    ].join("\n")
+  }).join("\n\n")
+
+  const userText = `Período: ${dataInicio} a ${dataFim}\n\nCRIATIVOS ATIVOS (${rows.length} criativos):\n\n${tabela}`
+
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENROUTER_API_KEY}` },
+    body: JSON.stringify({
+      model: "anthropic/claude-sonnet-4-5",
+      max_tokens: 2000,
+      messages: [
+        { role: "system", content: VISTAS_SYSTEM_PROMPT },
+        { role: "user", content: userText },
+      ],
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.text()
+    return NextResponse.json({ error: `OpenRouter error: ${response.status} — ${err}` }, { status: response.status })
+  }
+
+  const data = await response.json()
+  return NextResponse.json({ analysis: data.choices[0].message.content }, { headers: { "Cache-Control": "no-store" } })
+}
+
+/* ─────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────── */
 interface AdRow {
@@ -491,15 +583,16 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { rows, groupBy, dataInicio, dataFim, creativeData, rankingMode, rankingTop3, rankingBottom3 } = await req.json() as {
-      rows: AdRow[] | CampRow[]
-      groupBy: "anuncio" | "campanha"
+    const { rows, groupBy, dataInicio, dataFim, creativeData, rankingMode, rankingTop3, rankingBottom3, vistaMode } = await req.json() as {
+      rows: AdRow[] | CampRow[] | Record<string, unknown>[]
+      groupBy: "anuncio" | "campanha" | "ad_name"
       dataInicio: string
       dataFim: string
       creativeData?: CreativeData[]
       rankingMode?: boolean
       rankingTop3?: AdRow[]
       rankingBottom3?: AdRow[]
+      vistaMode?: boolean
     }
 
     if (!rows || !Array.isArray(rows)) {
@@ -514,6 +607,11 @@ export async function POST(req: NextRequest) {
 
     const isDev = process.env.NODE_ENV === "development"
     const hasNekt = !!process.env.NEKT_API_KEY
+
+    /* ── vista mode: impressões/investimento hóspedes, sem WON/CAC ── */
+    if (vistaMode) {
+      return handleVistaAnalysis({ rows: rows as Record<string, unknown>[], dataInicio, dataFim })
+    }
 
     /* ── ranking mode: pula benchmarks/tendências, usa prompt focado ── */
     if (rankingMode && rankingTop3 && rankingBottom3) {
