@@ -459,7 +459,7 @@ ${formatRankGroup(rankingBottom3, "BOTTOM")}`
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENROUTER_API_KEY}` },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-5",
+      model: "anthropic/claude-sonnet-4-6",
       max_tokens: 3000,
       ...(hasImages ? { provider: { order: ["Anthropic"], allow_fallbacks: false } } : {}),
       messages: [
@@ -683,7 +683,7 @@ ${visualSummary}`
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
+        model: "anthropic/claude-sonnet-4-6",
         max_tokens: 2500,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
