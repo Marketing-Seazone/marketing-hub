@@ -23,6 +23,9 @@ interface ContentModalProps {
 
 export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModalProps) {
   const editorial = getEditorial(item.editoria);
+  const [title, setTitle] = useState(item.title);
+  const [notas, setNotas] = useState(item.notas ?? '');
+  const [tema, setTema] = useState(item.tema ?? '');
   const [status, setStatus] = useState<ContentStatus>(item.status);
   const [formato, setFormato] = useState<ContentFormat>(item.formato);
   const [scheduledDate, setScheduledDate] = useState(item.scheduled_at ?? '');
@@ -31,7 +34,14 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
   const handleSave = async () => {
     setSaving(true);
     try {
-      await onUpdate(item.id, { status, formato, scheduled_at: scheduledDate || null });
+      await onUpdate(item.id, {
+        title,
+        notas: notas || null,
+        tema: tema || null,
+        status,
+        formato,
+        scheduled_at: scheduledDate || null,
+      });
       onClose();
     } finally {
       setSaving(false);
@@ -47,57 +57,112 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
 
   const tag = getStatusTag(item.status);
 
+  const inputBase: React.CSSProperties = {
+    width: '100%',
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    padding: '6px 10px',
+    fontSize: 14,
+    color: T.cinza700,
+    background: T.card,
+    outline: 'none',
+    fontFamily: 'inherit',
+    boxSizing: 'border-box',
+    transition: 'border-color 0.15s',
+  };
+
   return (
     <div
       style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' }}
       onClick={onClose}
     >
       <div
-        style={{ width: '100%', maxWidth: 520, background: T.card, borderRadius: 14, padding: 24, boxShadow: T.elevMd }}
+        style={{
+          width: '100%',
+          maxWidth: 540,
+          background: T.card,
+          borderRadius: 14,
+          padding: 24,
+          boxShadow: T.elevMd,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ width: 12, height: 12, borderRadius: '50%', background: editorial?.color }} />
+            <span style={{ width: 12, height: 12, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
             <span style={{ fontSize: 14, fontWeight: 500, color: T.mutedFg }}>{editorial?.name}</span>
             <span style={{ fontSize: 14, color: T.cinza400 }}>
               {FORMAT_OPTIONS.find((f) => f.value === item.formato)?.label ?? item.formato}
             </span>
             <span style={{ fontSize: 14, color: T.cinza400 }}>{item.canal}</span>
           </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.cinza400 }}>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.cinza400, flexShrink: 0 }}>
             <X size={20} />
           </button>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: T.cardFg, margin: 0 }}>{item.title}</h2>
-          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>
+        {/* Title — editable */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Titulo do post..."
+            onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
+            onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
+            style={{
+              ...inputBase,
+              fontSize: 17,
+              fontWeight: 700,
+              color: T.cardFg,
+            }}
+          />
+          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
             {tag.label}
           </span>
         </div>
 
-        {item.tema && (
-          <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 4px' }}>Tema</p>
-            <p style={{ fontSize: 14, color: T.cinza700, margin: 0 }}>{item.tema}</p>
-          </div>
-        )}
+        {/* Tema — editable */}
+        <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 6px', letterSpacing: '0.05em' }}>Tema</p>
+          <input
+            value={tema}
+            onChange={(e) => setTema(e.target.value)}
+            placeholder="Adicionar tema..."
+            onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
+            onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
+            style={inputBase}
+          />
+        </div>
 
-        {item.notas && (
-          <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 4px' }}>Notas</p>
-            <p style={{ fontSize: 14, color: T.cinza700, margin: 0 }}>{item.notas}</p>
-          </div>
-        )}
+        {/* Notas — editable */}
+        <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 6px', letterSpacing: '0.05em' }}>Notas</p>
+          <textarea
+            value={notas}
+            onChange={(e) => setNotas(e.target.value)}
+            placeholder="Adicionar notas..."
+            rows={5}
+            onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
+            onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
+            style={{
+              ...inputBase,
+              resize: 'vertical',
+              lineHeight: 1.5,
+            }}
+          />
+        </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+        {/* Status / Formato / Data */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: T.cinza600, marginBottom: 4 }}>Status</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as ContentStatus)}
-              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 14 }}
+              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 13 }}
             >
               {STATUSES.map((s) => (
                 <option key={s.value} value={s.value}>{s.emoji} {s.label}</option>
@@ -109,7 +174,7 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
             <select
               value={formato}
               onChange={(e) => setFormato(e.target.value as ContentFormat)}
-              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 14 }}
+              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 13 }}
             >
               {FORMAT_OPTIONS.map((f) => (
                 <option key={f.value} value={f.value}>{f.label}</option>
@@ -122,11 +187,12 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
               type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 12px', fontSize: 14 }}
+              style={{ width: '100%', border: `1px solid ${T.border}`, borderRadius: 8, padding: '8px 10px', fontSize: 13 }}
             />
           </div>
         </div>
 
+        {/* Actions */}
         <div style={{ display: 'flex', gap: 12 }}>
           {item.status === 'agendado' && (
             <button
