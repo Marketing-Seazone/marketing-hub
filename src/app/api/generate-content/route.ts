@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -37,6 +39,11 @@ function buildSearchQuery(editorial: string, topic?: string): string {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const body = await request.json();
   const { editorial, format, channel, topic } = body;
 
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest) {
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: IDEATION_SYSTEM_PROMPT,
-      betas: [{ type: 'web_search_20250305', name: 'web_search' }],
+      betas: ['web_search_20250305'],
       messages: [{ role: 'user', content: userPrompt }],
     });
 
@@ -79,7 +86,7 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json({ title: 'Erro no parse', description: clean.substring(0, 200) });
     }
-} catch (err: any) {
+  } catch (err: any) {
     console.error('Anthropic error:', err);
     return NextResponse.json(
       { error: `Anthropic API error: ${err.message}` },
