@@ -23,7 +23,7 @@ const CHANNEL_OPTIONS: { value: string; label: string }[] = [
 ];
 
 async function generateContent(params: { editorial: string; format: string; channel?: string; topic?: string }) {
-  const res = await fetch('/api/openrouter', {
+  const res = await fetch('/api/generate-content', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
