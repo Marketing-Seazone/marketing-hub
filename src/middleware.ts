@@ -5,7 +5,6 @@ const authMiddleware = withAuth({ pages: { signIn: "/login" } })
 
 export default function middleware(req: NextRequest) {
   if (process.env.NODE_ENV === "development") return NextResponse.next()
-  if (process.env.VERCEL_ENV === "preview") return NextResponse.next()
   return (authMiddleware as (req: NextRequest) => Response)(req)
 }
 
