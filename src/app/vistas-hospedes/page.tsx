@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Plus, Trash2, Pencil } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles } from "lucide-react"
 import { T } from "@/lib/constants"
 import type { DayData } from "@/app/api/vistas-reservas/route"
+import type { Task } from "@/app/api/vistas-checklist/route"
 
 const META_DIA = 7
 const COR = "#7C3AED"
@@ -68,58 +69,359 @@ function ReservasChart({ days }: { days: DayData[] }) {
   )
 }
 
-interface CriativoRow { campaign_name: string; ad_name: string; investimento: number; leads: number; won: number; vertical: string }
+const SECTION_META: Record<string, { label: string; live: string | null }> = {
+  "midia-paga": { label: "Mídia Paga — Retargeting", live: "25 abr" },
+  "website": { label: "Website — Melhorias de Conversão", live: "30 abr" },
+  "geral": { label: "Geral", live: null },
+}
+const SECTION_ORDER = ["midia-paga", "website", "geral"]
+
+const SEED: Omit<Task, "id" | "done" | "createdAt">[] = [
+  { title: "Finalizar os 4 briefings de criativo", notes: "Urgência e Emocional", deadline: "2026-04-10", link: null, section: "midia-paga", isWarning: false },
+  { title: "Enviar briefings para a head aprovar", notes: "Sinalizar urgência de prazo", deadline: "2026-04-10", link: null, section: "midia-paga", isWarning: false },
+  { title: "Head aprova e abre chamado para criação", notes: "Sinalizar urgência de prazo", deadline: "2026-04-10", link: null, section: "midia-paga", isWarning: false },
+  { title: "Time de criação produz os 4 criativos", notes: "4 dias úteis — entrega prevista: 16/04", deadline: "2026-04-16", link: null, section: "midia-paga", isWarning: false },
+  { title: "Aprovação dos criativos — responsável + head", notes: "Se houver ajustes, retorno em 22/04", deadline: "2026-04-17", link: null, section: "midia-paga", isWarning: false },
+  { title: "FERIADO — Tiradentes", notes: "Próximo dia útil: 22/04", deadline: "2026-04-21", link: null, section: "midia-paga", isWarning: true },
+  { title: "Enviar criativos aprovados para o growth publicar", notes: "Growth configura campanhas no Meta Ads com segmentações", deadline: "2026-04-22", link: null, section: "midia-paga", isWarning: false },
+  { title: "Campanhas de retargeting no ar", notes: "Monitorar CTR e custo por clique nas primeiras 48h", deadline: "2026-04-25", link: null, section: "midia-paga", isWarning: false },
+  { title: "Montar briefing das melhorias para o time de tech", notes: "4 itens: pop-up exit intent, filtro por ocasião, contador de disponibilidade, galeria de hóspedes", deadline: "2026-04-13", link: null, section: "website", isWarning: false },
+  { title: "Reunião com time de tech — escopo e prazos", notes: "Definir o que entra até 30/04, responsável e data de entrega por item", deadline: "2026-04-14", link: null, section: "website", isWarning: false },
+  { title: "Tech implementa pop-up exit intent", notes: "Quick win — menor esforço, maior impacto imediato", deadline: "2026-04-17", link: null, section: "website", isWarning: false },
+  { title: "Testar e validar pop-up — aprovação para ir ao ar", notes: "Checar disparo, cupom ativo e link de reserva funcionando", deadline: "2026-04-17", link: null, section: "website", isWarning: false },
+  { title: "FERIADO — Tiradentes", notes: "Próximo dia útil: 22/04", deadline: "2026-04-21", link: null, section: "website", isWarning: true },
+  { title: "Tech implementa filtro por ocasião + contador de disponibilidade", notes: "4 botões de filtro (Romance / Família / Pet / Workcation) + contador dinâmico nas páginas de cabana", deadline: "2026-04-25", link: null, section: "website", isWarning: false },
+  { title: "Review e testes de todas as implementações", notes: "Filtros, contador, responsividade mobile e links de reserva", deadline: "2026-04-29", link: null, section: "website", isWarning: false },
+  { title: "Todas as melhorias do site no ar — DEADLINE", notes: "Pop-up, filtro por ocasião e contador funcionando", deadline: "2026-04-30", link: null, section: "website", isWarning: false },
+]
+
+interface AddForm { title: string; notes: string; deadline: string; link: string }
+const EMPTY_ADD: AddForm = { title: "", notes: "", deadline: "", link: "" }
+interface EditForm { title: string; notes: string; deadline: string; link: string }
+
+function ChecklistSection() {
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [addingSection, setAddingSection] = useState<string | null>(null)
+  const [form, setForm] = useState<AddForm>(EMPTY_ADD)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState<EditForm>({ title: "", notes: "", deadline: "", link: "" })
+
+  useEffect(() => {
+    fetch("/api/vistas-checklist").then(r => r.json()).then(async (data: Task[]) => {
+      const list = Array.isArray(data) ? data : []
+      if (list.length === 0) {
+        const seeded: Task[] = []
+        for (const t of SEED) {
+          const res = await fetch("/api/vistas-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(t) })
+          if (res.ok) seeded.push(await res.json())
+        }
+        setTasks(seeded)
+      } else { setTasks(list) }
+      setLoading(false)
+    }).catch(() => setLoading(false))
+  }, [])
+
+  function sortAll(list: Task[]) {
+    return [...list].sort((a, b) => {
+      if (a.done !== b.done) return a.done ? 1 : -1
+      return (a.deadline || "9999").localeCompare(b.deadline || "9999")
+    })
+  }
+
+  const grouped: Record<string, Task[]> = {}
+  for (const s of SECTION_ORDER) {
+    grouped[s] = sortAll(tasks.filter(t => s === "geral" ? (!t.section || t.section === "geral") : t.section === s))
+  }
+
+  async function addTask() {
+    if (!form.title.trim() || !addingSection) return
+    setSaving(true)
+    const res = await fetch("/api/vistas-checklist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...form, section: addingSection }) })
+    const task = await res.json()
+    setTasks(prev => [...prev, task])
+    setForm(EMPTY_ADD); setAddingSection(null); setSaving(false)
+  }
+
+  async function toggle(id: string, done: boolean) {
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, done } : t))
+    await fetch("/api/vistas-checklist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, done }) })
+  }
+
+  async function saveEdit(id: string) {
+    setSaving(true)
+    const res = await fetch("/api/vistas-checklist", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, ...editForm }) })
+    const updated = await res.json()
+    setTasks(prev => prev.map(t => t.id === id ? updated : t))
+    setEditId(null); setSaving(false)
+  }
+
+  async function remove(id: string) {
+    setTasks(prev => prev.filter(t => t.id !== id))
+    await fetch("/api/vistas-checklist", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
+  }
+
+  const totalDone = tasks.filter(t => t.done && !t.isWarning).length
+  const totalReal = tasks.filter(t => !t.isWarning).length
+
+  if (loading) return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 0", color: T.mutedFg, fontSize: 13 }}>
+      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Carregando plano de ação...
+    </div>
+  )
+
+  const inputStyle = { padding: "7px 10px", borderRadius: 6, border: `1px solid ${T.border}`, fontSize: 13, fontFamily: T.font, color: T.cardFg, background: T.muted, outline: "none" }
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+        <div>
+          <p style={{ margin: "0 0 2px", fontSize: 12, color: T.mutedFg }}>Período: 10 a 30 de abril · Objetivo: todas as ações de mídia paga e website no ar</p>
+          <p style={{ margin: 0, fontSize: 12, fontWeight: 600, color: T.mutedFg }}><Check size={12} color={COR} style={{ display: "inline", marginRight: 4 }} />{totalDone} de {totalReal} concluídas</p>
+        </div>
+      </div>
+      {SECTION_ORDER.map(sKey => {
+        const secTasks = grouped[sKey]
+        const meta = SECTION_META[sKey]
+        if (secTasks.length === 0 && addingSection !== sKey) return null
+        const doneCount = secTasks.filter(t => t.done && !t.isWarning).length
+        const totalCount = secTasks.filter(t => !t.isWarning).length
+        return (
+          <div key={sKey} style={{ marginBottom: 28 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: `2px solid ${COR}30`, paddingBottom: 8, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.cardFg }}>{meta.label}</span>
+                {meta.live && <span style={{ fontSize: 11, fontWeight: 600, color: "#10b981", background: "#10b98115", padding: "2px 8px", borderRadius: 20 }}>Live: {meta.live}</span>}
+              </div>
+              <span style={{ fontSize: 12, color: T.mutedFg, fontWeight: 600 }}>{doneCount}/{totalCount}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {secTasks.map(task => {
+                if (task.isWarning) return (
+                  <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", borderBottom: `1px solid ${T.border}` }}>
+                    <AlertTriangle size={14} color="#f59e0b" style={{ flexShrink: 0, marginTop: 2 }} />
+                    <div style={{ flex: 1 }}><span style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b" }}>{task.title}</span>{task.notes && <p style={{ margin: "2px 0 0", fontSize: 11, color: T.mutedFg }}>{task.notes}</p>}</div>
+                    {task.deadline && <span style={{ fontSize: 11, color: "#f59e0b", whiteSpace: "nowrap", flexShrink: 0 }}>{fmtDate(task.deadline)}</span>}
+                  </div>
+                )
+                if (editId === task.id) return (
+                  <div key={task.id} style={{ padding: "10px 0", borderBottom: `1px solid ${T.border}`, background: `${COR}06`, borderRadius: 6 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8, padding: "0 4px" }}>
+                      <input value={editForm.title} onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))} autoFocus style={{ ...inputStyle, flex: "1 1 200px" }} />
+                      <input value={editForm.notes} onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observação" style={{ ...inputStyle, flex: "1 1 180px" }} />
+                      <input type="date" value={editForm.deadline} onChange={e => setEditForm(f => ({ ...f, deadline: e.target.value }))} style={inputStyle} />
+                      <input value={editForm.link} onChange={e => setEditForm(f => ({ ...f, link: e.target.value }))} placeholder="Link (opcional)" style={{ ...inputStyle, flex: "1 1 160px" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, padding: "0 4px" }}>
+                      <button onClick={() => saveEdit(task.id)} style={{ padding: "5px 14px", background: COR, color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: T.font }}>{saving ? "Salvando..." : "Salvar"}</button>
+                      <button onClick={() => setEditId(null)} style={{ padding: "5px 12px", background: "transparent", color: T.mutedFg, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: T.font }}>Cancelar</button>
+                      <button onClick={() => remove(task.id)} style={{ marginLeft: "auto", padding: "5px 8px", background: "transparent", color: T.destructive, border: "none", cursor: "pointer", display: "flex", alignItems: "center" }}><Trash2 size={13} /></button>
+                    </div>
+                  </div>
+                )
+                return (
+                  <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: `1px solid ${T.border}`, opacity: task.done ? 0.5 : 1, transition: "opacity 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget.querySelector(".row-actions") as HTMLElement | null)?.style && ((e.currentTarget.querySelector(".row-actions") as HTMLElement).style.opacity = "1") }}
+                    onMouseLeave={e => { (e.currentTarget.querySelector(".row-actions") as HTMLElement | null)?.style && ((e.currentTarget.querySelector(".row-actions") as HTMLElement).style.opacity = "0") }}
+                  >
+                    <button onClick={() => toggle(task.id, !task.done)} style={{ width: 18, height: 18, borderRadius: 4, flexShrink: 0, cursor: "pointer", border: `2px solid ${task.done ? COR : T.border}`, background: task.done ? COR : "transparent", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, marginTop: 1 }}>
+                      {task.done && <Check size={11} color="#fff" strokeWidth={3} />}
+                    </button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: 13, color: T.cardFg, fontWeight: 500, textDecoration: task.done ? "line-through" : "none" }}>{task.title}</span>
+                        {task.link && <a href={task.link} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: COR, textDecoration: "none" }}><Link2 size={10} /> link</a>}
+                      </div>
+                      {task.notes && <p style={{ margin: "2px 0 0", fontSize: 11, color: T.mutedFg }}>{task.notes}</p>}
+                    </div>
+                    {task.deadline && <span style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: T.mutedFg, whiteSpace: "nowrap", flexShrink: 0 }}><Calendar size={10} /> {fmtDate(task.deadline)}</span>}
+                    <div className="row-actions" style={{ display: "flex", gap: 4, flexShrink: 0, opacity: 0, transition: "opacity 0.1s" }}>
+                      <button onClick={() => { setEditId(task.id); setEditForm({ title: task.title, notes: task.notes || "", deadline: task.deadline || "", link: task.link || "" }) }} style={{ padding: "3px 6px", background: "transparent", color: T.mutedFg, border: `1px solid ${T.border}`, borderRadius: 5, cursor: "pointer", display: "flex", alignItems: "center" }}><Pencil size={11} /></button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {addingSection === sKey ? (
+              <div style={{ padding: "12px 0 4px" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} autoFocus onKeyDown={e => e.key === "Enter" && addTask()} placeholder="Nome da tarefa..." style={{ ...inputStyle, flex: "1 1 200px" }} />
+                  <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Observação (opcional)" style={{ ...inputStyle, flex: "1 1 200px" }} />
+                  <input type="date" value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} style={inputStyle} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={addTask} disabled={saving || !form.title.trim()} style={{ padding: "6px 14px", background: COR, color: "#fff", border: "none", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: T.font, opacity: !form.title.trim() ? 0.5 : 1 }}>{saving ? "Salvando..." : "Adicionar"}</button>
+                  <button onClick={() => { setAddingSection(null); setForm(EMPTY_ADD) }} style={{ padding: "6px 12px", background: "transparent", color: T.mutedFg, border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, cursor: "pointer", fontFamily: T.font }}>Cancelar</button>
+                </div>
+              </div>
+            ) : (
+              <button onClick={() => { setAddingSection(sKey); setForm(EMPTY_ADD); setEditId(null) }} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 10, background: "transparent", border: "none", cursor: "pointer", color: T.mutedFg, fontSize: 12, fontFamily: T.font, padding: "4px 0" }}>
+                <Plus size={12} /> Adicionar tarefa
+              </button>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+interface CriativoRow {
+  campaign_name: string; ad_name: string; ad_id: string
+  investimento: number; impressoes: number; leads: number; won: number
+  gasto_hoje: number; gasto_ontem: number; imp_hoje: number; imp_ontem: number
+}
 
 function CriativosSection() {
+  const toISO = (d: Date) => d.toISOString().split("T")[0]
+  const today = new Date()
+  const d30 = new Date(today); d30.setDate(today.getDate() - 30)
+
+  const [dataInicio, setDataInicio] = useState(toISO(d30))
+  const [dataFim, setDataFim] = useState(toISO(today))
   const [rows, setRows] = useState<CriativoRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [campaigns, setCampaigns] = useState<string[]>([])
+  const [ultimaAtt, setUltimaAtt] = useState("")
+  const [iaAnalise, setIaAnalise] = useState("")
+  const [iaLoading, setIaLoading] = useState(false)
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const discRes = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql: `SELECT DISTINCT campaign_name, vertical FROM nekt_silver.ads_unificado WHERE (LOWER(campaign_name) LIKE '%vistas%' OR LOWER(campaign_name) LIKE '%anit%') AND date >= DATE '2026-01-01' ORDER BY campaign_name` }) })
-        const discData = await discRes.json()
-        const found: string[] = (discData.rows || []).map((r: Record<string, unknown>) => String(r.campaign_name || ""))
-        setCampaigns(found)
-        if (found.length === 0) { setLoading(false); return }
-        const names = found.map(n => `'${n.replace(/'/g, "''")}'`).join(", ")
-        const metRes = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql: `SELECT campaign_name, ad_name, SUM(spend) AS investimento, SUM(lead) AS leads, SUM(won) AS won FROM nekt_silver.ads_unificado WHERE campaign_name IN (${names}) AND date >= DATE '2026-01-01' GROUP BY campaign_name, ad_name ORDER BY investimento DESC` }) })
-        const metData = await metRes.json()
-        setRows((metData.rows || []).map((r: Record<string, unknown>) => ({ campaign_name: String(r.campaign_name || ""), ad_name: String(r.ad_name || ""), investimento: Number(r.investimento) || 0, leads: Number(r.leads) || 0, won: Number(r.won) || 0, vertical: "" })))
-      } catch (e) { setError(String(e)) } finally { setLoading(false) }
-    }
-    load()
+  const load = useCallback(async (di: string, df: string) => {
+    setLoading(true); setError("")
+    try {
+      const sql = `SELECT campaign_name, ad_name, ad_id,
+        SUM(CASE WHEN date >= DATE '${di}' AND date <= DATE '${df}' THEN spend ELSE 0 END) AS investimento,
+        SUM(CASE WHEN date >= DATE '${di}' AND date <= DATE '${df}' THEN impressions ELSE 0 END) AS impressoes,
+        SUM(CASE WHEN date >= DATE '${di}' AND date <= DATE '${df}' THEN lead ELSE 0 END) AS leads,
+        SUM(CASE WHEN date >= DATE '${di}' AND date <= DATE '${df}' THEN won ELSE 0 END) AS won,
+        SUM(CASE WHEN date = CURRENT_DATE THEN spend ELSE 0 END) AS gasto_hoje,
+        SUM(CASE WHEN date = CURRENT_DATE - INTERVAL '1' DAY THEN spend ELSE 0 END) AS gasto_ontem,
+        SUM(CASE WHEN date = CURRENT_DATE THEN impressions ELSE 0 END) AS imp_hoje,
+        SUM(CASE WHEN date = CURRENT_DATE - INTERVAL '1' DAY THEN impressions ELSE 0 END) AS imp_ontem
+        FROM nekt_silver.ads_unificado_historico
+        WHERE REGEXP_LIKE(campaign_name, '^\\[SH\\]')
+          AND (LOWER(campaign_name) LIKE '%vistas%' OR LOWER(campaign_name) LIKE '%anit%' OR LOWER(campaign_name) LIKE '%vista%' OR LOWER(campaign_name) LIKE '%serra%')
+          AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_silver.ads_unificado_historico WHERE spend > 0 AND date >= CURRENT_DATE - INTERVAL '7' DAY)
+        GROUP BY campaign_name, ad_name, ad_id ORDER BY investimento DESC`
+      const res = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql }) })
+      const data = await res.json()
+      const mapped: CriativoRow[] = (data.rows || []).map((r: Record<string, unknown>) => ({
+        campaign_name: String(r.campaign_name || ""), ad_name: String(r.ad_name || ""), ad_id: String(r.ad_id || ""),
+        investimento: Number(r.investimento) || 0, impressoes: Number(r.impressoes) || 0,
+        leads: Number(r.leads) || 0, won: Number(r.won) || 0,
+        gasto_hoje: Number(r.gasto_hoje) || 0, gasto_ontem: Number(r.gasto_ontem) || 0,
+        imp_hoje: Number(r.imp_hoje) || 0, imp_ontem: Number(r.imp_ontem) || 0,
+      }))
+      setRows(mapped)
+      setCampaigns([...new Set(mapped.map(r => r.campaign_name))].filter(Boolean))
+      setUltimaAtt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))
+    } catch (e) { setError(String(e)) } finally { setLoading(false) }
   }, [])
+
+  useEffect(() => { load(dataInicio, dataFim) }, [])
+
+  async function analisarIA() {
+    setIaLoading(true); setIaAnalise("")
+    try {
+      const res = await fetch("/api/analyze-creatives", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rows, groupBy: "ad_name", dataInicio, dataFim, vistaMode: true }) })
+      const data = await res.json()
+      setIaAnalise(data.analysis || data.error || "Sem resposta")
+    } catch (e) { setIaAnalise(String(e)) } finally { setIaLoading(false) }
+  }
 
   const fmt = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-BR")
 
-  if (loading) return <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.mutedFg, fontSize: 13 }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Buscando criativos na Nekt...</div>
-  if (error) return <div style={{ fontSize: 13, color: T.destructive, background: `${T.destructive}10`, padding: "10px 14px", borderRadius: 8 }}>Erro: {error}</div>
-  if (campaigns.length === 0) return <div style={{ fontSize: 13, color: T.mutedFg, fontStyle: "italic", background: T.muted, padding: "12px 16px", borderRadius: 8, border: `1px solid ${T.border}` }}>Nenhuma campanha com "vistas" ou "anita" encontrada na Nekt ainda.</div>
+  const inputStyle: React.CSSProperties = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 12, color: T.cardFg, outline: "none" }
 
   return (
     <div>
-      <div style={{ marginBottom: 10, display: "flex", flexWrap: "wrap", gap: 6 }}>{campaigns.map(c => <span key={c} style={{ background: `${COR}15`, color: COR, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{c}</span>)}</div>
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-          <thead><tr style={{ background: T.muted }}>{["Anúncio", "Campanha", "Investimento", "Leads", "WON", "CAC"].map(col => <th key={col} style={{ padding: "7px 10px", textAlign: "left", fontWeight: 600, color: T.mutedFg, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>{col}</th>)}</tr></thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid ${T.border}` }} onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = T.muted }} onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
-                <td style={{ padding: "7px 10px", color: T.cardFg, maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.ad_name}>{row.ad_name || "—"}</td>
-                <td style={{ padding: "7px 10px" }}><span style={{ background: `${COR}15`, color: COR, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{row.campaign_name}</span></td>
-                <td style={{ padding: "7px 10px", color: T.cardFg, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>R$ {fmt(row.investimento)}</td>
-                <td style={{ padding: "7px 10px", color: T.teal600, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{fmtInt(row.leads)}</td>
-                <td style={{ padding: "7px 10px", color: T.primary, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{fmtInt(row.won)}</td>
-                <td style={{ padding: "7px 10px", color: T.destructive, fontFamily: "monospace", whiteSpace: "nowrap" }}>{row.won > 0 ? `R$ ${fmt(row.investimento / row.won)}` : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Filtros + ações */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 12, color: T.mutedFg, fontWeight: 600 }}>Período</span>
+        <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
+        <span style={{ fontSize: 12, color: T.mutedFg }}>até</span>
+        <input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} style={inputStyle} />
+        <button onClick={() => load(dataInicio, dataFim)} disabled={loading} style={{ display: "flex", alignItems: "center", gap: 5, background: T.primary, color: "#fff", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          <RefreshCw size={12} style={loading ? { animation: "spin 1s linear infinite" } : {}} /> Buscar
+        </button>
+        {ultimaAtt && <span style={{ fontSize: 11, color: T.mutedFg }}>Atualizado às {ultimaAtt}</span>}
+        <button onClick={analisarIA} disabled={iaLoading || rows.length === 0 || loading} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, background: "#7C3AED", color: "#fff", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: iaLoading ? 0.7 : 1 }}>
+          <Sparkles size={12} /> {iaLoading ? "Analisando..." : "Analisar com IA"}
+        </button>
       </div>
+
+      {/* Painel IA */}
+      {iaAnalise && (
+        <div style={{ background: `#7C3AED10`, border: `1px solid #7C3AED40`, borderRadius: 10, padding: "14px 16px", marginBottom: 14, fontSize: 13, color: T.cardFg, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 700, color: "#7C3AED", fontSize: 13 }}><Sparkles size={14} /> Análise IA</div>
+          {iaAnalise}
+        </div>
+      )}
+
+      {/* Estado vazio / erro */}
+      {error && <div style={{ fontSize: 13, color: T.destructive, background: `${T.destructive}10`, padding: "10px 14px", borderRadius: 8, marginBottom: 10 }}>Erro: {error}</div>}
+      {!loading && rows.length === 0 && !error && <div style={{ fontSize: 13, color: T.mutedFg, fontStyle: "italic", background: T.muted, padding: "12px 16px", borderRadius: 8, border: `1px solid ${T.border}` }}>Nenhum criativo [SH] ativo encontrado para o período.</div>}
+
+      {/* Badges de campanha + contador */}
+      {rows.length > 0 && (
+        <div style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: T.mutedFg }}>{rows.length} criativos ·</span>
+          {campaigns.map(c => <span key={c} style={{ background: `${COR}15`, color: COR, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{c}</span>)}
+        </div>
+      )}
+
+      {/* Tabela */}
+      {loading ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.mutedFg, fontSize: 13, padding: "16px 0" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Buscando criativos na Nekt...</div>
+      ) : rows.length > 0 && (
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: T.muted }}>
+                {["Anúncio", "Ad ID", "Campanha", "Investimento", "Impressões", "Variação D-1", "Leads", "WON"].map(col =>
+                  <th key={col} style={{ padding: "7px 10px", textAlign: "left", fontWeight: 600, color: T.mutedFg, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" }}>{col}</th>
+                )}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => {
+                const dGasto = row.gasto_hoje - row.gasto_ontem
+                const dImp = row.imp_hoje - row.imp_ontem
+                const hasVar = row.gasto_hoje > 0 || row.gasto_ontem > 0
+                return (
+                  <tr key={i} style={{ borderBottom: `1px solid ${T.border}` }} onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = T.muted }} onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = "transparent" }}>
+                    <td style={{ padding: "7px 10px", color: T.cardFg, maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={row.ad_name}>{row.ad_name || "—"}</td>
+                    <td style={{ padding: "7px 10px", color: T.mutedFg, fontFamily: "monospace", fontSize: 11, whiteSpace: "nowrap" }}>{row.ad_id || "—"}</td>
+                    <td style={{ padding: "7px 10px" }}><span style={{ background: `${COR}15`, color: COR, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{row.campaign_name}</span></td>
+                    <td style={{ padding: "7px 10px", color: T.cardFg, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>R$ {fmt(row.investimento)}</td>
+                    <td style={{ padding: "7px 10px", color: T.mutedFg, fontFamily: "monospace", whiteSpace: "nowrap" }}>{fmtInt(row.impressoes)}</td>
+                    <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>
+                      {!hasVar ? <span style={{ color: T.mutedFg, fontSize: 11 }}>—</span> : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: 3, color: dGasto >= 0 ? T.teal600 : T.destructive, fontSize: 11, fontFamily: "monospace" }}>
+                            {dGasto >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                            R$ {fmt(Math.abs(dGasto))} gasto
+                          </span>
+                          <span style={{ display: "flex", alignItems: "center", gap: 3, color: dImp >= 0 ? T.teal600 : T.destructive, fontSize: 11, fontFamily: "monospace" }}>
+                            {dImp >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                            {fmtInt(Math.abs(dImp))} imp.
+                          </span>
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "7px 10px", color: T.teal600, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{row.leads > 0 ? fmtInt(row.leads) : "—"}</td>
+                    <td style={{ padding: "7px 10px", color: T.primary, fontFamily: "monospace", fontWeight: 600, whiteSpace: "nowrap" }}>{row.won > 0 ? fmtInt(row.won) : "—"}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
