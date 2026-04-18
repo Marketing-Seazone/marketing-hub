@@ -64,18 +64,21 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
       style={{
         background: T.card,
         border: `1px solid ${T.border}`,
-        borderRadius: 12,
-        padding: compact ? 8 : 12,
+        borderRadius: compact ? 8 : 12,
+        padding: compact ? 6 : 12,
         cursor: draggable && !editingField ? 'grab' : 'pointer',
         transition: 'box-shadow 0.15s',
+        // Prevent cards from overflowing calendar cells
+        overflow: 'hidden',
+        minWidth: 0,
       }}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = T.elevMd; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
         {!compact && (
-          <span style={{ fontSize: 12, fontWeight: 500, color: T.mutedFg }}>{editorial?.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: T.mutedFg, whiteSpace: 'nowrap' }}>{editorial?.name}</span>
         )}
         {onStatusChange ? (
           <select
@@ -87,11 +90,12 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
               color: tag.fg,
               border: `1px solid ${tag.bg}`,
               borderRadius: 6,
-              padding: '2px 6px',
+              padding: '1px 4px',
               fontSize: 10,
               fontWeight: 600,
               cursor: 'pointer',
               outline: 'none',
+              flexShrink: 0,
             }}
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -99,7 +103,7 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
             ))}
           </select>
         ) : (
-          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '2px 6px', fontSize: 10, fontWeight: 600 }}>
+          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '1px 4px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
             {tag.label}
           </span>
         )}
@@ -121,7 +125,7 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
             border: `1px solid ${T.primary}`,
             borderRadius: 6,
             padding: '2px 4px',
-            fontSize: compact ? 12 : 14,
+            fontSize: compact ? 11 : 14,
             fontWeight: 600,
             color: T.cardFg,
             outline: 'none',
@@ -129,7 +133,21 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
         />
       ) : (
         <p
-          style={{ fontSize: compact ? 12 : 14, fontWeight: 600, color: T.cardFg, margin: 0, lineHeight: 1.3, cursor: onUpdate ? 'text' : undefined }}
+          style={{
+            fontSize: compact ? 11 : 14,
+            fontWeight: 600,
+            color: T.cardFg,
+            margin: 0,
+            lineHeight: 1.3,
+            cursor: onUpdate ? 'text' : undefined,
+            // Clamp title to 2 lines in compact mode
+            ...(compact ? {
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
+              overflow: 'hidden',
+            } : {}),
+          }}
           onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('title'); } : undefined}
         >
           {item.title}
@@ -137,46 +155,51 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
       )}
 
       {compact && (editorial?.name || formatLabel) && (
-        <p style={{ fontSize: 12, color: T.mutedFg, margin: '2px 0 0' }}>
+        <p style={{ fontSize: 11, color: T.mutedFg, margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           <span style={{ fontWeight: 700, color: editorial?.color }}>{editorial?.name}</span>
           {editorial?.name && formatLabel ? ' · ' : ''}
           {formatLabel}
         </p>
       )}
 
-      {onUpdate && editingField === 'notas' ? (
-        <textarea
-          autoFocus
-          defaultValue={item.notas || ''}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const val = e.target.value.trim();
-            if (val !== (item.notas || '')) onUpdate(item.id, { notas: val || null });
-            setEditingField(null);
-          }}
-          rows={2}
-          style={{
-            width: '100%',
-            border: `1px solid ${T.primary}`,
-            borderRadius: 6,
-            padding: '2px 4px',
-            fontSize: 12,
-            color: T.mutedFg,
-            outline: 'none',
-            resize: 'vertical',
-            marginTop: 4,
-          }}
-        />
-      ) : (item.notas || onUpdate) ? (
-        <p
-          style={{ fontSize: 12, color: T.mutedFg, margin: '4px 0 0', cursor: onUpdate ? 'text' : undefined }}
-          onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('notas'); } : undefined}
-        >
-          {item.notas || 'Adicionar descricao...'}
-        </p>
-      ) : null}
+      {/* Notes: hidden in compact mode to keep cards small */}
+      {!compact && (
+        <>
+          {onUpdate && editingField === 'notas' ? (
+            <textarea
+              autoFocus
+              defaultValue={item.notas || ''}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val !== (item.notas || '')) onUpdate(item.id, { notas: val || null });
+                setEditingField(null);
+              }}
+              rows={2}
+              style={{
+                width: '100%',
+                border: `1px solid ${T.primary}`,
+                borderRadius: 6,
+                padding: '2px 4px',
+                fontSize: 12,
+                color: T.mutedFg,
+                outline: 'none',
+                resize: 'vertical',
+                marginTop: 4,
+              }}
+            />
+          ) : (item.notas || onUpdate) ? (
+            <p
+              style={{ fontSize: 12, color: T.mutedFg, margin: '4px 0 0', cursor: onUpdate ? 'text' : undefined }}
+              onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('notas'); } : undefined}
+            >
+              {item.notas || 'Adicionar descricao...'}
+            </p>
+          ) : null}
+        </>
+      )}
 
-      {(!compact || onUpdate) && (
+      {(!compact || onUpdate) && !compact && (
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {onUpdate ? (
             <select

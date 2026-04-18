@@ -174,7 +174,6 @@ async function handleVistaAnalysis({
   dataInicio: string
   dataFim: string
 }) {
-  const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY
   if (!OPENROUTER_API_KEY) return NextResponse.json({ error: "OPENROUTER_API_KEY não configurada." }, { status: 500 })
 
   const fmt = (n: number) => `R$${Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
@@ -200,7 +199,7 @@ async function handleVistaAnalysis({
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENROUTER_API_KEY}` },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-5",
+      model: "anthropic/claude-sonnet-4-6",
       max_tokens: 2000,
       messages: [
         { role: "system", content: VISTAS_SYSTEM_PROMPT },
@@ -551,7 +550,7 @@ ${formatRankGroup(rankingBottom3, "BOTTOM")}`
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${OPENROUTER_API_KEY}` },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-5",
+      model: "anthropic/claude-sonnet-4-6",
       max_tokens: 3000,
       ...(hasImages ? { provider: { order: ["Anthropic"], allow_fallbacks: false } } : {}),
       messages: [
@@ -781,7 +780,7 @@ ${visualSummary}`
         Authorization: `Bearer ${OPENROUTER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
+        model: "anthropic/claude-sonnet-4-6",
         max_tokens: 2500,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
