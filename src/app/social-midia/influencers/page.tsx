@@ -845,7 +845,7 @@ export default function Page() {
   // ── Shift+scroll horizontal ───────────────────────────────────────────────
   useEffect(() => {
     const el = tableRef.current; if (!el) return
-    function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); el.scrollLeft += e.deltaY } }
+    function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); if (el) el.scrollLeft += e.deltaY } }
     el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel)
   }, [activeTab])
 
