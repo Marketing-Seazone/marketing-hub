@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { X, CheckCircle } from 'lucide-react';
+import { X, CheckCircle, Sparkles, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { getEditorial, STATUSES } from '../_lib/calendar-constants';
 import { getStatusTag } from './ContentCard';
@@ -26,10 +26,65 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
   const [title, setTitle] = useState(item.title);
   const [notas, setNotas] = useState(item.notas ?? '');
   const [tema, setTema] = useState(item.tema ?? '');
+  const [copy, setCopy] = useState(item.copy ?? '');
   const [status, setStatus] = useState<ContentStatus>(item.status);
   const [formato, setFormato] = useState<ContentFormat>(item.formato);
   const [scheduledDate, setScheduledDate] = useState(item.scheduled_at ?? '');
   const [saving, setSaving] = useState(false);
+
+  const [copyPanelOpen, setCopyPanelOpen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [generatedCopy, setGeneratedCopy] = useState('');
+  const [copyError, setCopyError] = useState('');
+  const [copySaved, setCopySaved] = useState(false);
+
+  const defaultPrompt = `Escreva a copy completa para o seguinte post:
+
+Titulo: ${item.title}
+Editoria: ${editorial?.name ?? item.editoria}
+Formato: ${FORMAT_OPTIONS.find(f => f.value === item.formato)?.label ?? item.formato}
+Canal: ${item.canal ?? 'Instagram'}${item.tema ? `\nTema: ${item.tema}` : ''}${item.notas ? `\nNotas: ${item.notas}` : ''}
+
+Escreva a copy ideal para esse post.`;
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setCopyError('');
+    setGeneratedCopy('');
+    setCopySaved(false);
+    try {
+      const res = await fetch('/api/generate-copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.title,
+          editorial: editorial?.name ?? item.editoria,
+          formato: FORMAT_OPTIONS.find(f => f.value === item.formato)?.label ?? item.formato,
+          canal: item.canal ?? 'Instagram',
+          tema: item.tema,
+          notas: item.notas,
+          customPrompt: customPrompt.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao gerar');
+      setGeneratedCopy(data.copy);
+    } catch (err: any) {
+      setCopyError(err.message ?? 'Erro ao gerar copy');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleUseCopy = async () => {
+    setCopy(generatedCopy);
+    try {
+      await onUpdate(item.id, { copy: generatedCopy });
+      setCopySaved(true);
+      setTimeout(() => setCopySaved(false), 2000);
+    } catch {}
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -38,6 +93,7 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
         title,
         notas: notas || null,
         tema: tema || null,
+        copy: copy || null,
         status,
         formato,
         scheduled_at: scheduledDate || null,
@@ -79,17 +135,16 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
       <div
         style={{
           width: '100%',
-          maxWidth: 540,
+          maxWidth: 580,
           background: T.card,
           borderRadius: 14,
           padding: 24,
           boxShadow: T.elevMd,
-          maxHeight: '90vh',
+          maxHeight: '92vh',
           overflowY: 'auto',
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ width: 12, height: 12, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
@@ -104,7 +159,6 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
           </button>
         </div>
 
-        {/* Title — editable */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
           <input
             value={title}
@@ -112,19 +166,13 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
             placeholder="Titulo do post..."
             onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
             onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
-            style={{
-              ...inputBase,
-              fontSize: 17,
-              fontWeight: 700,
-              color: T.cardFg,
-            }}
+            style={{ ...inputBase, fontSize: 17, fontWeight: 700, color: T.cardFg }}
           />
           <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '3px 8px', fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
             {tag.label}
           </span>
         </div>
 
-        {/* Tema — editable */}
         <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 12 }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 6px', letterSpacing: '0.05em' }}>Tema</p>
           <input
@@ -137,25 +185,121 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
           />
         </div>
 
-        {/* Notas — editable */}
-        <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 16 }}>
+        <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 12 }}>
           <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 6px', letterSpacing: '0.05em' }}>Notas</p>
           <textarea
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             placeholder="Adicionar notas..."
-            rows={5}
+            rows={3}
             onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
             onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
-            style={{
-              ...inputBase,
-              resize: 'vertical',
-              lineHeight: 1.5,
-            }}
+            style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5 }}
           />
         </div>
 
-        {/* Status / Formato / Data */}
+        {copy && (
+          <div style={{ background: T.cinza50, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 6px', letterSpacing: '0.05em' }}>Copy</p>
+            <textarea
+              value={copy}
+              onChange={(e) => setCopy(e.target.value)}
+              rows={5}
+              onFocus={(e) => (e.currentTarget.style.borderColor = T.primary)}
+              onBlur={(e) => (e.currentTarget.style.borderColor = T.border)}
+              style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5 }}
+            />
+          </div>
+        )}
+
+        <div style={{
+          border: `1px solid ${copyPanelOpen ? T.primary : T.border}`,
+          borderRadius: 10,
+          marginBottom: 16,
+          overflow: 'hidden',
+          transition: 'border-color 0.15s',
+        }}>
+          <button
+            onClick={() => {
+              setCopyPanelOpen((v) => !v);
+              if (!customPrompt) setCustomPrompt(defaultPrompt);
+            }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 16px', background: copyPanelOpen ? T.pendingBg : 'transparent',
+              border: 'none', cursor: 'pointer', transition: 'background 0.15s',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Sparkles size={16} color={T.primary} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: T.primary }}>Gerar Copy com IA</span>
+            </div>
+            {copyPanelOpen ? <ChevronUp size={16} color={T.mutedFg} /> : <ChevronDown size={16} color={T.mutedFg} />}
+          </button>
+
+          {copyPanelOpen && (
+            <div style={{ padding: '0 16px 16px', borderTop: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: 12, color: T.mutedFg, margin: '12px 0 8px' }}>
+                Edite o prompt abaixo para personalizar o que o Claude vai gerar:
+              </p>
+              <textarea
+                value={customPrompt}
+                onChange={(e) => setCustomPrompt(e.target.value)}
+                rows={6}
+                style={{ ...inputBase, resize: 'vertical', lineHeight: 1.5, fontSize: 13, marginBottom: 12 }}
+              />
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  background: T.primary, color: T.primaryFg, border: 'none', borderRadius: 8,
+                  padding: '10px 20px', fontSize: 13, fontWeight: 600,
+                  cursor: generating ? 'not-allowed' : 'pointer',
+                  opacity: generating ? 0.7 : 1,
+                  marginBottom: generatedCopy || copyError ? 16 : 0,
+                }}
+              >
+                <Sparkles size={15} />
+                {generating ? 'Gerando...' : 'Gerar'}
+              </button>
+
+              {copyError && (
+                <div style={{ background: T.statusErrBg, borderRadius: 8, padding: '10px 14px', fontSize: 13, color: T.destructive }}>
+                  {copyError}
+                </div>
+              )}
+
+              {generatedCopy && (
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, textTransform: 'uppercase', margin: '0 0 8px', letterSpacing: '0.05em' }}>
+                    Copy gerada
+                  </p>
+                  <textarea
+                    value={generatedCopy}
+                    onChange={(e) => setGeneratedCopy(e.target.value)}
+                    rows={7}
+                    style={{ ...inputBase, resize: 'vertical', lineHeight: 1.6, fontSize: 13, marginBottom: 10, background: T.cinza50 }}
+                  />
+                  <button
+                    onClick={handleUseCopy}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6,
+                      background: copySaved ? T.statusOkFg : T.primary,
+                      color: T.primaryFg, border: 'none', borderRadius: 8,
+                      padding: '8px 18px', fontSize: 13, fontWeight: 600,
+                      cursor: 'pointer', transition: 'background 0.2s',
+                    }}
+                  >
+                    <Copy size={14} />
+                    {copySaved ? 'Copy salva!' : 'Usar essa copy'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>
           <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 500, color: T.cinza600, marginBottom: 4 }}>Status</label>
@@ -192,7 +336,6 @@ export function ContentModal({ item, onClose, onUpdate, onDelete }: ContentModal
           </div>
         </div>
 
-        {/* Actions */}
         <div style={{ display: 'flex', gap: 12 }}>
           {item.status === 'agendado' && (
             <button
