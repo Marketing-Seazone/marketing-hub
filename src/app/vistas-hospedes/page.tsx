@@ -486,8 +486,9 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
   const [editCell, setEditCell] = useState<{ id: string; key: keyof InfluRow } | null>(null)
   const [editVal, setEditVal] = useState('')
   const [saving, setSaving] = useState(false)
-  const [colFilters, setColFilters] = useState<Partial<Record<keyof InfluRow, string>>>({})
+  const [colFilters, setColFilters] = useState<Partial<Record<keyof InfluRow, string[]>>>({})
   const [search, setSearch] = useState('')
+  const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [orcamento, setOrcamento] = useState('')
   const [editOrcamento, setEditOrcamento] = useState(false)
   const [filterAno, setFilterAno] = useState('Todos')
@@ -518,9 +519,7 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
 
   // Rows filtradas para a tabela (período + col filters + search)
   const filtered = rowsPeriodo.filter(r => {
-    for (const [key, val] of Object.entries(colFilters)) {
-      if (val && val !== 'Todos' && r[key as keyof InfluRow] !== val) return false
-    }
+    for (const [key, vals] of Object.entries(colFilters)) { if (vals && vals.length > 0 && !vals.includes(r[key as keyof InfluRow] || '')) return false }
     if (search) {
       const q = search.toLowerCase()
       return r.perfil?.toLowerCase().includes(q) || r.observacoes?.toLowerCase().includes(q) || r.cupom?.toLowerCase().includes(q)
@@ -560,7 +559,7 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
   async function addRow() {
     const now = new Date()
     const newRow: Omit<InfluRow, 'id'> = {
-      ano: String(now.getFullYear()), mes: mesAtual, categoria: 'Influ',
+      ano: filterAno !== 'Todos' ? filterAno : String(now.getFullYear()), mes: filterMes !== 'Todos' ? filterMes : mesAtual, categoria: 'Influ',
       perfil: 'Novo influenciador', link_perfil: '', seguidores: '', contato: '',
       status: 'Aguardando', valor_trabalho: '', valor_hospedagem: '', data_visita: '',
       data_contratacao: '', data_pagamento: '', cupom: '', validade_cupom: '',
@@ -701,11 +700,11 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
             <tr style={{ background: `${COR}06`, borderBottom: `2px solid ${COR}40` }}>
               <th />
               {INFLU_COLS.map(c => {
-                const opts = colOptions(c.key)
-                const hasFilter = !!(colFilters[c.key] && colFilters[c.key] !== 'Todos')
+                const opts = colOptions(c.key).sort((a, b) => a === 'Todos' ? -1 : b === 'Todos' ? 1 : a.localeCompare(b, 'pt-BR'))
+                const hasFilter = !!(colFilters[c.key] && colFilters[c.key]!.length > 0)
                 return (
-                  <th key={c.key} style={{ padding: '3px 4px' }}>
-                    <select value={colFilters[c.key] || 'Todos'} onChange={e => setColFilters(prev => ({ ...prev, [c.key]: e.target.value }))}
+                  <th key={c.key} style={{ padding: '3px 4px', position: 'relative' }}>
+                    <select value="" onChange={e => { const v = e.target.value; if (v === 'Todos') { setColFilters(prev => { const n = {...prev}; delete n[c.key as keyof InfluRow]; return n }); } else { setColFilters(prev => { const cur = prev[c.key as keyof InfluRow] || []; const next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]; return {...prev, [c.key as keyof InfluRow]: next} }) } }}
                       style={{ width: '100%', padding: '3px 4px', fontSize: 11, border: `1px solid ${hasFilter ? COR : T.border}`, borderRadius: 4, fontFamily: T.font, outline: 'none', background: hasFilter ? `${COR}15` : T.muted, color: hasFilter ? COR : T.mutedFg, fontWeight: hasFilter ? 700 : 400 }}>
                       {opts.map(o => <option key={o} value={o}>{o === 'Todos' ? '— todos —' : o}</option>)}
                     </select>
@@ -728,7 +727,7 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
 
                   if (isEditing) return (
                     <td key={col.key} style={{ padding: '3px 4px' }}>
-                      <textarea autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={commitEdit}
+                      <textarea autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={() => setTimeout(() => commitEdit(), 150)}
                         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() } if (e.key === 'Escape') setEditCell(null) }}
                         style={{ ...inputStyle, resize: 'vertical', minHeight: 32 }} rows={val.includes('\n') ? 3 : 1} />
                     </td>
