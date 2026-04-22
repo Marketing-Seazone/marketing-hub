@@ -573,7 +573,6 @@ export default function ResumoResultadosPage() {
     })
   }
 
-  // KPI summary
   const totalCreativos = entries.filter(e => e.area === "midia-paga").reduce((s, e) => s + (e.criativos ?? 0), 0)
   const totalInflus = entries.filter(e => e.area === "influenciadores").reduce((s, e) => s + (e.qtdInflus ?? 0), 0)
   const totalCupons = entries.filter(e => e.area === "influenciadores").reduce((s, e) => s + (e.cuponsUsados ?? 0), 0)

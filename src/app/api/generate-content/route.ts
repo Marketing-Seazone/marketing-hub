@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
   userPrompt += `\n\nSugira um titulo e descricao para o post.`;
 
   try {
-    const response = await client.messages.create({
+    const response = await client.beta.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: IDEATION_SYSTEM_PROMPT,
