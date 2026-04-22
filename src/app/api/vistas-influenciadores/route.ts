@@ -41,7 +41,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const row = { ...body, id: body.id || Date.now().toString() }
+    const { id: _id, ...rowData } = body; const row = rowData
     const data = await query('POST', row)
     return NextResponse.json(Array.isArray(data) ? data[0] : data)
   } catch (e: any) {
