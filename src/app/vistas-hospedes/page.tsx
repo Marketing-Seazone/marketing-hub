@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { ChevronLeft, Loader2, AlertCircle, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil } from "lucide-react"
 import { T } from "@/lib/constants"
@@ -377,7 +377,7 @@ function parseValor(v: string): number {
   return isNaN(n) ? 0 : n
 }
 
-function InfluenciadoresSection() {
+function InfluenciadoresSection() { const tableRef = useRef(null); useEffect(() => { const el = tableRef.current; if (!el) return; function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); if (el) el.scrollLeft += e.deltaY } } el.addEventListener('wheel', onWheel, { passive: false }); return () => el.removeEventListener('wheel', onWheel) }, []);
   const [rows, setRows] = useState<InfluRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editCell, setEditCell] = useState<{ id: string; key: keyof InfluRow } | null>(null)
@@ -581,7 +581,7 @@ function InfluenciadoresSection() {
       </div>
 
       {/* Tabela */}
-      <div style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
+      <div ref={tableRef} style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
         <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: '100%', tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 30 }} />

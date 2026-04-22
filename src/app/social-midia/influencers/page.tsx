@@ -652,7 +652,7 @@ export default function Page() {
     const oldVal = pev
     if (newVal !== oldVal) {
       updateLocalCell(rowId, col.key, newVal || null)
-      getSupabase().from(table).update({ [col.key]: newVal || null }).eq("id", rowId)
+      await getSupabase().from(table).update({ [col.key]: newVal || null }).eq("id", rowId)
       pushHistory({ rowId, colKey: col.key, oldVal, newVal })
     }
     setEditingCell(null); setEditValue("")
@@ -676,7 +676,7 @@ export default function Page() {
     const oldVal = String(row[col.key] ?? "")
     if (!oldVal) return
     updateLocalCell(rowId, col.key, null)
-    getSupabase().from(tabInfo.table).update({ [col.key]: null }).eq("id", rowId)
+    await getSupabase().from(tabInfo.table).update({ [col.key]: null }).eq("id", rowId)
     pushHistory({ rowId, colKey: col.key, oldVal, newVal: "" })
   }
 
@@ -701,7 +701,7 @@ export default function Page() {
     if (val === undefined || val === null) return
     const oldVal = String(row[col.key] ?? "")
     updateLocalCell(activeCell.rowId, col.key, val || null)
-    getSupabase().from(tabInfo.table).update({ [col.key]: val || null }).eq("id", activeCell.rowId)
+    await getSupabase().from(tabInfo.table).update({ [col.key]: val || null }).eq("id", activeCell.rowId)
     if (val !== oldVal) pushHistory({ rowId: activeCell.rowId, colKey: col.key, oldVal, newVal: val })
   }
 
@@ -710,23 +710,23 @@ export default function Page() {
     if (historyIdx < 0) return
     const entry = history[historyIdx]
     updateLocalCell(entry.rowId, entry.colKey, entry.oldVal || null)
-    getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.oldVal || null }).eq("id", entry.rowId)
+    await getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.oldVal || null }).eq("id", entry.rowId)
     setHistoryIdx(h => h - 1)
   }
   async function redo() {
     if (historyIdx >= history.length - 1) return
     const entry = history[historyIdx + 1]
     updateLocalCell(entry.rowId, entry.colKey, entry.newVal || null)
-    getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.newVal || null }).eq("id", entry.rowId)
+    await getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.newVal || null }).eq("id", entry.rowId)
     setHistoryIdx(h => h + 1)
   }
 
   // ── Option save (status/categoria) ────────────────────────────────────────
-  function handleSaveOption(rowId: unknown, colKey: string, newVal: string) {
+  async function handleSaveOption(rowId: unknown, colKey: string, newVal: string) {
     const row = rows.find(r => r.id === rowId)
     const oldVal = String(row?.[colKey] ?? "")
     updateLocalCell(rowId, colKey, newVal)
-    getSupabase().from(tabInfo.table).update({ [colKey]: newVal }).eq("id", rowId)
+    await getSupabase().from(tabInfo.table).update({ [colKey]: newVal }).eq("id", rowId)
     if (oldVal !== newVal) pushHistory({ rowId, colKey, oldVal, newVal })
   }
 
