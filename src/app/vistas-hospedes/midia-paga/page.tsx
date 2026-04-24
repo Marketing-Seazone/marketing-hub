@@ -6,7 +6,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Area, Legend,
 } from "recharts";
-import type { DailyRecord, DailySpending, ReservationDetail } from "@/lib/hospedes-analise-db";
+import type { DailyRecord, DailySpending, ReservationDetail, FormulaConfig } from "@/lib/hospedes-analise-db";
+import { DEFAULT_FORMULA_CONFIG } from "@/lib/hospedes-analise-db";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,19 @@ async function apiDeleteSpending(id: string): Promise<void> {
   await fetch(`/api/hospedes-analise/spending/${id}`, { method: "DELETE" });
 }
 
+async function apiGetFormulaConfig(): Promise<FormulaConfig> {
+  const r = await fetch("/api/hospedes-analise/formula-config");
+  return r.json();
+}
+
+async function apiSaveFormulaConfig(config: FormulaConfig): Promise<void> {
+  await fetch("/api/hospedes-analise/formula-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+}
+
 // ─── useAnalysis hook ─────────────────────────────────────────────────────────
 
 type AnalysisRow = {
@@ -94,6 +108,7 @@ function buildAnalysisData(
   source: string,
   startDate: string,
   endDate: string,
+  config: FormulaConfig = DEFAULT_FORMULA_CONFIG,
 ): AnalysisRow[] {
   const map: Record<string, {
     date: string;
@@ -130,9 +145,10 @@ function buildAnalysisData(
     const row = ensure(r.date);
     const fatEff = parseMoneyValue(r.data.fatEffective);
     const cleaning = parseMoneyValue(r.data.cleaningFee);
+    const fatSzBase = config.szBase === "fat-effective" ? fatEff : (fatEff - cleaning);
     const fatSz = r.type === "relatorio-newbyte"
       ? parseMoneyValue(r.data.fatSeazone)
-      : (fatEff - cleaning) * 0.24;
+      : fatSzBase * config.szTaxa;
     let reservas = parseMoneyValue(r.data.reservas);
 
     if (r.type === "midia-sem-atendimento") {
@@ -160,8 +176,10 @@ function buildAnalysisData(
     if (source === "sem-atendimento") { fatSz = row.fatSzSem; fatEff = row.fatEffSem; cleaning = row.cleaningSem; reservas = row.reservasSem; }
     else if (source === "com-atendimento") { fatSz = row.fatSzCom; fatEff = row.fatEffCom; cleaning = row.cleaningCom; reservas = row.reservasCom; }
     else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.conversoesNB; }
-    const fatLiquido = fatEff - cleaning;
-    const roi = row.gastoTotal > 0 ? (fatSz - row.gastoTotal) / row.gastoTotal : 0;
+    const fatLiquido = config.liqSubtrairLimpeza ? fatEff - cleaning : fatEff;
+    const roiNum = config.roiNumerador === "fat-liquido" ? fatLiquido : config.roiNumerador === "fat-effective" ? fatEff : fatSz;
+    const roiDenom = config.roiDenominador === "gasto-google" ? row.gastoGoogle : config.roiDenominador === "gasto-meta" ? row.gastoMeta : row.gastoTotal;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
     return {
       date: row.date,
       gastoGoogle: row.gastoGoogle, gastoMeta: row.gastoMeta, gastoTiktok: row.gastoTiktok, gastoTotal: row.gastoTotal,
@@ -177,29 +195,30 @@ function MonthlyRoiTable({
   records,
   spending,
   source,
+  config = DEFAULT_FORMULA_CONFIG,
 }: {
   records: DailyRecord[];
   spending: DailySpending[];
   source: string;
+  config?: FormulaConfig;
 }) {
   const monthlyData = useMemo(() => {
-    const daily = buildAnalysisData(records, spending, source, "", "");
+    const daily = buildAnalysisData(records, spending, source, "", "", config);
     const map: Record<string, {
       month: string;
-      gastoTotal: number;
-      fatEffTotal: number;
-      fatSzTotal: number;
-      cleaningTotal: number;
-      fatLiquido: number;
-      reservasTotal: number;
+      gastoTotal: number; gastoGoogle: number; gastoMeta: number;
+      fatEffTotal: number; fatSzTotal: number; cleaningTotal: number;
+      fatLiquido: number; reservasTotal: number;
     }> = {};
 
     for (const d of daily) {
       const month = d.date.slice(0, 7);
       if (!map[month]) {
-        map[month] = { month, gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
+        map[month] = { month, gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
       }
       map[month].gastoTotal += d.gastoTotal;
+      map[month].gastoGoogle += d.gastoGoogle;
+      map[month].gastoMeta += d.gastoMeta;
       map[month].fatEffTotal += d.fatEffTotal;
       map[month].fatSzTotal += d.fatSzTotal;
       map[month].cleaningTotal += d.cleaningTotal;
@@ -207,17 +226,20 @@ function MonthlyRoiTable({
       map[month].reservasTotal += d.reservasTotal;
     }
 
-    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => ({
-      ...m,
-      roi: m.gastoTotal > 0 ? (m.fatSzTotal - m.gastoTotal) / m.gastoTotal : 0,
-    }));
-  }, [records, spending, source]);
+    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => {
+      const roiNum = config.roiNumerador === "fat-liquido" ? m.fatLiquido : config.roiNumerador === "fat-effective" ? m.fatEffTotal : m.fatSzTotal;
+      const roiDenom = config.roiDenominador === "gasto-google" ? m.gastoGoogle : config.roiDenominador === "gasto-meta" ? m.gastoMeta : m.gastoTotal;
+      return { ...m, roi: roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0 };
+    });
+  }, [records, spending, source, config]);
 
   if (monthlyData.length === 0) return null;
 
   const totals = monthlyData.reduce(
     (acc, m) => {
       acc.gastoTotal += m.gastoTotal;
+      acc.gastoGoogle += m.gastoGoogle;
+      acc.gastoMeta += m.gastoMeta;
       acc.fatEffTotal += m.fatEffTotal;
       acc.fatSzTotal += m.fatSzTotal;
       acc.cleaningTotal += m.cleaningTotal;
@@ -225,9 +247,11 @@ function MonthlyRoiTable({
       acc.reservasTotal += m.reservasTotal;
       return acc;
     },
-    { gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
+    { gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
   );
-  const totalRoi = totals.gastoTotal > 0 ? (totals.fatSzTotal - totals.gastoTotal) / totals.gastoTotal : 0;
+  const totalRoiNum = config.roiNumerador === "fat-liquido" ? totals.fatLiquido : config.roiNumerador === "fat-effective" ? totals.fatEffTotal : totals.fatSzTotal;
+  const totalRoiDenom = config.roiDenominador === "gasto-google" ? totals.gastoGoogle : config.roiDenominador === "gasto-meta" ? totals.gastoMeta : totals.gastoTotal;
+  const totalRoi = totalRoiDenom > 0 ? (totalRoiNum - totalRoiDenom) / totalRoiDenom : 0;
 
   const fmtMonth = (m: string) => {
     const [y, mo] = m.split("-");
@@ -296,13 +320,22 @@ function MonthlyRoiTable({
 
 // ─── ResultadosTab ────────────────────────────────────────────────────────────
 
-function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyRecord[]; spending: DailySpending[]; onRecordsChange: (r: DailyRecord[]) => void }) {
+function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFormulaConfigChange }: {
+  records: DailyRecord[];
+  spending: DailySpending[];
+  onRecordsChange: (r: DailyRecord[]) => void;
+  formulaConfig: FormulaConfig;
+  onFormulaConfigChange: (c: FormulaConfig) => void;
+}) {
   const [source, setSource] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [metrics, setMetrics] = useState<string[]>(["fatSzTotal", "reservasTotal"]);
   const [fixing, setFixing] = useState(false);
   const [fixResult, setFixResult] = useState<{ updated: number } | null>(null);
+  const [draftConfig, setDraftConfig] = useState<FormulaConfig>(formulaConfig);
+  const [editingFormulas, setEditingFormulas] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const handleFixFatSeazone = async () => {
     setFixing(true);
@@ -319,21 +352,26 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
   };
 
   const data = useMemo(
-    () => buildAnalysisData(records, spending, source, startDate, endDate),
-    [records, spending, source, startDate, endDate]
+    () => buildAnalysisData(records, spending, source, startDate, endDate, formulaConfig),
+    [records, spending, source, startDate, endDate, formulaConfig]
   );
 
   const summary = useMemo(() => {
     const totalGasto = data.reduce((s, d) => s + d.gastoTotal, 0);
+    const totalGastoGoogle = data.reduce((s, d) => s + d.gastoGoogle, 0);
+    const totalGastoMeta = data.reduce((s, d) => s + d.gastoMeta, 0);
     const totalFatSz = data.reduce((s, d) => s + d.fatSzTotal, 0);
     const totalFatEff = data.reduce((s, d) => s + d.fatEffTotal, 0);
     const totalCleaning = data.reduce((s, d) => s + d.cleaningTotal, 0);
     const totalReservas = data.reduce((s, d) => s + d.reservasTotal, 0);
     const totalFatLiquido = data.reduce((s, d) => s + d.fatLiquido, 0);
-    const roi = totalGasto > 0 ? (totalFatSz - totalGasto) / totalGasto : 0;
-    const custoReserva = totalReservas > 0 ? totalGasto / totalReservas : 0;
+    const roiNum = formulaConfig.roiNumerador === "fat-liquido" ? totalFatLiquido : formulaConfig.roiNumerador === "fat-effective" ? totalFatEff : totalFatSz;
+    const roiDenom = formulaConfig.roiDenominador === "gasto-google" ? totalGastoGoogle : formulaConfig.roiDenominador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
+    const crNum = formulaConfig.crNumerador === "gasto-google" ? totalGastoGoogle : formulaConfig.crNumerador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const custoReserva = totalReservas > 0 ? crNum / totalReservas : 0;
     return { totalGasto, totalFatSz, totalFatEff, totalCleaning, totalFatLiquido, totalReservas, roi, custoReserva };
-  }, [data]);
+  }, [data, formulaConfig]);
 
   const ALL_METRICS = [
     { key: "fatSzTotal", label: "Fat. Seazone", color: "#0055FF" },
@@ -394,7 +432,7 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
       {hasData && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { label: "Fat. Seazone (24%)", value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
+            { label: `Fat. Seazone (${(formulaConfig.szTaxa * 100).toFixed(0)}%)`, value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
             { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED", title: "" },
             { label: "Tx. Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8", title: "" },
             { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9", title: "Fat. Effective - Tx. Limpeza" },
@@ -451,7 +489,133 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
         </div>
       )}
 
-      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} />}
+      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} config={formulaConfig} />}
+
+      {(() => {
+        const szBaseLabel = formulaConfig.szBase === "fat-effective" ? "Fat. Effective" : "Fat. Líquido (Eff. − Limpeza)";
+        const roiNumLabel = { "fat-seazone": "Fat. Seazone", "fat-liquido": "Fat. Líquido", "fat-effective": "Fat. Effective" }[formulaConfig.roiNumerador];
+        const roiDenomLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.roiDenominador];
+        const liqLabel = formulaConfig.liqSubtrairLimpeza ? "Fat. Effective − Tx. Limpeza" : "Fat. Effective (sem desconto)";
+        const crNumLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.crNumerador];
+
+        const selStyle: React.CSSProperties = { padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, background: "#fff", cursor: "pointer" };
+        const numInStyle: React.CSSProperties = { width: 64, padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, textAlign: "center" as const };
+
+        return (
+          <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 2, background: "#F59E0B" }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", margin: 0 }}>Como são calculados os resultados</p>
+              </div>
+              <button
+                onClick={() => { setEditingFormulas(!editingFormulas); setDraftConfig(formulaConfig); }}
+                style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: editingFormulas ? "#EBF2FF" : "#F8FAFF", color: editingFormulas ? "#0055FF" : "#7C7C7C", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                {editingFormulas ? "Fechar editor" : "Editar fórmulas"}
+              </button>
+            </div>
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Cards mostrando fórmulas atuais */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ padding: "12px 14px", background: "#EBF2FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0055FF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Seazone</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{szBaseLabel}</strong> × <strong>{(formulaConfig.szTaxa * 100).toFixed(0)}%</strong></p>
+                  <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 3 }}>Newbyte: valor direto do relatório</p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#ECFDF5", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>ROI</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= (<strong>{roiNumLabel}</strong> − <strong>{roiDenomLabel}</strong>) ÷ <strong>{roiDenomLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#F0F9FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0EA5E9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Líquido</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{liqLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#FFFBEB", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Custo/Reserva</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{crNumLabel}</strong> ÷ Reservas</p>
+                </div>
+              </div>
+
+              {/* Editor */}
+              {editingFormulas && (
+                <div style={{ padding: "16px 18px", background: "#F8FAFF", borderRadius: 8, border: "1px dashed #CBD5E1", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Editar fórmulas</p>
+
+                  {/* Fat. Seazone */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0055FF", minWidth: 100 }}>Fat. Seazone =</span>
+                    <select value={draftConfig.szBase} onChange={(e) => setDraftConfig((p) => ({ ...p, szBase: e.target.value as FormulaConfig["szBase"] }))} style={selStyle}>
+                      <option value="fat-liquido">Fat. Líquido (Eff. − Limpeza)</option>
+                      <option value="fat-effective">Fat. Effective (bruto)</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>×</span>
+                    <input type="number" min={0} max={100} step={0.1} value={(draftConfig.szTaxa * 100).toFixed(1)} onChange={(e) => setDraftConfig((p) => ({ ...p, szTaxa: (Number(e.target.value) || 0) / 100 }))} style={numInStyle} />
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>%</span>
+                  </div>
+
+                  {/* Fat. Líquido */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0EA5E9", minWidth: 100 }}>Fat. Líquido =</span>
+                    <select value={draftConfig.liqSubtrairLimpeza ? "com" : "sem"} onChange={(e) => setDraftConfig((p) => ({ ...p, liqSubtrairLimpeza: e.target.value === "com" }))} style={selStyle}>
+                      <option value="com">Fat. Effective − Tx. Limpeza</option>
+                      <option value="sem">Fat. Effective (sem desconto de limpeza)</option>
+                    </select>
+                  </div>
+
+                  {/* ROI */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#10B981", minWidth: 100 }}>ROI =</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>(</span>
+                    <select value={draftConfig.roiNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiNumerador: e.target.value as FormulaConfig["roiNumerador"] }))} style={selStyle}>
+                      <option value="fat-seazone">Fat. Seazone</option>
+                      <option value="fat-liquido">Fat. Líquido</option>
+                      <option value="fat-effective">Fat. Effective</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>−</span>
+                    <select value={draftConfig.roiDenominador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiDenominador: e.target.value as FormulaConfig["roiDenominador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>)</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ mesmo denominador</span>
+                  </div>
+
+                  {/* Custo/Reserva */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#F59E0B", minWidth: 100 }}>Custo/Reserva =</span>
+                    <select value={draftConfig.crNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, crNumerador: e.target.value as FormulaConfig["crNumerador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ Reservas</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, borderTop: "1px solid #E2E8F0" }}>
+                    <button
+                      onClick={async () => {
+                        setSavingConfig(true);
+                        await apiSaveFormulaConfig(draftConfig);
+                        onFormulaConfigChange(draftConfig);
+                        setSavingConfig(false);
+                        setEditingFormulas(false);
+                      }}
+                      disabled={savingConfig}
+                      style={{ padding: "7px 20px", borderRadius: 8, border: "none", background: savingConfig ? "#94A3B8" : "#0055FF", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingConfig ? "default" : "pointer" }}
+                    >
+                      {savingConfig ? "Salvando..." : "Aplicar para todos"}
+                    </button>
+                    <span style={{ fontSize: 11, color: "#94A3B8" }}>Todas as tabelas e KPIs recalculam. Visível para todos os usuários.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -479,8 +643,11 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const [spGoogle, setSpGoogle] = useState("");
   const [spMeta, setSpMeta] = useState("");
   const [spTiktok, setSpTiktok] = useState("");
-  const [spEditId, setSpEditId] = useState<string | null>(null);
   const [spSaved, setSpSaved] = useState(false);
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineGoogle, setInlineGoogle] = useState("");
+  const [inlineMeta, setInlineMeta] = useState("");
+  const [inlineTiktok, setInlineTiktok] = useState("");
 
   const resetForm = () => { setFormData({}); setReservations([]); setSaved(false); setEditingId(null); };
 
@@ -503,18 +670,25 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const handleSaveSpending = async () => {
     if (!spDate) return;
     const metaTotal = Number(spMeta) || 0;
-    const entry: DailySpending = { id: spEditId || uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
-    const updated = spEditId ? spending.map((s) => (s.id === spEditId ? entry : s)) : [...spending, entry];
+    const entry: DailySpending = { id: uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
     await apiSaveSpending(entry);
-    onSpendingChange(updated);
+    onSpendingChange([...spending, entry]);
     setSpSaved(true);
-    setSpEditId(null);
     setTimeout(() => { setSpGoogle(""); setSpMeta(""); setSpTiktok(""); setSpSaved(false); }, 1500);
+  };
+
+  const startInlineEdit = (s: DailySpending) => { setInlineEditId(s.id); setInlineGoogle(String(s.google || "")); setInlineMeta(String(s.meta || "")); setInlineTiktok(String(s.tiktok || "")); };
+
+  const saveInlineEdit = async (s: DailySpending) => {
+    const metaTotal = Number(inlineMeta) || 0;
+    const entry: DailySpending = { ...s, google: Number(inlineGoogle) || 0, meta: metaTotal, tiktok: Number(inlineTiktok) || 0, meta565: metaTotal };
+    await apiSaveSpending(entry);
+    onSpendingChange(spending.map((x) => (x.id === s.id ? entry : x)));
+    setInlineEditId(null);
   };
 
   const handleEditRecord = (r: DailyRecord) => { setSelectedType(r.type); setSelectedDate(r.date); setFormData(Object.fromEntries(Object.entries(r.data).map(([k, v]) => [k, String(v)]))); setReservations(r.reservations); setEditingId(r.id); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRecord = async (id: string) => { await apiDeleteRecord(id); onRecordsChange(records.filter((r) => r.id !== id)); };
-  const handleEditSpending = (s: DailySpending) => { setSpDate(s.date); setSpGoogle(String(s.google || "")); setSpMeta(String(s.meta || "")); setSpTiktok(String(s.tiktok || "")); setSpEditId(s.id); };
   const handleDeleteSpending = async (id: string) => { await apiDeleteSpending(id); onSpendingChange(spending.filter((s) => s.id !== id)); };
 
   const isNewbyte = selectedType === "relatorio-newbyte";
@@ -589,19 +763,37 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
           <div><label style={labelStyle}>Meta Ads (R$)</label><input type="number" placeholder="0" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={fieldStyle} /></div>
           <div><label style={labelStyle}>TikTok Ads (R$)</label><input type="number" placeholder="0" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={fieldStyle} /></div>
         </div>
-        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : spEditId ? "Salvar edição" : "Salvar gastos"}</button>
+        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
         {spending.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 8 }}>Registros de gastos</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[...spending].sort((a, b) => b.date.localeCompare(a.date)).map((s) => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
-                  <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button onClick={() => handleEditSpending(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
-                    <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
-                  </div>
+                <div key={s.id} style={{ padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
+                  {inlineEditId === s.id ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 70 }}>{fmtDate(s.date)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Google</span>
+                        <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Meta</span>
+                        <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>TikTok</span>
+                        <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <button onClick={() => saveInlineEdit(s)} style={{ padding: "3px 12px", borderRadius: 6, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setInlineEditId(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1", background: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
+                      <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
+                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -654,6 +846,13 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 
   const thStyle: React.CSSProperties = { padding: "8px 10px", fontSize: 11, fontWeight: 600, color: "#7C7C7C", textAlign: "center", whiteSpace: "nowrap", background: "#F8FAFF", borderBottom: "1px solid #E8EEF8" };
   const tdStyle: React.CSSProperties = { padding: "6px 10px", fontSize: 12, textAlign: "center", borderBottom: "1px solid #F0F3FA", whiteSpace: "nowrap" };
+  const th1: React.CSSProperties = { ...thStyle, position: "sticky", top: 0, zIndex: 3 };
+  const th2: React.CSSProperties = { ...thStyle, position: "sticky", top: 34, zIndex: 3 };
+  const tdTotal: React.CSSProperties = { ...tdStyle, position: "sticky", top: 68, zIndex: 2, background: "#F8FAFF", fontWeight: 700 };
+  const tdSpend: React.CSSProperties = { ...tdStyle, background: "#FFFBEB" };
+  const tdSem: React.CSSProperties = { ...tdStyle, background: "#EBF2FF" };
+  const tdCom: React.CSSProperties = { ...tdStyle, background: "#ECFDF5" };
+  const tdNB: React.CSSProperties = { ...tdStyle, background: "#F5F3FF" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -665,33 +864,33 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
       {columns.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p style={{ fontSize: 32 }}>📋</p><p style={{ marginTop: 8 }}>Nenhum dado. Preencha registros na aba Preenchimento.</p></div>
       ) : (
-        <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8EEF8" }}>
+        <div style={{ overflow: "auto", maxHeight: "70vh", borderRadius: 12, border: "1px solid #E8EEF8" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}>Data</th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
-                <th style={thStyle}>Res.</th>
-                <th style={thStyle}>Ações</th>
+                <th style={{ ...th1, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}>Data</th>
+                <th style={{ ...th1, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
+                <th style={{ ...th1, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
+                <th style={{ ...th1, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
+                <th style={{ ...th1, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
+                <th style={th1}>Res.</th>
+                <th style={th1}>Ações</th>
               </tr>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}></th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }}>Res.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }}>Res.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }}>Tickets</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Conv.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }}>Google</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Meta</th><th style={{ ...thStyle, background: "#FFFBEB" }}>TikTok</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Total</th>
-                <th style={thStyle}>Det.</th><th style={thStyle}></th>
+                <th style={{ ...th2, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}></th>
+                <th style={{ ...th2, background: "#EBF2FF" }}>Res.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#ECFDF5" }}>Res.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...th2, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#F5F3FF" }}>Tickets</th><th style={{ ...th2, background: "#F5F3FF" }}>Conv.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#FFFBEB" }}>Google</th><th style={{ ...th2, background: "#FFFBEB" }}>Meta</th><th style={{ ...th2, background: "#FFFBEB" }}>TikTok</th><th style={{ ...th2, background: "#FFFBEB" }}>Total</th>
+                <th style={th2}>Det.</th><th style={th2}></th>
               </tr>
-              <tr style={{ background: "#F8FAFF", fontWeight: 700 }}>
-                <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#F8FAFF", fontWeight: 700, fontSize: 11 }}>TOTAL</td>
-                <td style={tdStyle}>{totals.resSem || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffSem)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningSem)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzSem)}</td>
-                <td style={tdStyle}>{totals.resCom || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffCom)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningCom)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzCom)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}>{totals.resNB || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffNB)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzNB)}</td>
-                <td style={tdStyle}>{fmtCurrency(totals.google)}</td><td style={tdStyle}>{fmtCurrency(totals.meta)}</td><td style={tdStyle}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdStyle, fontWeight: 700, color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}></td>
+              <tr>
+                <td style={{ ...tdTotal, textAlign: "left", position: "sticky", left: 0, zIndex: 3, fontSize: 11 }}>TOTAL</td>
+                <td style={{ ...tdTotal, background: "#EBF2FF" }}>{totals.resSem || "—"}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatEffSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.cleaningSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatSzSem)}</td>
+                <td style={{ ...tdTotal, background: "#ECFDF5" }}>{totals.resCom || "—"}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatEffCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.cleaningCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatSzCom)}</td>
+                <td style={{ ...tdTotal, background: "#F5F3FF" }}>—</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{totals.resNB || "—"}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatEffNB)}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatSzNB)}</td>
+                <td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.google)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.meta)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdTotal, background: "#FFFBEB", color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
+                <td style={tdTotal}>—</td><td style={tdTotal}></td>
               </tr>
             </thead>
             <tbody>
@@ -699,10 +898,10 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                 <React.Fragment key={col.date}>
                 <tr style={{ borderBottom: "1px solid #F0F3FA" }}>
                   <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#fff", fontWeight: 600, color: "#00143D" }}>{fmtDate(col.date)}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdStyle, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
+                  <td style={tdSem}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
+                  <td style={tdCom}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
+                  <td style={tdNB}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
+                  <td style={tdSpend}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdSpend, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
                   <td style={tdStyle}>{col.reservations.length > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.reservations.length} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
@@ -715,6 +914,43 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
           </table>
         </div>
       )}
+
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 4, height: 16, borderRadius: 2, background: "#94A3B8" }} />
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Origem dos dados</p>
+        </div>
+        <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ padding: "10px 14px", background: "#EBF2FF", borderRadius: 8, borderLeft: "3px solid #3B82F6" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Sem atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#3B82F6", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#ECFDF5", borderRadius: 8, borderLeft: "3px solid #10B981" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Com atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#10B981", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#F5F3FF", borderRadius: 8, borderLeft: "3px solid #7C3AED" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#5B21B6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Newbyte</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Tickets e Conversões:</strong> extraídos diretamente da Newbyte<br />
+                <strong>Fat. Seazone:</strong> planilha Comercial do Atendimento
+              </p>
+              <p style={{ fontSize: 11, color: "#7C3AED", marginTop: 3, fontWeight: 600 }}>Fonte: Newbyte + Planilha Comercial</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#FFFBEB", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Gastos (Google · Meta · TikTok)</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Google e Meta:</strong> sincronizados automaticamente via Nekt<br />
+                <strong>TikTok:</strong> preenchido manualmente — gasto não está disponível na Nekt
+              </p>
+              <p style={{ fontSize: 11, color: "#F59E0B", marginTop: 3, fontWeight: 600 }}>Fonte: Nekt (auto) · Manual (TikTok)</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -984,10 +1220,13 @@ export default function AnaliseMidiaPagaHospedesPage() {
   const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos" | "nekt">("resultados");
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [spending, setSpending] = useState<DailySpending[]>([]);
+  const [formulaConfig, setFormulaConfig] = useState<FormulaConfig>(DEFAULT_FORMULA_CONFIG);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([apiGetRecords(), apiGetSpending()]).then(([r, s]) => { setRecords(r); setSpending(s); setLoading(false); });
+    Promise.all([apiGetRecords(), apiGetSpending(), apiGetFormulaConfig()]).then(([r, s, fc]) => {
+      setRecords(r); setSpending(s); setFormulaConfig(fc); setLoading(false);
+    });
   }, []);
 
   const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos" | "nekt"; label: string; emoji: string }[] = [
@@ -1025,7 +1264,7 @@ export default function AnaliseMidiaPagaHospedesPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p>Carregando dados...</p></div>
       ) : (<>
-        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} />}
+        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} formulaConfig={formulaConfig} onFormulaConfigChange={setFormulaConfig} />}
         {tab === "preenchimento" && <PreenchimentoTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "tabela" && <TabelaTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "destinos" && <DestinosTab records={records} />}

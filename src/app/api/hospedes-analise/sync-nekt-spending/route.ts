@@ -45,13 +45,18 @@ async function runSync(dateFrom: string, dateTo: string) {
 
   const { rows } = nektResult;
 
+  // Busca entradas existentes antes de montar os novos registros
+  const existing = await getSpending();
+
   const synced: DailySpending[] = rows
     .filter((r) => r.date)
     .map((r) => {
       const date = String(r.date).slice(0, 10);
       const google = Number(r.google ?? 0);
       const meta = Number(r.meta ?? 0);
-      const tiktok = Number(r.tiktok ?? 0);
+      // Preserva tiktok da entrada nekt-sync existente para não apagar valor preenchido manualmente
+      const existingNektEntry = existing.find((e) => e.id === `nekt-sync-${date}`);
+      const tiktok = existingNektEntry?.tiktok ?? 0;
       return {
         id: `nekt-sync-${date}`,
         date,
@@ -63,13 +68,11 @@ async function runSync(dateFrom: string, dateTo: string) {
       };
     });
 
-  // Upsert: mantém entradas manuais, substitui as do Nekt
-  const existing = await getSpending();
-  const manual = existing.filter((s) => !s.id.startsWith("nekt-sync-"));
+  // Upsert: mantém tudo que não está sendo substituído por esta batch
   const syncedIds = new Set(synced.map((s) => s.id));
-  const keepManual = manual.filter((s) => !syncedIds.has(s.id));
+  const keepExisting = existing.filter((s) => !syncedIds.has(s.id));
 
-  await saveSpending([...keepManual, ...synced]);
+  await saveSpending([...keepExisting, ...synced]);
 
   return {
     ok: true as const,
