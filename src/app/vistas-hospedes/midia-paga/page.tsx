@@ -686,6 +686,9 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
   const th2: React.CSSProperties = { ...thStyle, position: "sticky", top: 34, zIndex: 3 };
   const tdTotal: React.CSSProperties = { ...tdStyle, position: "sticky", top: 68, zIndex: 2, background: "#F8FAFF", fontWeight: 700 };
   const tdSpend: React.CSSProperties = { ...tdStyle, background: "#FFFBEB" };
+  const tdSem: React.CSSProperties = { ...tdStyle, background: "#EBF2FF" };
+  const tdCom: React.CSSProperties = { ...tdStyle, background: "#ECFDF5" };
+  const tdNB: React.CSSProperties = { ...tdStyle, background: "#F5F3FF" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -719,9 +722,9 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
               </tr>
               <tr>
                 <td style={{ ...tdTotal, textAlign: "left", position: "sticky", left: 0, zIndex: 3, fontSize: 11 }}>TOTAL</td>
-                <td style={tdTotal}>{totals.resSem || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffSem)}</td><td style={tdTotal}>{fmtCurrency(totals.cleaningSem)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzSem)}</td>
-                <td style={tdTotal}>{totals.resCom || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffCom)}</td><td style={tdTotal}>{fmtCurrency(totals.cleaningCom)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzCom)}</td>
-                <td style={tdTotal}>—</td><td style={tdTotal}>{totals.resNB || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffNB)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzNB)}</td>
+                <td style={{ ...tdTotal, background: "#EBF2FF" }}>{totals.resSem || "—"}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatEffSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.cleaningSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatSzSem)}</td>
+                <td style={{ ...tdTotal, background: "#ECFDF5" }}>{totals.resCom || "—"}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatEffCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.cleaningCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatSzCom)}</td>
+                <td style={{ ...tdTotal, background: "#F5F3FF" }}>—</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{totals.resNB || "—"}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatEffNB)}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatSzNB)}</td>
                 <td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.google)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.meta)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdTotal, background: "#FFFBEB", color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
                 <td style={tdTotal}>—</td><td style={tdTotal}></td>
               </tr>
@@ -731,9 +734,9 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                 <React.Fragment key={col.date}>
                 <tr style={{ borderBottom: "1px solid #F0F3FA" }}>
                   <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#fff", fontWeight: 600, color: "#00143D" }}>{fmtDate(col.date)}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
+                  <td style={tdSem}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
+                  <td style={tdCom}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
+                  <td style={tdNB}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
                   <td style={tdSpend}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdSpend, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
                   <td style={tdStyle}>{col.reservations.length > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.reservations.length} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
