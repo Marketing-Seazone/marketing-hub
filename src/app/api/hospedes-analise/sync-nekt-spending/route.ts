@@ -68,12 +68,11 @@ async function runSync(dateFrom: string, dateTo: string) {
       };
     });
 
-  // Upsert: mantém entradas manuais, substitui as do Nekt
-  const manual = existing.filter((s) => !s.id.startsWith("nekt-sync-"));
+  // Upsert: mantém tudo que não está sendo substituído por esta batch
   const syncedIds = new Set(synced.map((s) => s.id));
-  const keepManual = manual.filter((s) => !syncedIds.has(s.id));
+  const keepExisting = existing.filter((s) => !syncedIds.has(s.id));
 
-  await saveSpending([...keepManual, ...synced]);
+  await saveSpending([...keepExisting, ...synced]);
 
   return {
     ok: true as const,
