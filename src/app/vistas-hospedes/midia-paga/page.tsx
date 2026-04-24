@@ -479,8 +479,11 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const [spGoogle, setSpGoogle] = useState("");
   const [spMeta, setSpMeta] = useState("");
   const [spTiktok, setSpTiktok] = useState("");
-  const [spEditId, setSpEditId] = useState<string | null>(null);
   const [spSaved, setSpSaved] = useState(false);
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineGoogle, setInlineGoogle] = useState("");
+  const [inlineMeta, setInlineMeta] = useState("");
+  const [inlineTiktok, setInlineTiktok] = useState("");
 
   const resetForm = () => { setFormData({}); setReservations([]); setSaved(false); setEditingId(null); };
 
@@ -503,18 +506,25 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const handleSaveSpending = async () => {
     if (!spDate) return;
     const metaTotal = Number(spMeta) || 0;
-    const entry: DailySpending = { id: spEditId || uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
-    const updated = spEditId ? spending.map((s) => (s.id === spEditId ? entry : s)) : [...spending, entry];
+    const entry: DailySpending = { id: uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
     await apiSaveSpending(entry);
-    onSpendingChange(updated);
+    onSpendingChange([...spending, entry]);
     setSpSaved(true);
-    setSpEditId(null);
     setTimeout(() => { setSpGoogle(""); setSpMeta(""); setSpTiktok(""); setSpSaved(false); }, 1500);
+  };
+
+  const startInlineEdit = (s: DailySpending) => { setInlineEditId(s.id); setInlineGoogle(String(s.google || "")); setInlineMeta(String(s.meta || "")); setInlineTiktok(String(s.tiktok || "")); };
+
+  const saveInlineEdit = async (s: DailySpending) => {
+    const metaTotal = Number(inlineMeta) || 0;
+    const entry: DailySpending = { ...s, google: Number(inlineGoogle) || 0, meta: metaTotal, tiktok: Number(inlineTiktok) || 0, meta565: metaTotal };
+    await apiSaveSpending(entry);
+    onSpendingChange(spending.map((x) => (x.id === s.id ? entry : x)));
+    setInlineEditId(null);
   };
 
   const handleEditRecord = (r: DailyRecord) => { setSelectedType(r.type); setSelectedDate(r.date); setFormData(Object.fromEntries(Object.entries(r.data).map(([k, v]) => [k, String(v)]))); setReservations(r.reservations); setEditingId(r.id); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRecord = async (id: string) => { await apiDeleteRecord(id); onRecordsChange(records.filter((r) => r.id !== id)); };
-  const handleEditSpending = (s: DailySpending) => { setSpDate(s.date); setSpGoogle(String(s.google || "")); setSpMeta(String(s.meta || "")); setSpTiktok(String(s.tiktok || "")); setSpEditId(s.id); };
   const handleDeleteSpending = async (id: string) => { await apiDeleteSpending(id); onSpendingChange(spending.filter((s) => s.id !== id)); };
 
   const isNewbyte = selectedType === "relatorio-newbyte";
@@ -589,19 +599,37 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
           <div><label style={labelStyle}>Meta Ads (R$)</label><input type="number" placeholder="0" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={fieldStyle} /></div>
           <div><label style={labelStyle}>TikTok Ads (R$)</label><input type="number" placeholder="0" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={fieldStyle} /></div>
         </div>
-        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : spEditId ? "Salvar edição" : "Salvar gastos"}</button>
+        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
         {spending.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 8 }}>Registros de gastos</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[...spending].sort((a, b) => b.date.localeCompare(a.date)).map((s) => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
-                  <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button onClick={() => handleEditSpending(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
-                    <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
-                  </div>
+                <div key={s.id} style={{ padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
+                  {inlineEditId === s.id ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 70 }}>{fmtDate(s.date)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Google</span>
+                        <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Meta</span>
+                        <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>TikTok</span>
+                        <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <button onClick={() => saveInlineEdit(s)} style={{ padding: "3px 12px", borderRadius: 6, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setInlineEditId(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1", background: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
+                      <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
+                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
