@@ -5,7 +5,23 @@ import type { DailySpending } from "@/lib/hospedes-analise-db";
 
 export const maxDuration = 60;
 
-const NEKT_SPENDING_SQL = process.env.NEKT_SPENDING_SQL ?? "";
+const NEKT_SPENDING_SQL = `
+SELECT date, ROUND(SUM(google_spend), 2) AS google, ROUND(SUM(meta_spend), 2) AS meta
+FROM (
+  SELECT CAST(date AS DATE) AS date, cost AS google_spend, 0.0 AS meta_spend
+  FROM nekt_service.google_ads_geral_utilizacao
+  WHERE LOWER(campaign_name) LIKE '%[szh]%'
+    AND CAST(date AS DATE) BETWEEN DATE :date_from AND DATE :date_to
+  UNION ALL
+  SELECT date, 0.0 AS google_spend, spend AS meta_spend
+  FROM nekt_silver.ads_unificado_historico
+  WHERE LOWER(campaign_name) LIKE '%vista%'
+    AND LOWER(campaign_name) LIKE '%[sh]%'
+    AND date BETWEEN DATE :date_from AND DATE :date_to
+) t
+GROUP BY date
+ORDER BY date
+`.trim();
 
 function nDaysAgo(n: number): string {
   const d = new Date();
@@ -14,18 +30,6 @@ function nDaysAgo(n: number): string {
 }
 
 async function runSync(dateFrom: string, dateTo: string) {
-  if (!NEKT_SPENDING_SQL) {
-    return {
-      ok: false as const,
-      status: 503,
-      body: {
-        error: "config",
-        message:
-          "Query do Nekt não configurada. Defina NEKT_SPENDING_SQL nas variáveis de ambiente da Vercel com a query que retorna os gastos diários (colunas: date, google, meta, tiktok).",
-      },
-    };
-  }
-
   const sql = NEKT_SPENDING_SQL.replace(/:date_from/g, `'${dateFrom}'`).replace(
     /:date_to/g,
     `'${dateTo}'`,
