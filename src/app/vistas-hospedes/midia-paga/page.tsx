@@ -836,13 +836,9 @@ function NektExplorerTab({ onSpendingChange }: { onSpendingChange: (s: DailySpen
       <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
         <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 4 }}>Sincronização automática de gastos</p>
         <p style={{ fontSize: 12, color: "#7C7C7C", marginBottom: 16 }}>Cron ativo: todo dia às <strong>8h BRT</strong> (11h UTC) chama <code style={{ fontFamily: "monospace", background: "#F0F3FA", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>/api/hospedes-analise/sync-nekt-spending</code>. Busca os últimos 30 dias e preenche a tabela de gastos automaticamente.</p>
-        <div style={{ padding: 14, background: "#F8FAFF", borderRadius: 8, borderLeft: "3px solid #0055FF", marginBottom: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#0055FF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>O que pedir ao Sampa para ativar</p>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#00143D", lineHeight: 2 }}>
-            <li>Confirmar o nome exato da tabela com gastos diários de Meta Ads e Google Ads</li>
-            <li>Adicionar a env var <code style={{ fontFamily: "monospace", background: "#E8EEF8", padding: "1px 5px", borderRadius: 4 }}>NEKT_SPENDING_SQL</code> na Vercel com a query que retorna: <code style={{ fontFamily: "monospace", fontSize: 11 }}>date, google, meta, tiktok</code></li>
-          </ol>
-          <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 8 }}>Use o explorador abaixo para encontrar a tabela certa e montar o SQL antes de passar pro Sampa.</p>
+        <div style={{ padding: 14, background: "#ECFDF5", borderRadius: 8, borderLeft: "3px solid #10B981", marginBottom: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>✓ Sincronização ativa</p>
+          <p style={{ fontSize: 12, color: "#065F46", margin: 0 }}>Busca Google Ads (<code style={{ fontFamily: "monospace", background: "#D1FAE5", padding: "1px 5px", borderRadius: 4 }}>[SZH] Vistas</code>) e Meta Ads (<code style={{ fontFamily: "monospace", background: "#D1FAE5", padding: "1px 5px", borderRadius: 4 }}>[SH] Vista</code>) automaticamente. TikTok deve ser preenchido manualmente.</p>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div><label style={labelS}>De (opcional)</label><input type="date" value={syncFrom} onChange={(e) => setSyncFrom(e.target.value)} style={inputS} /></div>
