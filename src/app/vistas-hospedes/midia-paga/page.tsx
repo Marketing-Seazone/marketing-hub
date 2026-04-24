@@ -6,7 +6,8 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Area, Legend,
 } from "recharts";
-import type { DailyRecord, DailySpending, ReservationDetail } from "@/lib/hospedes-analise-db";
+import type { DailyRecord, DailySpending, ReservationDetail, FormulaConfig } from "@/lib/hospedes-analise-db";
+import { DEFAULT_FORMULA_CONFIG } from "@/lib/hospedes-analise-db";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -79,6 +80,19 @@ async function apiDeleteSpending(id: string): Promise<void> {
   await fetch(`/api/hospedes-analise/spending/${id}`, { method: "DELETE" });
 }
 
+async function apiGetFormulaConfig(): Promise<FormulaConfig> {
+  const r = await fetch("/api/hospedes-analise/formula-config");
+  return r.json();
+}
+
+async function apiSaveFormulaConfig(config: FormulaConfig): Promise<void> {
+  await fetch("/api/hospedes-analise/formula-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+}
+
 // ─── useAnalysis hook ─────────────────────────────────────────────────────────
 
 type AnalysisRow = {
@@ -94,6 +108,7 @@ function buildAnalysisData(
   source: string,
   startDate: string,
   endDate: string,
+  config: FormulaConfig = DEFAULT_FORMULA_CONFIG,
 ): AnalysisRow[] {
   const map: Record<string, {
     date: string;
@@ -130,9 +145,10 @@ function buildAnalysisData(
     const row = ensure(r.date);
     const fatEff = parseMoneyValue(r.data.fatEffective);
     const cleaning = parseMoneyValue(r.data.cleaningFee);
+    const fatSzBase = config.szBase === "fat-effective" ? fatEff : (fatEff - cleaning);
     const fatSz = r.type === "relatorio-newbyte"
       ? parseMoneyValue(r.data.fatSeazone)
-      : (fatEff - cleaning) * 0.24;
+      : fatSzBase * config.szTaxa;
     let reservas = parseMoneyValue(r.data.reservas);
 
     if (r.type === "midia-sem-atendimento") {
@@ -160,8 +176,10 @@ function buildAnalysisData(
     if (source === "sem-atendimento") { fatSz = row.fatSzSem; fatEff = row.fatEffSem; cleaning = row.cleaningSem; reservas = row.reservasSem; }
     else if (source === "com-atendimento") { fatSz = row.fatSzCom; fatEff = row.fatEffCom; cleaning = row.cleaningCom; reservas = row.reservasCom; }
     else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.conversoesNB; }
-    const fatLiquido = fatEff - cleaning;
-    const roi = row.gastoTotal > 0 ? (fatSz - row.gastoTotal) / row.gastoTotal : 0;
+    const fatLiquido = config.liqSubtrairLimpeza ? fatEff - cleaning : fatEff;
+    const roiNum = config.roiNumerador === "fat-liquido" ? fatLiquido : config.roiNumerador === "fat-effective" ? fatEff : fatSz;
+    const roiDenom = config.roiDenominador === "gasto-google" ? row.gastoGoogle : config.roiDenominador === "gasto-meta" ? row.gastoMeta : row.gastoTotal;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
     return {
       date: row.date,
       gastoGoogle: row.gastoGoogle, gastoMeta: row.gastoMeta, gastoTiktok: row.gastoTiktok, gastoTotal: row.gastoTotal,
@@ -177,29 +195,30 @@ function MonthlyRoiTable({
   records,
   spending,
   source,
+  config = DEFAULT_FORMULA_CONFIG,
 }: {
   records: DailyRecord[];
   spending: DailySpending[];
   source: string;
+  config?: FormulaConfig;
 }) {
   const monthlyData = useMemo(() => {
-    const daily = buildAnalysisData(records, spending, source, "", "");
+    const daily = buildAnalysisData(records, spending, source, "", "", config);
     const map: Record<string, {
       month: string;
-      gastoTotal: number;
-      fatEffTotal: number;
-      fatSzTotal: number;
-      cleaningTotal: number;
-      fatLiquido: number;
-      reservasTotal: number;
+      gastoTotal: number; gastoGoogle: number; gastoMeta: number;
+      fatEffTotal: number; fatSzTotal: number; cleaningTotal: number;
+      fatLiquido: number; reservasTotal: number;
     }> = {};
 
     for (const d of daily) {
       const month = d.date.slice(0, 7);
       if (!map[month]) {
-        map[month] = { month, gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
+        map[month] = { month, gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
       }
       map[month].gastoTotal += d.gastoTotal;
+      map[month].gastoGoogle += d.gastoGoogle;
+      map[month].gastoMeta += d.gastoMeta;
       map[month].fatEffTotal += d.fatEffTotal;
       map[month].fatSzTotal += d.fatSzTotal;
       map[month].cleaningTotal += d.cleaningTotal;
@@ -207,17 +226,20 @@ function MonthlyRoiTable({
       map[month].reservasTotal += d.reservasTotal;
     }
 
-    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => ({
-      ...m,
-      roi: m.gastoTotal > 0 ? (m.fatSzTotal - m.gastoTotal) / m.gastoTotal : 0,
-    }));
-  }, [records, spending, source]);
+    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => {
+      const roiNum = config.roiNumerador === "fat-liquido" ? m.fatLiquido : config.roiNumerador === "fat-effective" ? m.fatEffTotal : m.fatSzTotal;
+      const roiDenom = config.roiDenominador === "gasto-google" ? m.gastoGoogle : config.roiDenominador === "gasto-meta" ? m.gastoMeta : m.gastoTotal;
+      return { ...m, roi: roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0 };
+    });
+  }, [records, spending, source, config]);
 
   if (monthlyData.length === 0) return null;
 
   const totals = monthlyData.reduce(
     (acc, m) => {
       acc.gastoTotal += m.gastoTotal;
+      acc.gastoGoogle += m.gastoGoogle;
+      acc.gastoMeta += m.gastoMeta;
       acc.fatEffTotal += m.fatEffTotal;
       acc.fatSzTotal += m.fatSzTotal;
       acc.cleaningTotal += m.cleaningTotal;
@@ -225,9 +247,11 @@ function MonthlyRoiTable({
       acc.reservasTotal += m.reservasTotal;
       return acc;
     },
-    { gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
+    { gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
   );
-  const totalRoi = totals.gastoTotal > 0 ? (totals.fatSzTotal - totals.gastoTotal) / totals.gastoTotal : 0;
+  const totalRoiNum = config.roiNumerador === "fat-liquido" ? totals.fatLiquido : config.roiNumerador === "fat-effective" ? totals.fatEffTotal : totals.fatSzTotal;
+  const totalRoiDenom = config.roiDenominador === "gasto-google" ? totals.gastoGoogle : config.roiDenominador === "gasto-meta" ? totals.gastoMeta : totals.gastoTotal;
+  const totalRoi = totalRoiDenom > 0 ? (totalRoiNum - totalRoiDenom) / totalRoiDenom : 0;
 
   const fmtMonth = (m: string) => {
     const [y, mo] = m.split("-");
@@ -296,13 +320,22 @@ function MonthlyRoiTable({
 
 // ─── ResultadosTab ────────────────────────────────────────────────────────────
 
-function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyRecord[]; spending: DailySpending[]; onRecordsChange: (r: DailyRecord[]) => void }) {
+function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFormulaConfigChange }: {
+  records: DailyRecord[];
+  spending: DailySpending[];
+  onRecordsChange: (r: DailyRecord[]) => void;
+  formulaConfig: FormulaConfig;
+  onFormulaConfigChange: (c: FormulaConfig) => void;
+}) {
   const [source, setSource] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [metrics, setMetrics] = useState<string[]>(["fatSzTotal", "reservasTotal"]);
   const [fixing, setFixing] = useState(false);
   const [fixResult, setFixResult] = useState<{ updated: number } | null>(null);
+  const [draftConfig, setDraftConfig] = useState<FormulaConfig>(formulaConfig);
+  const [editingFormulas, setEditingFormulas] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const handleFixFatSeazone = async () => {
     setFixing(true);
@@ -319,21 +352,26 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
   };
 
   const data = useMemo(
-    () => buildAnalysisData(records, spending, source, startDate, endDate),
-    [records, spending, source, startDate, endDate]
+    () => buildAnalysisData(records, spending, source, startDate, endDate, formulaConfig),
+    [records, spending, source, startDate, endDate, formulaConfig]
   );
 
   const summary = useMemo(() => {
     const totalGasto = data.reduce((s, d) => s + d.gastoTotal, 0);
+    const totalGastoGoogle = data.reduce((s, d) => s + d.gastoGoogle, 0);
+    const totalGastoMeta = data.reduce((s, d) => s + d.gastoMeta, 0);
     const totalFatSz = data.reduce((s, d) => s + d.fatSzTotal, 0);
     const totalFatEff = data.reduce((s, d) => s + d.fatEffTotal, 0);
     const totalCleaning = data.reduce((s, d) => s + d.cleaningTotal, 0);
     const totalReservas = data.reduce((s, d) => s + d.reservasTotal, 0);
     const totalFatLiquido = data.reduce((s, d) => s + d.fatLiquido, 0);
-    const roi = totalGasto > 0 ? (totalFatSz - totalGasto) / totalGasto : 0;
-    const custoReserva = totalReservas > 0 ? totalGasto / totalReservas : 0;
+    const roiNum = formulaConfig.roiNumerador === "fat-liquido" ? totalFatLiquido : formulaConfig.roiNumerador === "fat-effective" ? totalFatEff : totalFatSz;
+    const roiDenom = formulaConfig.roiDenominador === "gasto-google" ? totalGastoGoogle : formulaConfig.roiDenominador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
+    const crNum = formulaConfig.crNumerador === "gasto-google" ? totalGastoGoogle : formulaConfig.crNumerador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const custoReserva = totalReservas > 0 ? crNum / totalReservas : 0;
     return { totalGasto, totalFatSz, totalFatEff, totalCleaning, totalFatLiquido, totalReservas, roi, custoReserva };
-  }, [data]);
+  }, [data, formulaConfig]);
 
   const ALL_METRICS = [
     { key: "fatSzTotal", label: "Fat. Seazone", color: "#0055FF" },
@@ -394,7 +432,7 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
       {hasData && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { label: "Fat. Seazone (24%)", value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
+            { label: `Fat. Seazone (${(formulaConfig.szTaxa * 100).toFixed(0)}%)`, value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
             { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED", title: "" },
             { label: "Tx. Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8", title: "" },
             { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9", title: "Fat. Effective - Tx. Limpeza" },
@@ -451,7 +489,133 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
         </div>
       )}
 
-      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} />}
+      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} config={formulaConfig} />}
+
+      {(() => {
+        const szBaseLabel = formulaConfig.szBase === "fat-effective" ? "Fat. Effective" : "Fat. Líquido (Eff. − Limpeza)";
+        const roiNumLabel = { "fat-seazone": "Fat. Seazone", "fat-liquido": "Fat. Líquido", "fat-effective": "Fat. Effective" }[formulaConfig.roiNumerador];
+        const roiDenomLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.roiDenominador];
+        const liqLabel = formulaConfig.liqSubtrairLimpeza ? "Fat. Effective − Tx. Limpeza" : "Fat. Effective (sem desconto)";
+        const crNumLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.crNumerador];
+
+        const selStyle: React.CSSProperties = { padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, background: "#fff", cursor: "pointer" };
+        const numInStyle: React.CSSProperties = { width: 64, padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, textAlign: "center" as const };
+
+        return (
+          <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 2, background: "#F59E0B" }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", margin: 0 }}>Como são calculados os resultados</p>
+              </div>
+              <button
+                onClick={() => { setEditingFormulas(!editingFormulas); setDraftConfig(formulaConfig); }}
+                style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: editingFormulas ? "#EBF2FF" : "#F8FAFF", color: editingFormulas ? "#0055FF" : "#7C7C7C", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                {editingFormulas ? "Fechar editor" : "Editar fórmulas"}
+              </button>
+            </div>
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Cards mostrando fórmulas atuais */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ padding: "12px 14px", background: "#EBF2FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0055FF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Seazone</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{szBaseLabel}</strong> × <strong>{(formulaConfig.szTaxa * 100).toFixed(0)}%</strong></p>
+                  <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 3 }}>Newbyte: valor direto do relatório</p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#ECFDF5", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>ROI</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= (<strong>{roiNumLabel}</strong> − <strong>{roiDenomLabel}</strong>) ÷ <strong>{roiDenomLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#F0F9FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0EA5E9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Líquido</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{liqLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#FFFBEB", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Custo/Reserva</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{crNumLabel}</strong> ÷ Reservas</p>
+                </div>
+              </div>
+
+              {/* Editor */}
+              {editingFormulas && (
+                <div style={{ padding: "16px 18px", background: "#F8FAFF", borderRadius: 8, border: "1px dashed #CBD5E1", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Editar fórmulas</p>
+
+                  {/* Fat. Seazone */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0055FF", minWidth: 100 }}>Fat. Seazone =</span>
+                    <select value={draftConfig.szBase} onChange={(e) => setDraftConfig((p) => ({ ...p, szBase: e.target.value as FormulaConfig["szBase"] }))} style={selStyle}>
+                      <option value="fat-liquido">Fat. Líquido (Eff. − Limpeza)</option>
+                      <option value="fat-effective">Fat. Effective (bruto)</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>×</span>
+                    <input type="number" min={0} max={100} step={0.1} value={(draftConfig.szTaxa * 100).toFixed(1)} onChange={(e) => setDraftConfig((p) => ({ ...p, szTaxa: (Number(e.target.value) || 0) / 100 }))} style={numInStyle} />
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>%</span>
+                  </div>
+
+                  {/* Fat. Líquido */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0EA5E9", minWidth: 100 }}>Fat. Líquido =</span>
+                    <select value={draftConfig.liqSubtrairLimpeza ? "com" : "sem"} onChange={(e) => setDraftConfig((p) => ({ ...p, liqSubtrairLimpeza: e.target.value === "com" }))} style={selStyle}>
+                      <option value="com">Fat. Effective − Tx. Limpeza</option>
+                      <option value="sem">Fat. Effective (sem desconto de limpeza)</option>
+                    </select>
+                  </div>
+
+                  {/* ROI */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#10B981", minWidth: 100 }}>ROI =</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>(</span>
+                    <select value={draftConfig.roiNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiNumerador: e.target.value as FormulaConfig["roiNumerador"] }))} style={selStyle}>
+                      <option value="fat-seazone">Fat. Seazone</option>
+                      <option value="fat-liquido">Fat. Líquido</option>
+                      <option value="fat-effective">Fat. Effective</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>−</span>
+                    <select value={draftConfig.roiDenominador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiDenominador: e.target.value as FormulaConfig["roiDenominador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>)</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ mesmo denominador</span>
+                  </div>
+
+                  {/* Custo/Reserva */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#F59E0B", minWidth: 100 }}>Custo/Reserva =</span>
+                    <select value={draftConfig.crNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, crNumerador: e.target.value as FormulaConfig["crNumerador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ Reservas</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, borderTop: "1px solid #E2E8F0" }}>
+                    <button
+                      onClick={async () => {
+                        setSavingConfig(true);
+                        await apiSaveFormulaConfig(draftConfig);
+                        onFormulaConfigChange(draftConfig);
+                        setSavingConfig(false);
+                        setEditingFormulas(false);
+                      }}
+                      disabled={savingConfig}
+                      style={{ padding: "7px 20px", borderRadius: 8, border: "none", background: savingConfig ? "#94A3B8" : "#0055FF", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingConfig ? "default" : "pointer" }}
+                    >
+                      {savingConfig ? "Salvando..." : "Aplicar para todos"}
+                    </button>
+                    <span style={{ fontSize: 11, color: "#94A3B8" }}>Todas as tabelas e KPIs recalculam. Visível para todos os usuários.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -750,6 +914,43 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
           </table>
         </div>
       )}
+
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 4, height: 16, borderRadius: 2, background: "#94A3B8" }} />
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Origem dos dados</p>
+        </div>
+        <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ padding: "10px 14px", background: "#EBF2FF", borderRadius: 8, borderLeft: "3px solid #3B82F6" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Sem atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#3B82F6", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#ECFDF5", borderRadius: 8, borderLeft: "3px solid #10B981" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Com atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#10B981", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#F5F3FF", borderRadius: 8, borderLeft: "3px solid #7C3AED" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#5B21B6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Newbyte</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Tickets e Conversões:</strong> extraídos diretamente da Newbyte<br />
+                <strong>Fat. Seazone:</strong> planilha Comercial do Atendimento
+              </p>
+              <p style={{ fontSize: 11, color: "#7C3AED", marginTop: 3, fontWeight: 600 }}>Fonte: Newbyte + Planilha Comercial</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#FFFBEB", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Gastos (Google · Meta · TikTok)</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Google e Meta:</strong> sincronizados automaticamente via Nekt<br />
+                <strong>TikTok:</strong> preenchido manualmente — gasto não está disponível na Nekt
+              </p>
+              <p style={{ fontSize: 11, color: "#F59E0B", marginTop: 3, fontWeight: 600 }}>Fonte: Nekt (auto) · Manual (TikTok)</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1019,10 +1220,13 @@ export default function AnaliseMidiaPagaHospedesPage() {
   const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos" | "nekt">("resultados");
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [spending, setSpending] = useState<DailySpending[]>([]);
+  const [formulaConfig, setFormulaConfig] = useState<FormulaConfig>(DEFAULT_FORMULA_CONFIG);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([apiGetRecords(), apiGetSpending()]).then(([r, s]) => { setRecords(r); setSpending(s); setLoading(false); });
+    Promise.all([apiGetRecords(), apiGetSpending(), apiGetFormulaConfig()]).then(([r, s, fc]) => {
+      setRecords(r); setSpending(s); setFormulaConfig(fc); setLoading(false);
+    });
   }, []);
 
   const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos" | "nekt"; label: string; emoji: string }[] = [
@@ -1060,7 +1264,7 @@ export default function AnaliseMidiaPagaHospedesPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p>Carregando dados...</p></div>
       ) : (<>
-        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} />}
+        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} formulaConfig={formulaConfig} onFormulaConfigChange={setFormulaConfig} />}
         {tab === "preenchimento" && <PreenchimentoTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "tabela" && <TabelaTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "destinos" && <DestinosTab records={records} />}

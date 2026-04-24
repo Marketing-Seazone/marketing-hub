@@ -26,8 +26,31 @@ export interface DailySpending {
   meta566?: number;
 }
 
+export interface FormulaConfig {
+  // Fat. Seazone = szBase × szTaxa
+  szBase: "fat-liquido" | "fat-effective";
+  szTaxa: number;
+  // Fat. Líquido = Fat. Effective (- Tx. Limpeza?)
+  liqSubtrairLimpeza: boolean;
+  // ROI = (roiNum - roiDenom) / roiDenom
+  roiNumerador: "fat-seazone" | "fat-liquido" | "fat-effective";
+  roiDenominador: "gasto-total" | "gasto-google" | "gasto-meta";
+  // Custo/Reserva = crNum / reservas
+  crNumerador: "gasto-total" | "gasto-google" | "gasto-meta";
+}
+
+export const DEFAULT_FORMULA_CONFIG: FormulaConfig = {
+  szBase: "fat-liquido",
+  szTaxa: 0.24,
+  liqSubtrairLimpeza: true,
+  roiNumerador: "fat-seazone",
+  roiDenominador: "gasto-total",
+  crNumerador: "gasto-total",
+};
+
 const RECORDS_KEY = "hospedes-analise:records";
 const SPENDING_KEY = "hospedes-analise:spending";
+const FORMULA_CONFIG_KEY = "hospedes-analise:formula-config";
 
 export async function getRecords(): Promise<DailyRecord[]> {
   return (await redis.get<DailyRecord[]>(RECORDS_KEY)) ?? [];
@@ -43,4 +66,13 @@ export async function getSpending(): Promise<DailySpending[]> {
 
 export async function saveSpending(spending: DailySpending[]): Promise<void> {
   await redis.set(SPENDING_KEY, spending);
+}
+
+export async function getFormulaConfig(): Promise<FormulaConfig> {
+  const saved = await redis.get<Partial<FormulaConfig>>(FORMULA_CONFIG_KEY);
+  return { ...DEFAULT_FORMULA_CONFIG, ...saved };
+}
+
+export async function saveFormulaConfig(config: FormulaConfig): Promise<void> {
+  await redis.set(FORMULA_CONFIG_KEY, config);
 }
