@@ -682,6 +682,10 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 
   const thStyle: React.CSSProperties = { padding: "8px 10px", fontSize: 11, fontWeight: 600, color: "#7C7C7C", textAlign: "center", whiteSpace: "nowrap", background: "#F8FAFF", borderBottom: "1px solid #E8EEF8" };
   const tdStyle: React.CSSProperties = { padding: "6px 10px", fontSize: 12, textAlign: "center", borderBottom: "1px solid #F0F3FA", whiteSpace: "nowrap" };
+  const th1: React.CSSProperties = { ...thStyle, position: "sticky", top: 0, zIndex: 3 };
+  const th2: React.CSSProperties = { ...thStyle, position: "sticky", top: 34, zIndex: 3 };
+  const tdTotal: React.CSSProperties = { ...tdStyle, position: "sticky", top: 68, zIndex: 2, background: "#F8FAFF", fontWeight: 700 };
+  const tdSpend: React.CSSProperties = { ...tdStyle, background: "#FFFBEB" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -693,33 +697,33 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
       {columns.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p style={{ fontSize: 32 }}>📋</p><p style={{ marginTop: 8 }}>Nenhum dado. Preencha registros na aba Preenchimento.</p></div>
       ) : (
-        <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8EEF8" }}>
+        <div style={{ overflow: "auto", maxHeight: "70vh", borderRadius: 12, border: "1px solid #E8EEF8" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}>Data</th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
-                <th style={thStyle}>Res.</th>
-                <th style={thStyle}>Ações</th>
+                <th style={{ ...th1, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}>Data</th>
+                <th style={{ ...th1, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
+                <th style={{ ...th1, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
+                <th style={{ ...th1, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
+                <th style={{ ...th1, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
+                <th style={th1}>Res.</th>
+                <th style={th1}>Ações</th>
               </tr>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}></th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }}>Res.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }}>Res.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }}>Tickets</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Conv.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }}>Google</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Meta</th><th style={{ ...thStyle, background: "#FFFBEB" }}>TikTok</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Total</th>
-                <th style={thStyle}>Det.</th><th style={thStyle}></th>
+                <th style={{ ...th2, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}></th>
+                <th style={{ ...th2, background: "#EBF2FF" }}>Res.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#ECFDF5" }}>Res.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...th2, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#F5F3FF" }}>Tickets</th><th style={{ ...th2, background: "#F5F3FF" }}>Conv.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#FFFBEB" }}>Google</th><th style={{ ...th2, background: "#FFFBEB" }}>Meta</th><th style={{ ...th2, background: "#FFFBEB" }}>TikTok</th><th style={{ ...th2, background: "#FFFBEB" }}>Total</th>
+                <th style={th2}>Det.</th><th style={th2}></th>
               </tr>
-              <tr style={{ background: "#F8FAFF", fontWeight: 700 }}>
-                <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#F8FAFF", fontWeight: 700, fontSize: 11 }}>TOTAL</td>
-                <td style={tdStyle}>{totals.resSem || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffSem)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningSem)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzSem)}</td>
-                <td style={tdStyle}>{totals.resCom || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffCom)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningCom)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzCom)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}>{totals.resNB || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffNB)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzNB)}</td>
-                <td style={tdStyle}>{fmtCurrency(totals.google)}</td><td style={tdStyle}>{fmtCurrency(totals.meta)}</td><td style={tdStyle}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdStyle, fontWeight: 700, color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}></td>
+              <tr>
+                <td style={{ ...tdTotal, textAlign: "left", position: "sticky", left: 0, zIndex: 3, fontSize: 11 }}>TOTAL</td>
+                <td style={tdTotal}>{totals.resSem || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffSem)}</td><td style={tdTotal}>{fmtCurrency(totals.cleaningSem)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzSem)}</td>
+                <td style={tdTotal}>{totals.resCom || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffCom)}</td><td style={tdTotal}>{fmtCurrency(totals.cleaningCom)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzCom)}</td>
+                <td style={tdTotal}>—</td><td style={tdTotal}>{totals.resNB || "—"}</td><td style={tdTotal}>{fmtCurrency(totals.fatEffNB)}</td><td style={tdTotal}>{fmtCurrency(totals.fatSzNB)}</td>
+                <td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.google)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.meta)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdTotal, background: "#FFFBEB", color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
+                <td style={tdTotal}>—</td><td style={tdTotal}></td>
               </tr>
             </thead>
             <tbody>
@@ -730,7 +734,7 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                   <td style={tdStyle}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
                   <td style={tdStyle}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
                   <td style={tdStyle}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdStyle, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
+                  <td style={tdSpend}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdSpend, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
                   <td style={tdStyle}>{col.reservations.length > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.reservations.length} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
