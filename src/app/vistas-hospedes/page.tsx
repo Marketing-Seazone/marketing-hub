@@ -566,7 +566,7 @@ function InfluenciadoresSection() {
   const tableRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = tableRef.current; if (!el) return
-    function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); el.scrollLeft += e.deltaY } }
+    function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); if (el) el.scrollLeft += e.deltaY } }
     el.addEventListener('wheel', onWheel, { passive: false }); return () => el.removeEventListener('wheel', onWheel)
   }, [])
 
