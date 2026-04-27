@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getRecords, saveRecords } from "@/lib/hospedes-analise-db";
+import { exportRecordsToFile } from "@/lib/hospedes-analise-backup";
 import type { DailyRecord, ReservationDetail } from "@/lib/hospedes-analise-db";
 
 const METABASE_URL = "https://metabase.seazone.com.br";
-const QUESTION_ID = 3350;
+const QUESTION_ID = 3335;
 
 const PAID_SOURCES = ["googleads", "metaads", "tiktokads", "site__vistasdeanita"];
 const PAID_PROMOS = ["vistas10", "cabana10"];
@@ -69,6 +70,8 @@ export async function POST() {
     return NextResponse.json({ error: "METABASE_API_KEY não configurada" }, { status: 500 });
   }
 
+  // Busca até 01/01/2024 (limite da pergunta do Metabase)
+  // Parâmetros de filtro de data para garantir range completo
   const res = await fetch(`${METABASE_URL}/api/card/${QUESTION_ID}/query/json`, {
     method: "POST",
     headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
@@ -138,6 +141,15 @@ export async function POST() {
   }));
 
   await saveRecords([...manual, ...synced]);
+
+  // Backup em arquivo
+  try {
+    const allRecords = await getRecords();
+    const backupPath = await exportRecordsToFile(allRecords);
+    console.log(`Backup salvo: ${backupPath}`);
+  } catch (e) {
+    console.error("Erro ao fazer backup:", e);
+  }
 
   return NextResponse.json({
     synced: synced.length,
