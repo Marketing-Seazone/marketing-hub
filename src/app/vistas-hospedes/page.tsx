@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react"
 import { T } from "@/lib/constants"
 import type { DayData } from "@/app/api/vistas-reservas/route"
 import type { Task } from "@/app/api/vistas-checklist/route"
 
 const META_DIA = 7
+const META_MENSAL = 15000
 const COR = "#7C3AED"
 
 const fmt2 = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
@@ -20,6 +21,16 @@ function statusColor(v: number, meta: number) {
   if (v >= meta) return "#10b981"
   if (v >= meta * 0.7) return T.statusWarn ?? "#f59e0b"
   return T.destructive ?? "#ef4444"
+}
+function getPeriodoLabel(periodo: 7 | 14 | 30 | 'mes'): string {
+  const hoje = new Date()
+  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+  if (periodo === 'mes') {
+    const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+    return `${fmt(ini)} – ${fmt(hoje)}`
+  }
+  const ini = new Date(); ini.setDate(hoje.getDate() - (periodo as number))
+  return `${fmt(ini)} – ${fmt(hoje)}`
 }
 
 function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
@@ -277,7 +288,6 @@ function CriativosSection() {
   const toISO = (d: Date) => d.toISOString().split("T")[0]
   const today = new Date()
   const d30 = new Date(today); d30.setDate(today.getDate() - 30)
-
   const [dataInicio, setDataInicio] = useState(toISO(d30))
   const [dataFim, setDataFim] = useState(toISO(today))
   const [rows, setRows] = useState<CriativoRow[]>([])
@@ -314,8 +324,7 @@ function CriativosSection() {
         gasto_hoje: Number(r.gasto_hoje) || 0, gasto_ontem: Number(r.gasto_ontem) || 0,
         imp_hoje: Number(r.imp_hoje) || 0, imp_ontem: Number(r.imp_ontem) || 0,
       }))
-      setRows(mapped)
-      setCampaigns([...new Set(mapped.map(r => r.campaign_name))].filter(Boolean))
+      setRows(mapped); setCampaigns([...new Set(mapped.map(r => r.campaign_name))].filter(Boolean))
       setUltimaAtt(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))
     } catch (e) { setError(String(e)) } finally { setLoading(false) }
   }, [])
@@ -325,8 +334,7 @@ function CriativosSection() {
   async function analisarIA() {
     setIaLoading(true); setIaAnalise("")
     try {
-      const res = await fetch("/api/analyze-creatives", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows, groupBy: "ad_name", dataInicio, dataFim, vistaMode: true }) })
+      const res = await fetch("/api/analyze-creatives", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ rows, groupBy: "ad_name", dataInicio, dataFim, vistaMode: true }) })
       const data = await res.json()
       setIaAnalise(data.analysis || data.error || "Sem resposta")
     } catch (e) { setIaAnalise(String(e)) } finally { setIaLoading(false) }
@@ -334,12 +342,10 @@ function CriativosSection() {
 
   const fmt = (n: number) => n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   const fmtInt = (n: number) => Math.round(n).toLocaleString("pt-BR")
-
   const inputStyle: React.CSSProperties = { background: T.card, border: `1px solid ${T.border}`, borderRadius: 6, padding: "4px 8px", fontSize: 12, color: T.cardFg, outline: "none" }
 
   return (
     <div>
-      {/* Filtros + ações */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12, color: T.mutedFg, fontWeight: 600 }}>Período</span>
         <input type="date" value={dataInicio} onChange={e => setDataInicio(e.target.value)} style={inputStyle} />
@@ -353,28 +359,20 @@ function CriativosSection() {
           <Sparkles size={12} /> {iaLoading ? "Analisando..." : "Analisar com IA"}
         </button>
       </div>
-
-      {/* Painel IA */}
       {iaAnalise && (
         <div style={{ background: `#7C3AED10`, border: `1px solid #7C3AED40`, borderRadius: 10, padding: "14px 16px", marginBottom: 14, fontSize: 13, color: T.cardFg, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontWeight: 700, color: "#7C3AED", fontSize: 13 }}><Sparkles size={14} /> Análise IA</div>
           {iaAnalise}
         </div>
       )}
-
-      {/* Estado vazio / erro */}
       {error && <div style={{ fontSize: 13, color: T.destructive, background: `${T.destructive}10`, padding: "10px 14px", borderRadius: 8, marginBottom: 10 }}>Erro: {error}</div>}
       {!loading && rows.length === 0 && !error && <div style={{ fontSize: 13, color: T.mutedFg, fontStyle: "italic", background: T.muted, padding: "12px 16px", borderRadius: 8, border: `1px solid ${T.border}` }}>Nenhum criativo [SH] ativo encontrado para o período.</div>}
-
-      {/* Badges de campanha + contador */}
       {rows.length > 0 && (
         <div style={{ marginBottom: 8, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
           <span style={{ fontSize: 11, color: T.mutedFg }}>{rows.length} criativos ·</span>
           {campaigns.map(c => <span key={c} style={{ background: `${COR}15`, color: COR, padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{c}</span>)}
         </div>
       )}
-
-      {/* Tabela */}
       {loading ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, color: T.mutedFg, fontSize: 13, padding: "16px 0" }}><Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} /> Buscando criativos na Nekt...</div>
       ) : rows.length > 0 && (
@@ -403,12 +401,10 @@ function CriativosSection() {
                       {!hasVar ? <span style={{ color: T.mutedFg, fontSize: 11 }}>—</span> : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                           <span style={{ display: "flex", alignItems: "center", gap: 3, color: dGasto >= 0 ? T.teal600 : T.destructive, fontSize: 11, fontFamily: "monospace" }}>
-                            {dGasto >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                            R$ {fmt(Math.abs(dGasto))} gasto
+                            {dGasto >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />} R$ {fmt(Math.abs(dGasto))} gasto
                           </span>
                           <span style={{ display: "flex", alignItems: "center", gap: 3, color: dImp >= 0 ? T.teal600 : T.destructive, fontSize: 11, fontFamily: "monospace" }}>
-                            {dImp >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                            {fmtInt(Math.abs(dImp))} imp.
+                            {dImp >= 0 ? <TrendingUp size={11} /> : <TrendingDown size={11} />} {fmtInt(Math.abs(dImp))} imp.
                           </span>
                         </div>
                       )}
@@ -436,28 +432,28 @@ interface InfluRow {
   conversoes: string; valor_reservas: string; conteudo_orcado: string; observacoes: string
 }
 
-const INFLU_COLS: { key: keyof InfluRow; label: string; width: number; type?: string; dropdown?: string[] }[] = [
-  { key: 'ano', label: 'Ano', width: 70 },
-  { key: 'mes', label: 'Mês', width: 110 },
-  { key: 'categoria', label: 'Categoria', width: 90, dropdown: ['Influ', 'Perfil', 'Página'] },
+const INFLU_COLS: { key: keyof InfluRow; label: string; width: number; type?: string }[] = [
+  { key: 'ano', label: 'Ano', width: 60 },
+  { key: 'mes', label: 'Mês', width: 100 },
+  { key: 'categoria', label: 'Categoria', width: 85 },
   { key: 'perfil', label: 'Perfil', width: 160 },
-  { key: 'link_perfil', label: 'Link Perfil', width: 80, type: 'link' },
-  { key: 'seguidores', label: 'Seguidores', width: 90 },
-  { key: 'contato', label: 'Contato', width: 130 },
-  { key: 'status', label: 'Status', width: 120, dropdown: ['Contratado', 'Não contratado', 'Aguardando', 'Sem resposta'] },
-  { key: 'valor_trabalho', label: 'Vlr Trabalho', width: 100 },
-  { key: 'valor_hospedagem', label: 'Vlr Hosp.', width: 90 },
-  { key: 'data_visita', label: 'Data Visita', width: 110 },
-  { key: 'cupom', label: 'Cupom', width: 90 },
-  { key: 'validade_cupom', label: 'Val. Cupom', width: 100 },
-  { key: 'data_contratacao', label: 'Dt Contrat.', width: 100 },
-  { key: 'data_pagamento', label: 'Dt Pgto', width: 100 },
-  { key: 'data_post', label: 'Data Post', width: 110 },
-  { key: 'link_post', label: 'Link Post', width: 80, type: 'link' },
-  { key: 'conversoes', label: 'Conversões', width: 90 },
+  { key: 'link_perfil', label: 'Link', width: 60, type: 'link' },
+  { key: 'seguidores', label: 'Seguidores', width: 85 },
+  { key: 'contato', label: 'Contato', width: 140 },
+  { key: 'status', label: 'Status', width: 130 },
+  { key: 'valor_trabalho', label: 'Vlr Trabalho', width: 95 },
+  { key: 'valor_hospedagem', label: 'Vlr Hosp.', width: 85 },
+  { key: 'data_visita', label: 'Data Visita', width: 105 },
+  { key: 'cupom', label: 'Cupom', width: 85 },
+  { key: 'validade_cupom', label: 'Val. Cupom', width: 95 },
+  { key: 'data_contratacao', label: 'Dt Contrat.', width: 95 },
+  { key: 'data_pagamento', label: 'Dt Pgto', width: 90 },
+  { key: 'data_post', label: 'Data Post', width: 100 },
+  { key: 'link_post', label: 'Link Post', width: 75, type: 'link' },
+  { key: 'conversoes', label: 'Conversões', width: 85 },
   { key: 'valor_reservas', label: 'Vlr Reservas', width: 100 },
-  { key: 'conteudo_orcado', label: 'Conteúdo Orçado/Contratado', width: 200 },
-  { key: 'observacoes', label: 'Observações', width: 200 },
+  { key: 'conteudo_orcado', label: 'Conteúdo Orçado', width: 180 },
+  { key: 'observacoes', label: 'Observações', width: 180 },
 ]
 
 const MES_NOMES: Record<number, string> = {
@@ -466,12 +462,12 @@ const MES_NOMES: Record<number, string> = {
   9: '09. Setembro', 10: '10. Outubro', 11: '11. Novembro', 12: '12. Dezembro',
 }
 
-function statusBadge(status: string) {
-  const s = status?.toLowerCase() || ''
-  if (s === 'contratado') return { bg: '#10b98120', color: '#10b981', border: '#10b98140' }
-  if (s.includes('não') || s.includes('nao')) return { bg: '#ef444420', color: '#ef4444', border: '#ef444440' }
-  if (s.includes('aguard')) return { bg: '#f59e0b20', color: '#f59e0b', border: '#f59e0b40' }
-  return { bg: '#88888815', color: '#888', border: '#88888830' }
+function statusStyle(s: string): React.CSSProperties {
+  const v = s?.toLowerCase() || ''
+  if (v === 'contratado') return { background: '#d1fae5', color: '#065f46', border: '1px solid #6ee7b7' }
+  if (v.includes('não') || v.includes('nao')) return { background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5' }
+  if (v.includes('aguard')) return { background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d' }
+  return { background: '#f3f4f6', color: '#6b7280', border: '1px solid #d1d5db' }
 }
 
 function parseValor(v: string): number {
@@ -480,24 +476,119 @@ function parseValor(v: string): number {
   return isNaN(n) ? 0 : n
 }
 
-function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null); useEffect(() => { const el = tableRef.current; if (!el) return; function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); if (el) el.scrollLeft += e.deltaY } } el.addEventListener('wheel', onWheel, { passive: false }); return () => el.removeEventListener('wheel', onWheel) }, []);
+// ── Popup de filtro estilo Google Sheets ──
+function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
+  colKey: keyof InfluRow
+  label: string
+  allRows: InfluRow[]
+  active: string[]
+  onApply: (vals: string[]) => void
+  onClose: () => void
+}) {
+  const allOpts = Array.from(new Set(allRows.map(r => r[colKey] || ''))).filter(Boolean)
+  const [sortAZ, setSortAZ] = useState(true)
+  const [searchVal, setSearchVal] = useState('')
+  const [selected, setSelected] = useState<string[]>(active.length ? [...active] : [...allOpts])
+
+  const sorted = [...allOpts].sort((a, b) => sortAZ ? a.localeCompare(b, 'pt-BR') : b.localeCompare(a, 'pt-BR'))
+  const visible = sorted.filter(o => o.toLowerCase().includes(searchVal.toLowerCase()))
+  const allSelected = selected.length === allOpts.length
+  const someSelected = selected.length > 0 && !allSelected
+
+  function toggle(v: string) {
+    setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
+  }
+
+  const GS = { border: '#dadce0', headerBg: '#f8f9fa', text: '#202124', textMuted: '#5f6368' }
+
+  return (
+    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: `1px solid ${GS.border}`, borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', minWidth: 240, overflow: 'hidden' }}
+      onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+      {/* Cabeçalho */}
+      <div style={{ padding: '8px 12px', background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: GS.text }}>Filtrar: {label}</span>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GS.textMuted, fontSize: 16, lineHeight: 1, padding: '0 2px' }}>✕</button>
+      </div>
+      {/* Ordenação */}
+      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}`, display: 'flex', gap: 4 }}>
+        <button onMouseDown={e => { e.preventDefault(); setSortAZ(true) }}
+          style={{ flex: 1, padding: '5px 6px', fontSize: 11, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 4, background: sortAZ ? `${COR}15` : '#fff', color: sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontWeight: sortAZ ? 700 : 400 }}>
+          <ChevronUp size={11} /> A → Z
+        </button>
+        <button onMouseDown={e => { e.preventDefault(); setSortAZ(false) }}
+          style={{ flex: 1, padding: '5px 6px', fontSize: 11, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 4, background: !sortAZ ? `${COR}15` : '#fff', color: !sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontWeight: !sortAZ ? 700 : 400 }}>
+          <ChevronDown size={11} /> Z → A
+        </button>
+      </div>
+      {/* Busca */}
+      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}` }}>
+        <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder="🔍 Buscar..."
+          style={{ width: '100%', padding: '5px 8px', fontSize: 11, border: `1px solid ${GS.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' as const }} />
+      </div>
+      {/* Selecionar tudo */}
+      <div style={{ padding: '5px 12px', borderBottom: `1px solid ${GS.border}`, background: '#fafafa' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: GS.text, fontWeight: 600 }}>
+          <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }}
+            onChange={() => setSelected(allSelected ? [] : [...allOpts])}
+            style={{ width: 14, height: 14, accentColor: COR, cursor: 'pointer' }} />
+          Selecionar tudo ({allOpts.length})
+        </label>
+      </div>
+      {/* Lista */}
+      <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+        {visible.map(o => (
+          <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12, color: GS.text, transition: 'background 0.05s' }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f0f4ff'}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+            <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)}
+              style={{ width: 14, height: 14, accentColor: COR, cursor: 'pointer' }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o}</span>
+          </label>
+        ))}
+        {visible.length === 0 && <p style={{ padding: '10px 12px', fontSize: 11, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
+      </div>
+      {/* Footer */}
+      <div style={{ padding: '8px 12px', borderTop: `1px solid ${GS.border}`, display: 'flex', gap: 6, justifyContent: 'flex-end', background: '#fafafa' }}>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }}
+          style={{ padding: '5px 14px', fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: GS.text }}>
+          Cancelar
+        </button>
+        <button onMouseDown={e => { e.preventDefault(); onApply(selected.length === allOpts.length ? [] : selected); onClose() }}
+          style={{ padding: '5px 14px', fontSize: 12, border: 'none', borderRadius: 4, background: COR, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
+          OK
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function InfluenciadoresSection() {
+  const tableRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = tableRef.current; if (!el) return
+    function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); el.scrollLeft += e.deltaY } }
+    el.addEventListener('wheel', onWheel, { passive: false }); return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   const [rows, setRows] = useState<InfluRow[]>([])
   const [loading, setLoading] = useState(true)
   const [editCell, setEditCell] = useState<{ id: string; key: keyof InfluRow } | null>(null)
   const [editVal, setEditVal] = useState('')
   const [saving, setSaving] = useState(false)
   const [colFilters, setColFilters] = useState<Partial<Record<keyof InfluRow, string[]>>>({})
+  const [openFilterCol, setOpenFilterCol] = useState<keyof InfluRow | null>(null)
   const [search, setSearch] = useState('')
-  const [openFilter, setOpenFilter] = useState<string | null>(null)
   const [orcamento, setOrcamento] = useState('')
   const [editOrcamento, setEditOrcamento] = useState(false)
   const [filterAno, setFilterAno] = useState('Todos')
   const [filterMes, setFilterMes] = useState('Todos')
+  const [selectedRow, setSelectedRow] = useState<string | null>(null)
+  const [sortCol, setSortCol] = useState<keyof InfluRow | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
     fetch('/api/vistas-influenciadores').then(r => r.json()).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false) }).catch(() => setLoading(false))
     try { const s = localStorage.getItem('vistas-orcamento-mensal'); if (s) setOrcamento(s) } catch {}
-    // Inicializa filtro com mês/ano atual
     const now = new Date()
     setFilterAno(String(now.getFullYear()))
     setFilterMes(MES_NOMES[now.getMonth() + 1] || 'Todos')
@@ -507,19 +598,16 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
   const anos = ['Todos', ...Array.from(new Set(rows.map(r => r.ano).filter(Boolean))).sort()]
   const meses = ['Todos', ...Array.from(new Set(rows.map(r => r.mes).filter(Boolean))).sort()]
 
-  const colOptions = (key: keyof InfluRow) =>
-    ['Todos', ...Array.from(new Set(rows.map(r => r[key] || ''))).filter(Boolean).sort()]
-
-  // Rows filtradas por período para os KPIs
   const rowsPeriodo = rows.filter(r => {
     if (filterAno !== 'Todos' && r.ano !== filterAno) return false
     if (filterMes !== 'Todos' && r.mes !== filterMes) return false
     return true
   })
 
-  // Rows filtradas para a tabela (período + col filters + search)
-  const filtered = rowsPeriodo.filter(r => {
-    for (const [key, vals] of Object.entries(colFilters)) { if (vals && vals.length > 0 && !vals.includes(r[key as keyof InfluRow] || '')) return false }
+  let filtered = rowsPeriodo.filter(r => {
+    for (const [key, vals] of Object.entries(colFilters)) {
+      if (vals && vals.length > 0 && !vals.includes(r[key as keyof InfluRow] || '')) return false
+    }
     if (search) {
       const q = search.toLowerCase()
       return r.perfil?.toLowerCase().includes(q) || r.observacoes?.toLowerCase().includes(q) || r.cupom?.toLowerCase().includes(q)
@@ -527,54 +615,56 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
     return true
   })
 
+  if (sortCol) {
+    filtered = [...filtered].sort((a, b) => {
+      const va = a[sortCol] || ''; const vb = b[sortCol] || ''
+      const cmp = va.localeCompare(vb, 'pt-BR', { numeric: true })
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }
+
   const totalPeriodo = rowsPeriodo.length
   const contratadosPeriodo = rowsPeriodo.filter(r => r.status?.toLowerCase() === 'contratado').length
   const naoContratadosPeriodo = totalPeriodo - contratadosPeriodo
-
-  const totalUtilizado = rowsPeriodo
-    .filter(r => r.status?.toLowerCase() === 'contratado')
-    .reduce((s, r) => s + parseValor(r.valor_trabalho) + parseValor(r.valor_hospedagem), 0)
-
+  const totalUtilizado = rowsPeriodo.filter(r => r.status?.toLowerCase() === 'contratado').reduce((s, r) => s + parseValor(r.valor_trabalho) + parseValor(r.valor_hospedagem), 0)
   const orcamentoNum = parseValor(orcamento)
   const saldo = orcamentoNum - totalUtilizado
   const fmtBRL = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
-  function startEdit(id: string, key: keyof InfluRow, val: string) {
-    setEditCell({ id, key }); setEditVal(val || '')
-  }
-
-  async function commitEdit() {
-    if (!editCell) return
+  async function commitEdit(id: string, key: keyof InfluRow, val: string) {
     setSaving(true)
-    await fetch('/api/vistas-influenciadores', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: editCell.id, [editCell.key]: editVal }) })
-    setRows(prev => prev.map(r => r.id === editCell.id ? { ...r, [editCell.key]: editVal } : r))
-    setEditCell(null); setSaving(false)
-  }
-
-  async function commitDropdown(id: string, key: keyof InfluRow, val: string) {
     await fetch('/api/vistas-influenciadores', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, [key]: val }) })
     setRows(prev => prev.map(r => r.id === id ? { ...r, [key]: val } : r))
+    setEditCell(null); setSaving(false)
   }
 
   async function addRow() {
     const now = new Date()
     const newRow: Omit<InfluRow, 'id'> = {
-      ano: filterAno !== 'Todos' ? filterAno : String(now.getFullYear()), mes: filterMes !== 'Todos' ? filterMes : mesAtual, categoria: 'Influ',
-      perfil: 'Novo influenciador', link_perfil: '', seguidores: '', contato: '',
-      status: 'Aguardando', valor_trabalho: '', valor_hospedagem: '', data_visita: '',
-      data_contratacao: '', data_pagamento: '', cupom: '', validade_cupom: '',
-      data_post: '', link_post: '', conversoes: '', valor_reservas: '',
-      conteudo_orcado: '', observacoes: '',
+      ano: filterAno !== 'Todos' ? filterAno : String(now.getFullYear()),
+      mes: filterMes !== 'Todos' ? filterMes : mesAtual,
+      categoria: 'Influ', perfil: 'Novo influenciador', link_perfil: '', seguidores: '',
+      contato: '', status: 'Aguardando', valor_trabalho: '', valor_hospedagem: '',
+      data_visita: '', data_contratacao: '', data_pagamento: '', cupom: '',
+      validade_cupom: '', data_post: '', link_post: '', conversoes: '',
+      valor_reservas: '', conteudo_orcado: '', observacoes: '',
     }
     const res = await fetch('/api/vistas-influenciadores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRow) })
     const row = await res.json()
-    setRows(prev => [...prev, row])
+    setRows(prev => [...prev, row]); setSelectedRow(row.id)
   }
 
   async function deleteRow(id: string) {
     if (!confirm('Remover esta linha?')) return
     await fetch('/api/vistas-influenciadores', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
-    setRows(prev => prev.filter(r => r.id !== id))
+    setRows(prev => prev.filter(r => r.id !== id)); setSelectedRow(null)
+  }
+
+  async function duplicateRow(row: InfluRow) {
+    const { id, ...rest } = row
+    const res = await fetch('/api/vistas-influenciadores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rest) })
+    const newRow = await res.json()
+    setRows(prev => [...prev, newRow]); setSelectedRow(newRow.id)
   }
 
   function saveOrcamento(val: string) {
@@ -583,163 +673,227 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
     setEditOrcamento(false)
   }
 
-  const inputStyle: React.CSSProperties = { width: '100%', padding: '4px 8px', fontSize: 13, fontFamily: 'inherit', border: `1.5px solid ${COR}`, borderRadius: 4, outline: 'none', background: '#fff', color: '#111', minHeight: 28 }
-  const selectStyle: React.CSSProperties = { width: '100%', padding: '4px 6px', fontSize: 13, fontFamily: 'inherit', border: `1.5px solid ${COR}`, borderRadius: 4, outline: 'none', background: '#fff', color: '#111', cursor: 'pointer' }
+  function toggleSort(key: keyof InfluRow) {
+    if (sortCol === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortCol(key); setSortDir('asc') }
+  }
+
+  const GS = {
+    headerBg: '#f8f9fa', headerBorder: '#dadce0', cellBorder: '#e2e3e4',
+    rowHover: '#f6f8ff', rowSelected: '#e8f0fe', rowAlt: '#fafbfc',
+    text: '#202124', textMuted: '#5f6368', inputBorder: '#4285f4',
+  }
+
+  // Altura dinâmica: mínimo 28px, ajusta ao conteúdo, máximo 80px
+  const cellBase: React.CSSProperties = {
+    padding: '4px 6px',
+    minHeight: 28,
+    maxHeight: 80,
+    borderRight: `1px solid ${GS.cellBorder}`,
+    borderBottom: `1px solid ${GS.cellBorder}`,
+    fontSize: 12,
+    color: GS.text,
+    overflow: 'hidden',
+    verticalAlign: 'top',
+    cursor: 'cell',
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
+    lineHeight: '18px',
+  }
+
+  const activeFiltersCount = Object.values(colFilters).filter(v => v && v.length > 0).length
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: T.mutedFg, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Carregando influenciadores...</div>
 
   return (
     <div>
-      <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: '0 0 14px', borderBottom: `1px solid ${T.border}`, paddingBottom: 8 }}>Influenciadores</p>
-
-      {/* Filtro de período */}
-      <div style={{ background: `${COR}08`, border: `1px solid ${COR}25`, borderRadius: 10, padding: '12px 16px', marginBottom: 14 }}>
-        <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 700, color: COR, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtrar por período</p>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {/* Filtro período */}
+      <div style={{ background: `${COR}08`, border: `1px solid ${COR}25`, borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
+        <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: COR, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtrar por período</p>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 10, color: T.mutedFg, fontWeight: 600 }}>Ano</span>
-            <select value={filterAno} onChange={e => setFilterAno(e.target.value)} style={{ padding: '5px 10px', fontSize: 13, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.font, outline: 'none', background: T.card, color: T.cardFg, minWidth: 90 }}>
+            <select value={filterAno} onChange={e => setFilterAno(e.target.value)} style={{ padding: '4px 8px', fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 4, outline: 'none', background: '#fff', color: GS.text, minWidth: 80 }}>
               {anos.map(a => <option key={a}>{a}</option>)}
             </select>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <span style={{ fontSize: 10, color: T.mutedFg, fontWeight: 600 }}>Mês</span>
-            <select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={{ padding: '5px 10px', fontSize: 13, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.font, outline: 'none', background: T.card, color: T.cardFg, minWidth: 150 }}>
+            <select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={{ padding: '4px 8px', fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 4, outline: 'none', background: '#fff', color: GS.text, minWidth: 130 }}>
               {meses.map(m => <option key={m}>{m}</option>)}
             </select>
           </div>
-          <button onClick={() => { setFilterAno('Todos'); setFilterMes('Todos') }} style={{ marginTop: 18, padding: '5px 12px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: T.mutedFg, fontFamily: T.font }}>
-            Todos os períodos
+          <button onClick={() => { setFilterAno('Todos'); setFilterMes('Todos') }} style={{ marginTop: 14, padding: '4px 10px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 4, fontSize: 11, cursor: 'pointer', color: T.mutedFg }}>
+            Todos
           </button>
-          <span style={{ marginTop: 18, fontSize: 12, color: T.mutedFg }}>{rowsPeriodo.length} registros</span>
+          <span style={{ marginTop: 14, fontSize: 11, color: T.mutedFg }}>{rowsPeriodo.length} registros</span>
         </div>
       </div>
 
-      {/* KPIs do período */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      {/* KPIs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {[
-          { label: 'Total', value: totalPeriodo, color: T.cardFg },
-          { label: 'Contratados', value: contratadosPeriodo, color: '#10b981' },
-          { label: 'Não contratados', value: naoContratadosPeriodo, color: '#ef4444' },
+          { label: 'Total', value: String(totalPeriodo), color: GS.text },
+          { label: 'Contratados', value: String(contratadosPeriodo), color: '#065f46' },
+          { label: 'Não contratados', value: String(naoContratadosPeriodo), color: '#991b1b' },
         ].map(k => (
-          <div key={k.label} style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 16px', display: 'flex', gap: 10, alignItems: 'center' }}>
-            <span style={{ fontSize: 12, color: T.mutedFg }}>{k.label}</span>
-            <span style={{ fontSize: 20, fontWeight: 800, color: k.color }}>{k.value}</span>
+          <div key={k.label} style={{ background: '#fff', border: `1px solid ${GS.cellBorder}`, borderRadius: 6, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <span style={{ fontSize: 11, color: GS.textMuted }}>{k.label}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: k.color }}>{k.value}</span>
           </div>
         ))}
-
-        {/* Orçamento */}
-        <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 8, padding: '10px 16px', display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ background: '#fff', border: `1px solid ${GS.cellBorder}`, borderRadius: 6, padding: '8px 14px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div>
-            <span style={{ fontSize: 10, color: T.mutedFg, textTransform: 'uppercase', fontWeight: 700 }}>Orçamento Total</span>
+            <div style={{ fontSize: 10, color: GS.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Orçamento</div>
             {editOrcamento ? (
-              <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
-                <input autoFocus defaultValue={orcamento} onBlur={e => saveOrcamento(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') saveOrcamento((e.target as HTMLInputElement).value) }} style={{ ...inputStyle, width: 110 }} placeholder="ex: 5000" />
-              </div>
+              <input autoFocus defaultValue={orcamento} onBlur={e => saveOrcamento(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveOrcamento((e.target as HTMLInputElement).value) }}
+                style={{ width: 100, padding: '2px 6px', fontSize: 13, border: `2px solid ${GS.inputBorder}`, borderRadius: 3, outline: 'none' }} placeholder="ex: 8200" />
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ fontSize: 18, fontWeight: 800, color: COR }}>{orcamentoNum ? `R$ ${fmtBRL(orcamentoNum)}` : '—'}</span>
-                <button onClick={() => setEditOrcamento(true)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.mutedFg, padding: 0 }}><Pencil size={12} /></button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: COR }}>{orcamentoNum ? `R$ ${fmtBRL(orcamentoNum)}` : '—'}</span>
+                <button onClick={() => setEditOrcamento(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GS.textMuted, padding: 0 }}><Pencil size={11} /></button>
               </div>
             )}
           </div>
-          <div style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: 14 }}>
-            <span style={{ fontSize: 10, color: T.mutedFg, textTransform: 'uppercase', fontWeight: 700 }}>Já utilizado</span>
-            <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: '#ef4444' }}>R$ {fmtBRL(totalUtilizado)}</p>
+          <div style={{ borderLeft: `1px solid ${GS.cellBorder}`, paddingLeft: 12 }}>
+            <div style={{ fontSize: 10, color: GS.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Utilizado</div>
+            <span style={{ fontSize: 15, fontWeight: 700, color: '#991b1b' }}>R$ {fmtBRL(totalUtilizado)}</span>
           </div>
           {orcamentoNum > 0 && (
-            <div style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: 14 }}>
-              <span style={{ fontSize: 10, color: T.mutedFg, textTransform: 'uppercase', fontWeight: 700 }}>Saldo livre</span>
-              <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color: saldo >= 0 ? '#10b981' : '#ef4444' }}>
-                R$ {fmtBRL(Math.abs(saldo))} {saldo < 0 ? '⚠️' : ''}
-              </p>
+            <div style={{ borderLeft: `1px solid ${GS.cellBorder}`, paddingLeft: 12 }}>
+              <div style={{ fontSize: 10, color: GS.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 2 }}>Saldo</div>
+              <span style={{ fontSize: 15, fontWeight: 700, color: saldo >= 0 ? '#065f46' : '#991b1b' }}>R$ {fmtBRL(Math.abs(saldo))}{saldo < 0 ? ' ⚠️' : ''}</span>
             </div>
           )}
           {orcamentoNum > 0 && (
-            <div style={{ borderLeft: `1px solid ${T.border}`, paddingLeft: 14, minWidth: 140 }}>
-              <span style={{ fontSize: 10, color: T.mutedFg, textTransform: 'uppercase', fontWeight: 700 }}>Utilização</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                <div style={{ background: T.border, borderRadius: 99, height: 8, flex: 1, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', borderRadius: 99, width: `${Math.min(100, (totalUtilizado / orcamentoNum) * 100)}%`, background: saldo >= 0 ? '#10b981' : '#ef4444', transition: 'width 0.5s ease' }} />
-                </div>
-                <span style={{ fontSize: 12, fontWeight: 700, color: saldo >= 0 ? '#10b981' : '#ef4444', whiteSpace: 'nowrap' }}>
-                  {((totalUtilizado / orcamentoNum) * 100).toFixed(0)}%
-                </span>
+            <div style={{ borderLeft: `1px solid ${GS.cellBorder}`, paddingLeft: 12, minWidth: 120 }}>
+              <div style={{ fontSize: 10, color: GS.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
+                Utilização <span style={{ fontWeight: 700, color: saldo >= 0 ? '#065f46' : '#991b1b' }}>{((totalUtilizado / orcamentoNum) * 100).toFixed(0)}%</span>
+              </div>
+              <div style={{ background: '#e5e7eb', borderRadius: 99, height: 6, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 99, width: `${Math.min(100, (totalUtilizado / orcamentoNum) * 100)}%`, background: saldo >= 0 ? '#10b981' : '#ef4444' }} />
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Busca + botões */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar perfil, cupom, obs..."
-          style={{ padding: '6px 12px', fontSize: 13, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.font, outline: 'none', background: T.muted, color: T.cardFg, width: 220 }} />
-        <span style={{ fontSize: 12, color: T.mutedFg }}>{filtered.length} linhas</span>
-        <button onClick={() => setColFilters({})} style={{ padding: '5px 12px', background: 'transparent', border: `1px solid ${T.border}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: T.mutedFg, fontFamily: T.font }}>Limpar filtros</button>
-        <button onClick={addRow} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '6px 14px', background: COR, color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: T.font }}>
-          <Plus size={13} /> Nova linha
+      {/* Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: GS.headerBg, border: `1px solid ${GS.headerBorder}`, borderBottom: 'none', borderRadius: '6px 6px 0 0', flexWrap: 'wrap' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar perfil, cupom..."
+          style={{ padding: '4px 8px', fontSize: 12, border: `1px solid ${GS.headerBorder}`, borderRadius: 4, outline: 'none', background: '#fff', color: GS.text, width: 200 }} />
+        <span style={{ fontSize: 11, color: GS.textMuted }}>{filtered.length} linha{filtered.length !== 1 ? 's' : ''}</span>
+        {activeFiltersCount > 0 && (
+          <button onClick={() => setColFilters({})} style={{ padding: '3px 8px', background: '#fff3cd', border: '1px solid #fcd34d', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#92400e' }}>
+            {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} ativo{activeFiltersCount > 1 ? 's' : ''} ✕
+          </button>
+        )}
+        {sortCol && (
+          <button onClick={() => setSortCol(null)} style={{ padding: '3px 8px', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#0369a1' }}>
+            {INFLU_COLS.find(c => c.key === sortCol)?.label} {sortDir === 'asc' ? '↑ A-Z' : '↓ Z-A'} ✕
+          </button>
+        )}
+        {selectedRow && (
+          <>
+            <button onClick={() => { const r = filtered.find(r => r.id === selectedRow); if (r) duplicateRow(r) }}
+              style={{ padding: '3px 8px', background: '#fff', border: `1px solid ${GS.headerBorder}`, borderRadius: 4, fontSize: 11, cursor: 'pointer', color: GS.text, display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Copy size={11} /> Duplicar
+            </button>
+            <button onClick={() => deleteRow(selectedRow)}
+              style={{ padding: '3px 8px', background: '#fff', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#991b1b', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <Trash2 size={11} /> Excluir
+            </button>
+          </>
+        )}
+        <button onClick={addRow} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 12px', background: COR, color: '#fff', border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={12} /> Nova linha
         </button>
       </div>
 
       {/* Tabela */}
-      <div ref={tableRef} style={{ overflowX: 'auto', border: `1px solid ${T.border}`, borderRadius: 8 }}>
-        <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: '100%', tableLayout: 'fixed' }}>
+      <div ref={tableRef} style={{ overflowX: 'auto', border: `1px solid ${GS.headerBorder}`, borderRadius: '0 0 6px 6px', maxHeight: 560, overflowY: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: '100%', tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 30 }} />
+            <col style={{ width: 36 }} />
             {INFLU_COLS.map(c => <col key={c.key} style={{ width: c.width }} />)}
-            <col style={{ width: 44 }} />
           </colgroup>
-          <thead>
-            <tr style={{ background: `${COR}12`, borderBottom: `1px solid ${COR}30` }}>
-              <th style={{ padding: '8px 4px', color: T.mutedFg, fontWeight: 700, fontSize: 11, textAlign: 'center' }}>#</th>
-              {INFLU_COLS.map(c => <th key={c.key} style={{ padding: '8px 10px', color: T.mutedFg, fontWeight: 700, fontSize: 11, textAlign: 'left', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</th>)}
-              <th style={{ padding: '8px 4px', color: T.mutedFg, fontWeight: 700, fontSize: 11, textAlign: 'center' }}>⋯</th>
-            </tr>
-            {/* Filtros por coluna */}
-            <tr style={{ background: `${COR}06`, borderBottom: `2px solid ${COR}40` }}>
-              <th />
+          <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+            <tr style={{ background: GS.headerBg }}>
+              <th style={{ width: 36, padding: '6px 4px', borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: 'center', fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
               {INFLU_COLS.map(c => {
-                const opts = colOptions(c.key).sort((a, b) => a === 'Todos' ? -1 : b === 'Todos' ? 1 : a.localeCompare(b, 'pt-BR'))
-                const hasFilter = !!(colFilters[c.key] && colFilters[c.key]!.length > 0)
+                const isFiltered = !!(colFilters[c.key] && colFilters[c.key]!.length > 0)
+                const isSorted = sortCol === c.key
+                const isOpen = openFilterCol === c.key
                 return (
-                  <th key={c.key} style={{ padding: '3px 4px', position: 'relative' }}>
-                    <select value="" onChange={e => { const v = e.target.value; if (v === 'Todos') { setColFilters(prev => { const n = {...prev}; delete n[c.key as keyof InfluRow]; return n }); } else { setColFilters(prev => { const cur = prev[c.key as keyof InfluRow] || []; const next = cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v]; return {...prev, [c.key as keyof InfluRow]: next} }) } }}
-                      style={{ width: '100%', padding: '3px 4px', fontSize: 11, border: `1px solid ${hasFilter ? COR : T.border}`, borderRadius: 4, fontFamily: T.font, outline: 'none', background: hasFilter ? `${COR}15` : T.muted, color: hasFilter ? COR : T.mutedFg, fontWeight: hasFilter ? 700 : 400 }}>
-                      {opts.map(o => <option key={o} value={o}>{o === 'Todos' ? '— todos —' : o}</option>)}
-                    </select>
+                  <th key={c.key} style={{ padding: 0, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, background: isFiltered ? `${COR}08` : GS.headerBg, position: 'relative' }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', height: 32 }}>
+                      <button onClick={() => toggleSort(c.key)}
+                        style={{ flex: 1, padding: '0 4px 0 8px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 11, color: isSorted ? COR : isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: 'flex', alignItems: 'center', gap: 3, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+                        {isFiltered && <span style={{ fontSize: 9, background: COR, color: '#fff', borderRadius: 10, padding: '1px 4px', flexShrink: 0 }}>●</span>}
+                        {isSorted ? (sortDir === 'asc' ? <ChevronUp size={10} color={COR} /> : <ChevronDown size={10} color={COR} />) : <ArrowUpDown size={9} style={{ opacity: 0.25, flexShrink: 0 }} />}
+                      </button>
+                      {/* Botão filtro */}
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <button
+                          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
+                          style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : 'none', border: 'none', borderLeft: `1px solid ${GS.headerBorder}`, cursor: 'pointer', color: isFiltered || isOpen ? COR : GS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                          ▾
+                        </button>
+                        {isOpen && (
+                          <ColFilterPopup
+                            colKey={c.key} label={c.label}
+                            allRows={rowsPeriodo}
+                            active={colFilters[c.key] || []}
+                            onApply={vals => setColFilters(prev => vals.length ? { ...prev, [c.key]: vals } : (({ [c.key]: _, ...rest }) => rest)(prev))}
+                            onClose={() => setOpenFilterCol(null)}
+                          />
+                        )}
+                      </div>
+                    </div>
                   </th>
                 )
               })}
-              <th />
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row, i) => (
-              <tr key={row.id} style={{ borderBottom: `1px solid ${T.border}`, background: i % 2 === 0 ? 'transparent' : `${T.muted}80` }}
-                onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = `${COR}08`}
-                onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = i % 2 === 0 ? 'transparent' : `${T.muted}80`}
-              >
-                <td style={{ padding: '5px 4px', color: T.mutedFg, fontSize: 11, textAlign: 'center' }}>{i + 1}</td>
-                {INFLU_COLS.map(col => {
-                  const val = row[col.key] || ''
-                  const isEditing = editCell?.id === row.id && editCell?.key === col.key
+            {filtered.map((row, i) => {
+              const isSelected = selectedRow === row.id
+              const isAlt = i % 2 === 1
+              const bg = isSelected ? GS.rowSelected : isAlt ? GS.rowAlt : '#fff'
+              return (
+                <tr key={row.id}
+                  onClick={() => setSelectedRow(isSelected ? null : row.id)}
+                  style={{ background: bg, transition: 'background 0.05s' }}
+                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover }}
+                  onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = bg }}
+                >
+                  <td style={{ ...cellBase, width: 36, textAlign: 'center', color: GS.textMuted, fontSize: 11, cursor: 'default', whiteSpace: 'nowrap', background: bg, padding: '6px 4px' }}>
+                    {i + 1}
+                  </td>
+                  {INFLU_COLS.map(col => {
+                    const val = row[col.key] || ''
+                    const isEditing = editCell?.id === row.id && editCell?.key === col.key
 
-                  if (isEditing) return (
-                    <td key={col.key} style={{ padding: '3px 4px' }}>
-                      <textarea autoFocus value={editVal} onChange={e => setEditVal(e.target.value)} onBlur={() => setTimeout(() => commitEdit(), 150)}
-                        onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit() } if (e.key === 'Escape') setEditCell(null) }}
-                        style={{ ...inputStyle, resize: 'vertical', minHeight: 32 }} rows={val.includes('\n') ? 3 : 1} />
-                    </td>
-                  )
+                    if (isEditing) return (
+                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: 'top' }}>
+                        <textarea autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => setTimeout(() => commitEdit(row.id, col.key, editVal), 100)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
+                            if (e.key === 'Escape') setEditCell(null)
+                            if (e.key === 'Tab') { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
+                          }}
+                          style={{ width: '100%', minHeight: 28, maxHeight: 120, padding: '4px 6px', fontSize: 12, border: `2px solid ${GS.inputBorder}`, outline: 'none', background: '#fff', color: GS.text, boxSizing: 'border-box', resize: 'vertical', lineHeight: '18px', fontFamily: 'inherit' }} />
+                      </td>
+                    )
 
-                  // Dropdown de status inline
-                  if (col.key === 'status') {
-                    const badge = statusBadge(val)
-                    return (
-                      <td key={col.key} style={{ padding: '5px 8px' }}>
-                        <select value={val} onChange={e => commitDropdown(row.id, col.key, e.target.value)}
-                          style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, padding: '3px 8px', borderRadius: 20, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', fontFamily: T.font }}>
+                    if (col.key === 'status') return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                        <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
+                          style={{ ...statusStyle(val), width: '100%', padding: '2px 6px', fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: 'pointer', outline: 'none', height: 22 }}>
                           <option value="">—</option>
                           <option value="Contratado">Contratado</option>
                           <option value="Não contratado">Não contratado</option>
@@ -748,14 +902,11 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
                         </select>
                       </td>
                     )
-                  }
 
-                  // Dropdown de categoria inline
-                  if (col.key === 'categoria') {
-                    return (
-                      <td key={col.key} style={{ padding: '5px 8px' }}>
-                        <select value={val} onChange={e => commitDropdown(row.id, col.key, e.target.value)}
-                          style={{ background: `${COR}10`, color: COR, border: `1px solid ${COR}30`, padding: '3px 8px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none', fontFamily: T.font }}>
+                    if (col.key === 'categoria') return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                        <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
+                          style={{ width: '100%', padding: '2px 4px', fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: 'pointer', outline: 'none', height: 22, background: `${COR}12`, color: COR, border: `1px solid ${COR}30` }}>
                           <option value="">—</option>
                           <option value="Influ">Influ</option>
                           <option value="Perfil">Perfil</option>
@@ -763,52 +914,92 @@ function InfluenciadoresSection() { const tableRef = useRef<HTMLDivElement>(null
                         </select>
                       </td>
                     )
-                  }
 
-                  // Link Post e Link Perfil
-                  if (col.type === 'link' && val && val.startsWith('http')) return (
-                    <td key={col.key} style={{ padding: '5px 8px', cursor: 'cell' }} onDoubleClick={() => startEdit(row.id, col.key, val)}>
-                      <a href={val.split('\n')[0]} target="_blank" rel="noopener noreferrer" style={{ color: COR, fontSize: 13, textDecoration: 'none', fontWeight: 600 }}>🔗 ver</a>
-                    </td>
-                  )
+                    if (col.type === 'link' && val?.startsWith('http')) return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, textAlign: 'center', whiteSpace: 'nowrap' }}
+                        onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
+                        <a href={val.split('\n')[0]} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ color: '#1a73e8', fontSize: 11, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                          <Link2 size={10} /> ver
+                        </a>
+                      </td>
+                    )
 
-                  return (
-                    <td key={col.key} style={{ padding: '5px 8px', cursor: 'cell', maxWidth: col.width, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: T.cardFg, fontSize: 13 }} title={val} onDoubleClick={() => startEdit(row.id, col.key, val)}>
-                      {val ? <TextWithLinks text={val} style={{ fontSize: 13 }} /> : <span style={{ color: T.mutedFg, fontSize: 12 }}>—</span>}
-                    </td>
-                  )
-                })}
-                <td style={{ padding: '5px 4px', textAlign: 'center' }}>
-                  <button onClick={() => deleteRow(row.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: T.mutedFg, padding: 2, opacity: 0.4 }}
-                    onMouseEnter={e => (e.currentTarget as HTMLButtonElement).style.opacity = '1'}
-                    onMouseLeave={e => (e.currentTarget as HTMLButtonElement).style.opacity = '0.4'}
-                  ><Trash2 size={13} /></button>
-                </td>
-              </tr>
-            ))}
+                    return (
+                      <td key={col.key} style={{ ...cellBase, background: bg }} title={val}
+                        onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
+                        {val
+                          ? <TextWithLinks text={val} style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} />
+                          : <span style={{ color: '#ccc', fontSize: 11 }}>—</span>}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+            <tr style={{ background: '#fafafa' }} onClick={addRow}>
+              <td style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: 'center', color: '#ccc', cursor: 'pointer', fontSize: 16 }}>+</td>
+              {INFLU_COLS.map(c => (
+                <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: 'pointer' }} />
+              ))}
+            </tr>
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 12, color: T.mutedFg, marginTop: 6 }}>💡 Clique duplo para editar texto · Dropdowns de Categoria e Status clicáveis direto · Cole URLs e viram links 🔗</p>
+      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
+        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▾ para filtrar
+      </p>
     </div>
   )
 }
 
-const METAS_SEGUIDORES: Record<string, number> = { '04': 170000 }
-
 function SocialMediaSection() {
-  const [data, setData] = useState<{ total_seguidores: number | null; ganho_hoje: number | null } | null>(null)
+  const [data, setData] = useState<{
+    total_seguidores: number | null; ganho_hoje: number | null; ganho_mes: number | null
+    historico: { data: string; total_seguidores: number; ganho_dia: number }[]
+  } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [periodo, setPeriodo] = useState<7 | 14 | 30 | 'mes'>('mes')
+  const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null)
 
   useEffect(() => {
     fetch("/api/seguidores-vistas").then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
-  const mesAtualNum = String(new Date().getMonth() + 1).padStart(2, '0')
-  const metaMes = METAS_SEGUIDORES[mesAtualNum] ?? null
   const total = data?.total_seguidores ?? null
-  const faltam = metaMes && total ? Math.max(0, metaMes - total) : null
-  const progresso = metaMes && total ? Math.min(100, (total / metaMes) * 100) : null
+  const ganhoHoje = data?.ganho_hoje ?? null
+  const ganhoMes = data?.ganho_mes ?? null
+  const historicoCompleto = data?.historico ?? []
+
+  const historicoFiltrado = (() => {
+    if (periodo === 'mes') {
+      const inicioMes = new Date().toISOString().slice(0, 7) + '-01'
+      return historicoCompleto.filter(d => d.data >= inicioMes)
+    }
+    const corte = new Date(); corte.setDate(corte.getDate() - (periodo as number))
+    return historicoCompleto.filter(d => d.data >= corte.toISOString().split('T')[0])
+  })()
+
+  const ganhoPeriodo = (() => {
+    if (periodo === 'mes' && ganhoMes !== null) return ganhoMes
+    return historicoFiltrado.reduce((s, d) => s + (d.ganho_dia || 0), 0)
+  })()
+
+  const faltaMeta = Math.max(0, META_MENSAL - (ganhoMes ?? 0))
+  const progressoMeta = Math.min(100, ((ganhoMes ?? 0) / META_MENSAL) * 100)
+  const periodoDateRange = getPeriodoLabel(periodo)
+
+  const maxGanho = Math.max(...historicoFiltrado.map(d => d.ganho_dia || 0), 1)
+  const W = 680, H = 140, PL = 36, PB = 28, PT = 8, PR = 8
+  const cW = W - PL - PR, cH = H - PT - PB
+  const n = historicoFiltrado.length
+  const barW = n > 1 ? Math.max(6, (cW / n) - 3) : 20
+  const xs = (i: number) => n > 1 ? PL + (i / (n - 1)) * cW : PL + cW / 2
+  const ys = (v: number) => PT + cH - (v / maxGanho) * cH
+
+  const periodos: { label: string; val: 7 | 14 | 30 | 'mes' }[] = [
+    { label: 'Mês atual', val: 'mes' }, { label: '7 dias', val: 7 }, { label: '14 dias', val: 14 }, { label: '30 dias', val: 30 },
+  ]
 
   return (
     <div>
@@ -816,29 +1007,123 @@ function SocialMediaSection() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 14 }}>
         {[
           { label: "Total de Seguidores", value: loading ? "—" : total?.toLocaleString("pt-BR") ?? "—", color: COR },
-          { label: "Ganho Hoje", value: loading ? "—" : data?.ganho_hoje != null ? `+${data.ganho_hoje.toLocaleString("pt-BR")}` : "—", color: "#10b981" },
-          ...(metaMes ? [{ label: "Meta do Mês", value: metaMes.toLocaleString("pt-BR"), color: "#f59e0b" }] : []),
-          ...(faltam !== null ? [{ label: "Faltam para a Meta", value: faltam > 0 ? faltam.toLocaleString("pt-BR") : "✓ Meta batida!", color: faltam > 0 ? "#ef4444" : "#10b981" }] : []),
+          { label: "Ganho Hoje", value: loading ? "—" : ganhoHoje != null ? `+${ganhoHoje.toLocaleString("pt-BR")}` : "—", color: "#10b981" },
+          { label: "Meta Mensal", value: `+${META_MENSAL.toLocaleString("pt-BR")}`, color: "#f59e0b" },
+          { label: "Ganho no Mês", value: loading ? "—" : ganhoMes != null ? `+${ganhoMes.toLocaleString("pt-BR")}` : "—", color: COR },
+          { label: "Falta para Meta", value: loading ? "—" : faltaMeta > 0 ? faltaMeta.toLocaleString("pt-BR") : "✔ Meta batida!", color: faltaMeta > 0 ? "#ef4444" : "#10b981" },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px" }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
-            <p style={{ fontSize: 20, fontWeight: 800, color: kpi.color, margin: 0 }}>
-              {loading && kpi.label !== "Meta do Mês" ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : kpi.value}
+            <p style={{ fontSize: 18, fontWeight: 800, color: kpi.color, margin: 0 }}>
+              {loading && kpi.label !== "Meta Mensal" ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : kpi.value}
             </p>
           </div>
         ))}
       </div>
-      {progresso !== null && !loading && (
+
+      {!loading && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: T.mutedFg, marginBottom: 4 }}>
-            <span>Progresso para meta de {metaMes!.toLocaleString('pt-BR')}</span>
-            <span style={{ fontWeight: 700, color: progresso >= 100 ? '#10b981' : COR }}>{progresso.toFixed(1)}%</span>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.mutedFg, marginBottom: 4 }}>
+            <span>Progresso para meta de +{META_MENSAL.toLocaleString("pt-BR")} no mês</span>
+            <span style={{ fontWeight: 700, color: progressoMeta >= 100 ? "#10b981" : COR }}>{progressoMeta.toFixed(1)}%</span>
           </div>
-          <div style={{ background: T.border, borderRadius: 99, height: 8, overflow: 'hidden' }}>
-            <div style={{ height: '100%', borderRadius: 99, width: `${progresso}%`, background: progresso >= 100 ? '#10b981' : COR, transition: 'width 0.5s ease' }} />
+          <div style={{ background: T.border, borderRadius: 99, height: 8, overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 99, width: `${progressoMeta}%`, background: progressoMeta >= 100 ? "#10b981" : COR, transition: "width 0.5s ease" }} />
           </div>
         </div>
       )}
+
+      <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Ganho diário</p>
+            {!loading && (
+              <div style={{ background: `${COR}12`, border: `1px solid ${COR}30`, borderRadius: 8, padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, color: T.mutedFg }}>{periodoDateRange}:</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>+{ganhoPeriodo.toLocaleString("pt-BR")}</span>
+              </div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {periodos.map(p => (
+              <button key={String(p.val)} onClick={() => { setPeriodo(p.val); setTooltip(null) }}
+                style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: "pointer", fontFamily: T.font, border: `1px solid ${periodo === p.val ? COR : T.border}`, background: periodo === p.val ? COR : "transparent", color: periodo === p.val ? "#fff" : T.mutedFg }}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {historicoFiltrado.length === 0 ? (
+          <p style={{ fontSize: 12, color: T.mutedFg, fontStyle: "italic", textAlign: "center", padding: "16px 0" }}>
+            Sem dados para o período. O histórico é preenchido automaticamente ao abrir a página.
+          </p>
+        ) : (
+          <div style={{ overflow: "hidden", position: "relative" }} onMouseLeave={() => setTooltip(null)}>
+            <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block" }}
+              onMouseMove={e => {
+                const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect()
+                const mx = ((e.clientX - rect.left) / rect.width) * W
+                let closest = 0; let minD = Infinity
+                historicoFiltrado.forEach((_, i) => { const d = Math.abs(xs(i) - mx); if (d < minD) { minD = d; closest = i } })
+                if (minD < barW * 2) setTooltip({ idx: closest, x: xs(closest), y: ys(historicoFiltrado[closest]?.ganho_dia || 0) })
+                else setTooltip(null)
+              }}>
+              <defs><clipPath id="chart-clip"><rect x={PL} y={PT} width={cW} height={cH} /></clipPath></defs>
+              {[0, Math.round(maxGanho / 2), maxGanho].map(v => (
+                <g key={v}>
+                  <line x1={PL} x2={W - PR} y1={ys(v)} y2={ys(v)} stroke={T.border} strokeWidth={0.5} />
+                  <text x={PL - 4} y={ys(v) + 4} fontSize={9} fill={T.mutedFg ?? "#888"} textAnchor="end">{v}</text>
+                </g>
+              ))}
+              <g clipPath="url(#chart-clip)">
+                {historicoFiltrado.map((d, i) => {
+                  const ganho = d.ganho_dia || 0
+                  const bh = Math.max(2, (ganho / maxGanho) * cH)
+                  const isHoje = d.data === new Date().toISOString().split("T")[0]
+                  return (
+                    <rect key={d.data} x={xs(i) - barW / 2} y={ys(ganho)} width={barW} height={bh}
+                      fill={tooltip?.idx === i ? "#5B21B6" : isHoje ? COR : `${COR}60`} rx={2} style={{ transition: "fill 0.1s" }} />
+                  )
+                })}
+              </g>
+              {tooltip && <line x1={xs(tooltip.idx)} x2={xs(tooltip.idx)} y1={PT} y2={H - PB} stroke={COR} strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />}
+              {/* Labels dos dias — sempre visíveis */}
+              {historicoFiltrado.length <= 20
+                ? historicoFiltrado.map((d, i) => (
+                  <text key={d.data} x={xs(i)} y={H - 6} fontSize={9}
+                    fill={tooltip?.idx === i ? COR : T.mutedFg ?? "#888"}
+                    fontWeight={tooltip?.idx === i ? 700 : 400}
+                    textAnchor="middle">{d.data.slice(8)}</text>
+                ))
+                : [0, Math.floor(n / 4), Math.floor(n / 2), Math.floor(3 * n / 4), n - 1].map(i => (
+                  <text key={i} x={xs(i)} y={H - 6} fontSize={9} fill={T.mutedFg ?? "#888"} textAnchor="middle">
+                    {historicoFiltrado[i]?.data.slice(8)}/{historicoFiltrado[i]?.data.slice(5, 7)}
+                  </text>
+                ))
+              }
+            </svg>
+
+            {tooltip && (() => {
+              const d = historicoFiltrado[tooltip.idx]
+              const ganho = d?.ganho_dia || 0
+              const dataFmt = d?.data.split("-").reverse().join("/") ?? ""
+              const isHoje = d?.data === new Date().toISOString().split("T")[0]
+              return (
+                <div style={{ position: "absolute", top: 4, left: `${(xs(tooltip.idx) / W) * 100}%`, transform: tooltip.idx > n * 0.65 ? "translateX(-110%)" : "translateX(10px)", background: T.card, border: `1.5px solid ${COR}50`, borderRadius: 10, padding: "10px 14px", pointerEvents: "none", zIndex: 10, boxShadow: "0 4px 20px rgba(124,58,237,0.15)", minWidth: 150 }}>
+                  <p style={{ margin: "0 0 6px", fontSize: 11, color: T.mutedFg, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    {dataFmt}
+                    {isHoje && <span style={{ background: COR, color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 10 }}>hoje</span>}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 22, fontWeight: 800, color: COR, lineHeight: 1 }}>+{ganho.toLocaleString("pt-BR")}</p>
+                  <p style={{ margin: "4px 0 0", fontSize: 11, color: T.mutedFg }}>seguidores ganhos</p>
+                </div>
+              )
+            })()}
+          </div>
+        )}
+      </div>
+
       <div style={{ marginTop: 8 }}><InfluenciadoresSection /></div>
     </div>
   )
@@ -886,8 +1171,8 @@ export default function VistasHospedesPage() {
             </button>
           </div>
           {errorRes ? (
-            <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: `${T.destructive}10`, border: `1px solid ${T.destructive}30`, borderRadius: 10 }}>
-              <AlertCircle size={16} color={T.destructive} /><span style={{ fontSize: 13, color: T.destructive }}>{errorRes}</span>
+            <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10 }}>
+              <span style={{ fontSize: 13, color: T.mutedFg }}>⚙️ Dados de reservas não disponíveis no ambiente local.</span>
             </div>
           ) : (
             <>
@@ -919,7 +1204,6 @@ export default function VistasHospedesPage() {
           )}
         </section>
 
-        {/* ── Navegação ── */}
         <section style={{ marginBottom: 28 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
             <Link href="/vistas-hospedes/plano-de-acao" style={{ textDecoration: "none" }}>
@@ -962,6 +1246,7 @@ export default function VistasHospedesPage() {
           </div>
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "18px 20px", boxShadow: T.elevSm }}><CriativosSection /></div>
         </section>
+
         <section>
           <div style={{ marginBottom: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Instagram</p>
