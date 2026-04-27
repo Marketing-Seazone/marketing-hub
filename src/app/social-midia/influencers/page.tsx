@@ -1,27 +1,22 @@
 "use client"
 
-import { useEffect, useState, useRef, useMemo } from "react"
+import { useEffect, useState, useRef } from "react"
 import { TeamLayout } from "@/components/team-layout"
 import { T } from "@/lib/constants"
 import { getSupabase } from "@/app/social-midia/calendario-seazone/_lib/supabase"
+import { Plus, Trash2, Copy, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react"
 
-const NAVY  = "#0f1d4e"
-const ACT_W = 70
-const MIN_W = 40
+const NAVY = "#0f1d4e"
+const COR  = "#0f1d4e"
 
-const ROW_HEIGHTS = [
-  { label: "Compacta",    value: 36  },
-  { label: "Normal",      value: 52  },
-  { label: "Confortável", value: 72  },
-  { label: "Espaçosa",    value: 100 },
-]
-const DEFAULT_ROW_HEIGHT = 52
+const MES_NOMES: Record<number, string> = {
+  1: "01. Janeiro", 2: "02. Fevereiro", 3: "03. Março", 4: "04. Abril",
+  5: "05. Maio", 6: "06. Junho", 7: "07. Julho", 8: "08. Agosto",
+  9: "09. Setembro", 10: "10. Outubro", 11: "11. Novembro", 12: "12. Dezembro",
+}
 
 type Tab = "geral" | "expansao_sp" | "expansao_salvador" | "seazone"
-type Row = Record<string, unknown>
-type SortState = { key: string; dir: "asc" | "desc" } | null
-type ActiveCell = { rowId: unknown; ci: number } | null
-type HistEntry  = { rowId: unknown; colKey: string; oldVal: string; newVal: string }
+type InfluRow = Record<string, string>
 
 const TABS = [
   { id: "geral"             as Tab, label: "Geral",             table: "" },
@@ -31,53 +26,77 @@ const TABS = [
 ]
 const DATA_TABS = TABS.filter(t => t.id !== "geral")
 
-type ColDef = { key: string; label: string; w: number; type?: string; filterType?: string }
+type ColDef = { key: string; label: string; width: number; type?: string }
 
 const BASE_COLS: ColDef[] = [
-  { key: "ano",                    label: "Ano",              w: 55,  filterType: "select" },
-  { key: "mes",                    label: "Mês",              w: 85,  filterType: "select" },
-  { key: "categoria",              label: "Categoria",        w: 90,  filterType: "select", type: "categoria" },
-  { key: "perfil",                 label: "Perfil",           w: 120, filterType: "text" },
-  { key: "link_perfil",            label: "Link perfil",      w: 80,  filterType: "text", type: "links" },
-  { key: "seguidores",             label: "Seguidores",       w: 80,  filterType: "text" },
-  { key: "contato",                label: "Contato",          w: 140, filterType: "text" },
-  { key: "status_contrato",        label: "Status",           w: 130, filterType: "select", type: "status" },
-  { key: "valor_trabalho",         label: "Valor trabalho",   w: 100, filterType: "text" },
-  { key: "valor_hospedagem",       label: "Valor hospedagem", w: 100, filterType: "text" },
-  { key: "data_contratacao",       label: "Data contratação", w: 105, filterType: "text" },
-  { key: "data_pagamento",         label: "Data pagamento",   w: 105, filterType: "text" },
-  { key: "conteudo_orcado",        label: "Conteúdo orçado",  w: 150, filterType: "text", type: "multiline" },
-  { key: "observacoes",            label: "Observações",      w: 150, filterType: "text", type: "multiline" },
-  { key: "cupom",                  label: "Cupom",            w: 85,  filterType: "text" },
-  { key: "data_validade_cupom",    label: "Validade cupom",   w: 100, filterType: "text" },
-  { key: "data_visita_hospedagem", label: "Data visita",      w: 100, filterType: "text" },
-  { key: "data_hora_post",         label: "Data do post",     w: 100, filterType: "text" },
-  { key: "link_publicacao",        label: "Link do post",     w: 80,  filterType: "text", type: "links" },
+  { key: "ano",                    label: "Ano",              width: 60  },
+  { key: "mes",                    label: "Mês",              width: 95  },
+  { key: "categoria",              label: "Categoria",        width: 90,  type: "categoria" },
+  { key: "perfil",                 label: "Perfil",           width: 160 },
+  { key: "link_perfil",            label: "Link",             width: 65,  type: "link" },
+  { key: "seguidores",             label: "Seguidores",       width: 85  },
+  { key: "contato",                label: "Contato",          width: 150 },
+  { key: "status_contrato",        label: "Status",           width: 135, type: "status" },
+  { key: "valor_trabalho",         label: "Vlr Trabalho",     width: 100 },
+  { key: "valor_hospedagem",       label: "Vlr Hosp.",        width: 90  },
+  { key: "data_visita_hospedagem", label: "Data Visita",      width: 100 },
+  { key: "cupom",                  label: "Cupom",            width: 85  },
+  { key: "data_validade_cupom",    label: "Val. Cupom",       width: 95  },
+  { key: "data_contratacao",       label: "Dt Contrat.",      width: 100 },
+  { key: "data_pagamento",         label: "Dt Pgto",          width: 95  },
+  { key: "data_hora_post",         label: "Data Post",        width: 100 },
+  { key: "link_publicacao",        label: "Link Post",        width: 65,  type: "link" },
+  { key: "conversoes",             label: "Conversões",       width: 90  },
+  { key: "valor_reservas",         label: "Vlr Reservas",     width: 100 },
+  { key: "conteudo_orcado",        label: "Conteúdo Orçado",  width: 180 },
+  { key: "observacoes",            label: "Observações",      width: 180 },
+]
+
+const SEAZONE_COLS: ColDef[] = [
+  { key: "ano",                    label: "Ano",              width: 60  },
+  { key: "cidade",                 label: "Cidade",           width: 110 },
+  { key: "mes",                    label: "Mês",              width: 95  },
+  { key: "categoria",              label: "Categoria",        width: 90,  type: "categoria" },
+  { key: "perfil",                 label: "Perfil",           width: 160 },
+  { key: "link_perfil",            label: "Link",             width: 65,  type: "link" },
+  { key: "seguidores",             label: "Seguidores",       width: 85  },
+  { key: "contato",                label: "Contato",          width: 150 },
+  { key: "status_contrato",        label: "Status",           width: 135, type: "status" },
+  { key: "valor_trabalho",         label: "Vlr Trabalho",     width: 100 },
+  { key: "valor_hospedagem",       label: "Vlr Hosp.",        width: 90  },
+  { key: "data_visita_hospedagem", label: "Data Visita",      width: 100 },
+  { key: "cupom",                  label: "Cupom",            width: 85  },
+  { key: "data_validade_cupom",    label: "Val. Cupom",       width: 95  },
+  { key: "data_contratacao",       label: "Dt Contrat.",      width: 100 },
+  { key: "data_pagamento",         label: "Dt Pgto",          width: 95  },
+  { key: "data_hora_post",         label: "Data Post",        width: 100 },
+  { key: "link_publicacao",        label: "Link Post",        width: 65,  type: "link" },
+  { key: "conversoes",             label: "Conversões",       width: 90  },
+  { key: "valor_reservas",         label: "Vlr Reservas",     width: 100 },
+  { key: "conteudo_orcado",        label: "Conteúdo Orçado",  width: 180 },
+  { key: "observacoes",            label: "Observações",      width: 180 },
 ]
 
 const COLS_BY_TAB: Record<string, ColDef[]> = {
   expansao_sp:       BASE_COLS,
   expansao_salvador: BASE_COLS,
-  seazone: [
-    BASE_COLS[0],
-    { key: "cidade", label: "Cidade", w: 110, filterType: "select" },
-    ...BASE_COLS.slice(1),
-  ],
+  seazone:           SEAZONE_COLS,
 }
 
 const STATUS_OPTIONS    = ["Contratado", "Não contratado", "Aguardando", "Permuta"]
-const CATEGORIA_OPTIONS = ["Perfil", "Página"]
+const CATEGORIA_OPTIONS = ["Influ", "Perfil", "Página"]
 
-function getStatusStyle(val: string) {
-  const v = (val || "").toLowerCase().trim()
-  if (v === "contratado")     return { bg: "#d1fae5", color: "#065f46" }
-  if (v === "não contratado") return { bg: "#fee2e2", color: "#991b1b" }
-  if (v === "aguardando")     return { bg: "#fef9c3", color: "#854d0e" }
-  if (v === "permuta")        return { bg: "#e0e7ff", color: "#3730a3" }
-  return { bg: "#f3f4f6", color: "#374151" }
+function statusStyle(s: string): React.CSSProperties {
+  const v = (s || "").toLowerCase().trim()
+  if (v === "contratado")     return { background: "#d1fae5", color: "#065f46", border: "1px solid #6ee7b7" }
+  if (v.includes("não") || v.includes("nao")) return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" }
+  if (v === "aguardando")     return { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }
+  if (v === "permuta")        return { background: "#e0e7ff", color: "#3730a3", border: "1px solid #a5b4fc" }
+  return { background: "#f3f4f6", color: "#6b7280", border: "1px solid #d1d5db" }
 }
+
 function parseBRL(val: unknown): number {
-  if (!val || val === "—") return 0
+  if (!val) return 0
   const s = String(val).replace("R$", "").replace(/\s/g, "").replace(/\./g, "").replace(",", ".")
   return parseFloat(s) || 0
 }
@@ -85,345 +104,134 @@ function formatBRL(n: number): string {
   return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// ── Dropdown genérico ─────────────────────────────────────────────────────────
-function OptionMenu({ options, value, onSelect, onClose, getStyle }: {
-  options: string[]; value: string
-  onSelect: (v: string) => void; onClose: () => void
-  getStyle?: (v: string) => { bg: string; color: string }
+/* ── ColFilterPopup ── */
+function ColFilterPopup({ colKey, label, allRows, active, sortDir, onApply, onSort, onClose }: {
+  colKey: string; label: string; allRows: InfluRow[]
+  active: string[]; sortDir: "asc" | "desc" | null
+  onApply: (vals: string[]) => void
+  onSort: (dir: "asc" | "desc" | null) => void
+  onClose: () => void
 }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h)
-  }, [onClose])
-  return (
-    <div ref={ref} style={{ position: "absolute", top: "calc(100% + 2px)", left: 0, zIndex: 500, background: "#fff", border: `1px solid ${T.border}`, borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.14)", minWidth: 170, overflow: "hidden" }}>
-      {options.map(opt => {
-        const s = getStyle ? getStyle(opt) : { bg: "#eef1f8", color: NAVY }
-        const active = (value || "").toLowerCase().trim() === opt.toLowerCase().trim()
-        return (
-          <div key={opt} onClick={() => { onSelect(opt); onClose() }}
-            style={{ padding: "10px 14px", cursor: "pointer", fontSize: 14, fontWeight: 600, color: s.color, background: active ? s.bg : "transparent", borderLeft: active ? `3px solid ${s.color}` : "3px solid transparent", display: "flex", alignItems: "center", gap: 8 }}
-            onMouseEnter={e => (e.currentTarget.style.background = s.bg)}
-            onMouseLeave={e => (e.currentTarget.style.background = active ? s.bg : "transparent")}
-          >
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />{opt}
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+  const allOpts = Array.from(new Set(allRows.map(r => r[colKey] || ""))).filter(Boolean)
+  const [sortAZ, setSortAZ] = useState(sortDir !== "desc")
+  const [searchVal, setSearchVal] = useState("")
+  const [selected, setSelected] = useState<string[]>(active.length ? [...active] : [...allOpts])
 
-// ── ColFilter ─────────────────────────────────────────────────────────────────
-function ColFilter({ col, label, rows, filter, setFilter, sort, setSort, onLabelSave }: {
-  col: ColDef; label: string; rows: Row[]
-  filter: string[]; setFilter: (v: string[]) => void
-  sort: "asc" | "desc" | null; setSort: (v: "asc" | "desc" | null) => void
-  onLabelSave: (v: string) => void
-}) {
-  const [open, setOpen]           = useState(false)
-  const [search, setSearch]       = useState("")
-  const [editingLabel, setEditing] = useState(false)
-  const [labelVal, setLabelVal]   = useState(label)
-  const ref      = useRef<HTMLDivElement>(null)
-  const labelRef = useRef<HTMLInputElement>(null)
+  const sorted = [...allOpts].sort((a, b) => sortAZ ? a.localeCompare(b, "pt-BR") : b.localeCompare(a, "pt-BR"))
+  const visible = sorted.filter(o => o.toLowerCase().includes(searchVal.toLowerCase()))
+  const allSelected = selected.length === allOpts.length
 
-  useEffect(() => { setLabelVal(label) }, [label])
-  useEffect(() => { if (editingLabel) labelRef.current?.focus() }, [editingLabel])
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) { setOpen(false); setSearch("") } }
-    document.addEventListener("mousedown", h); return () => document.removeEventListener("mousedown", h)
-  }, [])
-
-  const uniqueVals = Array.from(new Set(rows.map(r => String(r[col.key] ?? "")).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR"))
-  const hasActive  = filter.length > 0 || sort !== null
-  const visible    = uniqueVals.filter(v => v.toLowerCase().includes(search.toLowerCase()))
-
-  return (
-    <div ref={ref} style={{ position: "relative", display: "flex", alignItems: "flex-start", gap: 4, width: "100%" }}>
-      {editingLabel ? (
-        <input ref={labelRef} value={labelVal} onChange={e => setLabelVal(e.target.value)}
-          onBlur={() => { onLabelSave(labelVal); setEditing(false) }}
-          onKeyDown={e => { if (e.key === "Enter") { onLabelSave(labelVal); setEditing(false) } if (e.key === "Escape") { setLabelVal(label); setEditing(false) } }}
-          onClick={e => e.stopPropagation()}
-          style={{ flex: 1, fontSize: 13, fontWeight: 700, color: "#fff", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.5)", borderRadius: 4, padding: "2px 5px", outline: "none", minWidth: 0 }} />
-      ) : (
-        <span onDoubleClick={() => setEditing(true)} title="Duplo clique para renomear"
-          style={{ fontSize: 13, fontWeight: 700, color: "#fff", lineHeight: 1.35, flex: 1, cursor: "default", userSelect: "none", wordBreak: "break-word" }}>
-          {label}{sort && <span style={{ marginLeft: 4, opacity: 0.8 }}>{sort === "asc" ? "↑" : "↓"}</span>}
-        </span>
-      )}
-      <button onClick={() => setOpen(v => !v)} style={{ background: hasActive ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 4, padding: "2px 5px", cursor: "pointer", fontSize: 10, color: "#fff", lineHeight: 1.4, flexShrink: 0, marginTop: 1 }}>▾</button>
-      {open && (
-        <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 200, background: "#fff", border: `1px solid ${T.border}`, borderRadius: 12, boxShadow: "0 6px 28px rgba(0,0,0,0.16)", minWidth: 240, maxHeight: 380, display: "flex", flexDirection: "column" }}>
-          <div style={{ padding: "10px 10px 8px", borderBottom: `1px solid ${T.border}` }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: T.mutedFg, margin: "0 0 7px", textTransform: "uppercase", letterSpacing: ".04em" }}>Ordenar</p>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => { setSort(sort === "asc" ? null : "asc"); setOpen(false) }} style={{ flex: 1, padding: "6px 8px", borderRadius: 7, fontSize: 13, cursor: "pointer", background: sort === "asc" ? NAVY : T.bg, color: sort === "asc" ? "#fff" : T.cardFg, border: `1px solid ${sort === "asc" ? NAVY : T.border}`, fontWeight: 600 }}>A → Z ↑</button>
-              <button onClick={() => { setSort(sort === "desc" ? null : "desc"); setOpen(false) }} style={{ flex: 1, padding: "6px 8px", borderRadius: 7, fontSize: 13, cursor: "pointer", background: sort === "desc" ? NAVY : T.bg, color: sort === "desc" ? "#fff" : T.cardFg, border: `1px solid ${sort === "desc" ? NAVY : T.border}`, fontWeight: 600 }}>Z → A ↓</button>
-            </div>
-          </div>
-          <div style={{ padding: "8px 10px", borderBottom: `1px solid ${T.border}` }}>
-            <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar valor…"
-              style={{ width: "100%", border: `1px solid ${T.border}`, borderRadius: 7, padding: "7px 10px", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
-          </div>
-          <div style={{ display: "flex", gap: 6, padding: "7px 12px", borderBottom: `1px solid ${T.border}` }}>
-            <button onClick={() => setFilter(uniqueVals)} style={{ fontSize: 12, color: NAVY, background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Todos</button>
-            <span style={{ color: T.border }}>|</span>
-            <button onClick={() => { setFilter([]); setSort(null); setOpen(false); setSearch("") }} style={{ fontSize: 12, color: "#991b1b", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>Limpar</button>
-          </div>
-          <div style={{ overflowY: "auto", padding: "4px 0" }}>
-            {visible.map(v => {
-              const checked = filter.includes(v); const isStatus = col.key === "status_contrato"; const s = isStatus ? getStatusStyle(v) : null
-              return (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 12px", cursor: "pointer", fontSize: 14, background: checked ? "#eef1f8" : "transparent" }}
-                  onMouseEnter={e => { if (!checked) e.currentTarget.style.background = T.bg }}
-                  onMouseLeave={e => { e.currentTarget.style.background = checked ? "#eef1f8" : "transparent" }}>
-                  <input type="checkbox" checked={checked} onChange={() => setFilter(checked ? filter.filter(f => f !== v) : [...filter, v])} style={{ accentColor: NAVY, width: 15, height: 15, flexShrink: 0 }} />
-                  {isStatus && s && <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.color, flexShrink: 0 }} />}
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: T.cardFg }}>{v}</span>
-                </label>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── EditableCell ──────────────────────────────────────────────────────────────
-function EditableCell({
-  value, colKey, type, rowHeight,
-  isActive, isEditing, editValue, isFindMatch, isFindActive,
-  onChange, onEditKeyDown, onActivate, onStartEdit, onBlurCommit,
-  onSaveOption,
-}: {
-  value: string; colKey: string; type?: string; rowHeight: number
-  isActive: boolean; isEditing: boolean; editValue: string
-  isFindMatch: boolean; isFindActive: boolean
-  onChange: (v: string) => void
-  onEditKeyDown: (e: React.KeyboardEvent) => void
-  onActivate: () => void
-  onStartEdit: (initialChar?: string) => void
-  onBlurCommit: () => void
-  onSaveOption: (v: string) => void
-}) {
-  const inputRef  = useRef<HTMLInputElement & HTMLTextAreaElement>(null)
-  const [showMenu, setShowMenu] = useState(false)
-
-  useEffect(() => { if (isEditing) { inputRef.current?.focus(); inputRef.current?.select?.() } }, [isEditing])
-
-  // Highlight style
-  const bgStyle: React.CSSProperties = isFindActive
-    ? { background: "#fde68a" }
-    : isFindMatch
-      ? { background: "#fef9c3" }
-      : {}
-
-  const taRows = rowHeight <= 36 ? 1 : rowHeight <= 52 ? 2 : rowHeight <= 72 ? 3 : 4
-
-  function handleInputKeyDown(e: React.KeyboardEvent) {
-    // Ctrl+Enter adds newline in textarea
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      e.preventDefault()
-      const ta = inputRef.current as HTMLTextAreaElement | null
-      if (ta && ta.tagName === "TEXTAREA") {
-        const s = ta.selectionStart ?? editValue.length
-        const end = ta.selectionEnd ?? s
-        const nv = editValue.slice(0, s) + "\n" + editValue.slice(end)
-        onChange(nv)
-        requestAnimationFrame(() => { ta.selectionStart = ta.selectionEnd = s + 1 })
-      }
-      return
-    }
-    onEditKeyDown(e)
+  function toggle(v: string) {
+    setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
   }
 
-  const inputStyle: React.CSSProperties = {
-    width: "100%", background: "#fff", border: `2px solid ${NAVY}`,
-    borderRadius: 4, padding: "4px 7px", fontSize: 14, outline: "none",
-    boxSizing: "border-box", fontFamily: "inherit",
-  }
+  const GS = { border: "#dadce0", headerBg: "#f8f9fa", text: "#202124", textMuted: "#5f6368" }
 
-  // STATUS
-  if (type === "status") {
-    const s = getStatusStyle(value)
-    return (
-      <div style={{ position: "relative", width: "100%", ...bgStyle }}
-        onClick={onActivate} onDoubleClick={() => onStartEdit()}>
-        <span onClick={e => { e.stopPropagation(); onActivate(); setShowMenu(v => !v) }}
-          style={{ background: s.bg, color: s.color, borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", userSelect: "none" }}>
-          {value || "—"} <span style={{ fontSize: 9 }}>▾</span>
-        </span>
-        {showMenu && <OptionMenu options={STATUS_OPTIONS} value={value} onSelect={v => { onSaveOption(v); setShowMenu(false) }} onClose={() => setShowMenu(false)} getStyle={getStatusStyle} />}
+  return (
+    <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 200, background: "#fff", border: `1px solid ${GS.border}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 240, overflow: "hidden" }}
+      onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+      <div style={{ padding: "8px 12px", background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: GS.text }}>Filtrar: {label}</span>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: "none", border: "none", cursor: "pointer", color: GS.textMuted, fontSize: 16, lineHeight: 1 }}>✕</button>
       </div>
-    )
-  }
-
-  // CATEGORIA
-  if (type === "categoria") {
-    return (
-      <div style={{ position: "relative", width: "100%", ...bgStyle }}
-        onClick={onActivate} onDoubleClick={() => onStartEdit()}>
-        <span onClick={e => { e.stopPropagation(); onActivate(); setShowMenu(v => !v) }}
-          style={{ background: value ? "#f0f9ff" : "#f3f4f6", color: value ? "#0369a1" : T.mutedFg, borderRadius: 6, padding: "4px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap", userSelect: "none" }}>
-          {value || "—"} <span style={{ fontSize: 9 }}>▾</span>
-        </span>
-        {showMenu && <OptionMenu options={CATEGORIA_OPTIONS} value={value} onSelect={v => { onSaveOption(v); setShowMenu(false) }} onClose={() => setShowMenu(false)} getStyle={() => ({ bg: "#f0f9ff", color: "#0369a1" })} />}
+      <div style={{ padding: "6px 8px", borderBottom: `1px solid ${GS.border}`, display: "flex", gap: 4 }}>
+        <button onMouseDown={e => { e.preventDefault(); setSortAZ(true); onSort("asc") }}
+          style={{ flex: 1, padding: "5px 6px", fontSize: 11, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 4, background: sortAZ ? `${COR}15` : "#fff", color: sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, fontWeight: sortAZ ? 700 : 400 }}>
+          <ChevronUp size={11} /> A → Z
+        </button>
+        <button onMouseDown={e => { e.preventDefault(); setSortAZ(false); onSort("desc") }}
+          style={{ flex: 1, padding: "5px 6px", fontSize: 11, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 4, background: !sortAZ ? `${COR}15` : "#fff", color: !sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, fontWeight: !sortAZ ? 700 : 400 }}>
+          <ChevronDown size={11} /> Z → A
+        </button>
       </div>
-    )
-  }
-
-  // LINKS
-  if (type === "links") {
-    const links = (value || "").split(/\n/).map(l => l.trim()).filter(l => l.startsWith("http"))
-    if (isEditing) {
-      return <textarea ref={inputRef} value={editValue} onChange={e => onChange(e.target.value)} onKeyDown={handleInputKeyDown} onBlur={onBlurCommit} placeholder="Um link por linha" rows={taRows}
-        style={{ ...inputStyle, resize: "none", height: "100%" }} />
-    }
-    return (
-      <div style={{ width: "100%", height: "100%", ...bgStyle }} onClick={onActivate} onDoubleClick={() => onStartEdit()}>
-        {links.length === 0
-          ? <span style={{ color: T.mutedFg, fontSize: 14, cursor: "text" }}>—</span>
-          : links.map((l, i) => (
-            <a key={i} href={l} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-              style={{ display: "block", color: NAVY, fontSize: 14, lineHeight: 1.8, fontWeight: 600 }}>
-              {links.length > 1 ? `Link ${i + 1} ↗` : "Ver ↗"}
-            </a>
-          ))}
+      <div style={{ padding: "6px 8px", borderBottom: `1px solid ${GS.border}` }}>
+        <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder="🔍 Buscar..."
+          style={{ width: "100%", padding: "5px 8px", fontSize: 11, border: `1px solid ${GS.border}`, borderRadius: 4, outline: "none", boxSizing: "border-box" as const }} />
       </div>
-    )
-  }
-
-  // MULTILINE
-  if (type === "multiline") {
-    if (isEditing) {
-      return <textarea ref={inputRef} value={editValue} onChange={e => onChange(e.target.value)} onKeyDown={handleInputKeyDown} onBlur={onBlurCommit} rows={taRows}
-        style={{ ...inputStyle, resize: "none", height: "100%", whiteSpace: "pre-wrap" }} />
-    }
-    return (
-      <div onClick={onActivate} onDoubleClick={() => onStartEdit()} style={{ cursor: "text", fontSize: 14, color: value ? T.cardFg : T.mutedFg, overflowY: "auto", lineHeight: 1.5, width: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word", ...bgStyle }}>
-        {value || "—"}
+      <div style={{ padding: "5px 12px", borderBottom: `1px solid ${GS.border}`, background: "#fafafa" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: GS.text, fontWeight: 600 }}>
+          <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : [...allOpts])}
+            style={{ width: 14, height: 14, accentColor: COR, cursor: "pointer" }} />
+          Selecionar tudo ({allOpts.length})
+        </label>
       </div>
-    )
-  }
-
-  // PLAIN TEXT
-  if (isEditing) {
-    return <input ref={inputRef} value={editValue} onChange={e => onChange(e.target.value)} onKeyDown={handleInputKeyDown} onBlur={onBlurCommit}
-      style={inputStyle} />
-  }
-  return (
-    <div onClick={onActivate} onDoubleClick={() => onStartEdit()} style={{ cursor: "text", minHeight: 22, fontSize: 14, color: value ? T.cardFg : T.mutedFg, overflowY: "auto", lineHeight: 1.5, width: "100%", whiteSpace: "pre-wrap", wordBreak: "break-word", ...bgStyle }}>
-      {value || "—"}
-    </div>
-  )
-}
-
-// ── Context Menu ──────────────────────────────────────────────────────────────
-function CtxMenu({ x, y, items, onClose }: {
-  x: number; y: number; onClose: () => void
-  items: { label: string; icon: string; action: () => void; danger?: boolean }[]
-}) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
-    const k = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
-    document.addEventListener("mousedown", h); document.addEventListener("keydown", k)
-    return () => { document.removeEventListener("mousedown", h); document.removeEventListener("keydown", k) }
-  }, [onClose])
-
-  // Adjust position to not go off screen
-  const style: React.CSSProperties = {
-    position: "fixed", left: Math.min(x, window.innerWidth - 220),
-    top: Math.min(y, window.innerHeight - items.length * 44 - 20),
-    zIndex: 1000, background: "#fff", border: `1px solid ${T.border}`,
-    borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-    minWidth: 210, overflow: "hidden", padding: "4px 0",
-  }
-  return (
-    <div ref={ref} style={style}>
-      {items.map((item, i) => (
-        <div key={i} onClick={() => { item.action(); onClose() }}
-          style={{ padding: "10px 16px", fontSize: 14, cursor: "pointer", color: item.danger ? "#ef4444" : T.cardFg, display: "flex", alignItems: "center", gap: 10 }}
-          onMouseEnter={e => e.currentTarget.style.background = item.danger ? "#fee2e2" : T.bg}
-          onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-          <span style={{ fontSize: 16 }}>{item.icon}</span>{item.label}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ── InlineNewRow ──────────────────────────────────────────────────────────────
-function InlineNewRow({ cols, colWidths, tableName, onClose, onSaved }: {
-  cols: ColDef[]; colWidths: Record<string, number>
-  tableName: string; onClose: () => void; onSaved: () => void
-}) {
-  const [form, setForm] = useState<Record<string, string>>(() => { const i: Record<string, string> = {}; cols.forEach(c => { i[c.key] = "" }); return i })
-  const [saving, setSaving] = useState(false)
-  const firstRef = useRef<HTMLInputElement>(null)
-  useEffect(() => { firstRef.current?.focus() }, [])
-
-  async function save() {
-    setSaving(true)
-    const payload: Record<string, unknown> = {}
-    cols.forEach(c => { const v = form[c.key]?.trim() || null; payload[c.key] = c.key === "ano" && v ? Number(v) : v })
-    await getSupabase().from(tableName).insert(payload)
-    setSaving(false); onSaved(); onClose()
-  }
-  const inp: React.CSSProperties = { width: "100%", border: `1px solid ${T.border}`, borderRadius: 5, padding: "4px 7px", fontSize: 14, outline: "none", background: "#fff", boxSizing: "border-box", color: T.cardFg }
-  return (
-    <div style={{ display: "flex", width: "100%", background: "#eef3ff", borderBottom: `2px solid ${NAVY}`, borderTop: `2px solid ${NAVY}` }}>
-      {cols.map((col, idx) => {
-        const w = colWidths[col.key] ?? col.w
-        return (
-          <div key={col.key} style={{ flex: `${w} 0 ${w}px`, minWidth: 0, padding: "6px 8px", borderRight: `1px solid ${T.border}`, display: "flex", alignItems: "center" }}>
-            {col.type === "status" ? (
-              <select value={form[col.key]} onChange={e => setForm(p => ({ ...p, [col.key]: e.target.value }))} style={inp}><option value="">—</option>{STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>
-            ) : col.type === "categoria" ? (
-              <select value={form[col.key]} onChange={e => setForm(p => ({ ...p, [col.key]: e.target.value }))} style={inp}><option value="">—</option>{CATEGORIA_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}</select>
-            ) : col.type === "multiline" || col.type === "links" ? (
-              <textarea value={form[col.key]} onChange={e => setForm(p => ({ ...p, [col.key]: e.target.value }))} placeholder={col.type === "links" ? "Um link por linha" : ""} rows={2} style={{ ...inp, fontFamily: "inherit", resize: "vertical" }} />
-            ) : (
-              <input ref={idx === 0 ? firstRef : undefined} value={form[col.key]} onChange={e => setForm(p => ({ ...p, [col.key]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") onClose() }} style={inp} />
-            )}
-          </div>
-        )
-      })}
-      <div style={{ flex: `${ACT_W} 0 ${ACT_W}px`, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 5, padding: "4px" }}>
-        <button onClick={save} disabled={saving} style={{ background: NAVY, border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 14, color: "#fff", cursor: "pointer", fontWeight: 700, width: "100%" }}>✓</button>
-        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${T.border}`, borderRadius: 6, padding: "5px 10px", fontSize: 14, color: T.mutedFg, cursor: "pointer", width: "100%" }}>✗</button>
+      <div style={{ maxHeight: 180, overflowY: "auto" }}>
+        {visible.map(o => (
+          <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: GS.text }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#f0f4ff"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
+            <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)}
+              style={{ width: 14, height: 14, accentColor: COR, cursor: "pointer" }} />
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o}</span>
+          </label>
+        ))}
+        {visible.length === 0 && <p style={{ padding: "10px 12px", fontSize: 11, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
+      </div>
+      <div style={{ padding: "8px 12px", borderTop: `1px solid ${GS.border}`, display: "flex", gap: 6, justifyContent: "flex-end", background: "#fafafa" }}>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }}
+          style={{ padding: "5px 14px", fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 4, background: "#fff", cursor: "pointer", color: GS.text }}>
+          Cancelar
+        </button>
+        <button onMouseDown={e => { e.preventDefault(); onApply(selected.length === allOpts.length ? [] : selected); onClose() }}
+          style={{ padding: "5px 14px", fontSize: 12, border: "none", borderRadius: 4, background: COR, color: "#fff", cursor: "pointer", fontWeight: 700 }}>
+          OK
+        </button>
       </div>
     </div>
   )
 }
 
-// ── GeralTab ──────────────────────────────────────────────────────────────────
+/* ── GeralTab ── */
 function GeralTab() {
+  const now = new Date()
+  const anoAtual = String(now.getFullYear())
+  const mesAtual = MES_NOMES[now.getMonth() + 1] || ""
+
   const [orcamento, setOrcamento]           = useState("")
   const [orcamentoInput, setOrcamentoInput] = useState("")
-  const [allRows, setAllRows]               = useState<Record<string, Row[]>>({})
+  const [allRows, setAllRows]               = useState<Record<string, InfluRow[]>>({})
   const [loading, setLoading]               = useState(true)
-  const [filterAno, setFilterAno]           = useState("todos")
-  const [filterMes, setFilterMes]           = useState("todos")
+  const [filterAno, setFilterAno]           = useState(anoAtual)
+  const [filterMes, setFilterMes]           = useState(mesAtual)
 
-  useEffect(() => { const s = localStorage.getItem("influencers_orcamento_total") || ""; setOrcamento(s); setOrcamentoInput(s) }, [])
+  useEffect(() => {
+    const s = localStorage.getItem("influencers_orcamento_total") || ""
+    setOrcamento(s); setOrcamentoInput(s)
+  }, [])
+
   useEffect(() => {
     async function loadAll() {
-      setLoading(true); const results: Record<string, Row[]> = {}
-      for (const t of DATA_TABS) { const { data } = await getSupabase().from(t.table).select("status_contrato,valor_trabalho,valor_hospedagem,ano,mes"); results[t.id] = data ?? [] }
+      setLoading(true)
+      const results: Record<string, InfluRow[]> = {}
+      for (const t of DATA_TABS) {
+        const { data } = await getSupabase().from(t.table).select("status_contrato,valor_trabalho,valor_hospedagem,ano,mes")
+        results[t.id] = (data ?? []) as InfluRow[]
+      }
       setAllRows(results); setLoading(false)
     }
     loadAll()
   }, [])
 
+  // Fix: aplica mês atual quando os dados chegam e o mês existe nas opções
+  const todosMeses = Array.from(new Set(
+    Object.values(allRows).flat()
+      .filter(r => filterAno === "todos" || String(r.ano) === filterAno)
+      .map(r => String(r.mes ?? "")).filter(Boolean)
+  )).sort()
+
+  useEffect(() => {
+    if (Object.keys(allRows).length > 0 && todosMeses.includes(mesAtual)) {
+      setFilterMes(mesAtual)
+    }
+  }, [allRows])
+
   function saveOrcamento() { setOrcamento(orcamentoInput); localStorage.setItem("influencers_orcamento_total", orcamentoInput) }
-  const todosAnos  = Array.from(new Set(Object.values(allRows).flat().map(r => String(r.ano ?? "")).filter(Boolean))).sort().reverse()
-  const todosMeses = Array.from(new Set(Object.values(allRows).flat().filter(r => filterAno === "todos" || String(r.ano) === filterAno).map(r => String(r.mes ?? "")).filter(Boolean))).sort()
-  function rowPassFilter(r: Row) { return (filterAno === "todos" || String(r.ano) === filterAno) && (filterMes === "todos" || String(r.mes) === filterMes) }
+
+  const todosAnos = Array.from(new Set(Object.values(allRows).flat().map(r => String(r.ano ?? "")).filter(Boolean))).sort().reverse()
+
+  function rowPassFilter(r: InfluRow) {
+    return (filterAno === "todos" || String(r.ano) === filterAno) && (filterMes === "todos" || String(r.mes) === filterMes)
+  }
 
   const totalBudget = parseBRL(orcamento)
   const breakdown = DATA_TABS.map(t => {
@@ -442,43 +250,63 @@ function GeralTab() {
   return (
     <div>
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 22px", marginBottom: 16, boxShadow: T.elevSm }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".05em" }}>Filtrar por período</p>
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: "0 0 12px", textTransform: "uppercase" as const, letterSpacing: ".05em" }}>Filtrar por período</p>
+        <div style={{ display: "flex", gap: 14, alignItems: "flex-end", flexWrap: "wrap" as const }}>
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 5 }}>
             <label style={{ fontSize: 13, color: T.mutedFg, fontWeight: 600 }}>Ano</label>
-            <select value={filterAno} onChange={e => { setFilterAno(e.target.value); setFilterMes("todos") }} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 14, color: T.cardFg, outline: "none", minWidth: 110 }}>
-              <option value="todos">Todos</option>{todosAnos.map(a => <option key={a} value={a}>{a}</option>)}
+            <select value={filterAno} onChange={e => { setFilterAno(e.target.value); setFilterMes("todos") }}
+              style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 14, color: T.cardFg, outline: "none", minWidth: 110 }}>
+              <option value="todos">Todos</option>
+              {todosAnos.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 5 }}>
             <label style={{ fontSize: 13, color: T.mutedFg, fontWeight: 600 }}>Mês</label>
-            <select value={filterMes} onChange={e => setFilterMes(e.target.value)} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 14, color: T.cardFg, outline: "none", minWidth: 170 }}>
-              <option value="todos">Todos os meses</option>{todosMeses.map(m => <option key={m} value={m}>{m}</option>)}
+            <select value={filterMes} onChange={e => setFilterMes(e.target.value)}
+              style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 14, color: T.cardFg, outline: "none", minWidth: 170 }}>
+              <option value="todos">Todos os meses</option>
+              {todosMeses.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
-          {(filterAno !== "todos" || filterMes !== "todos") && <button onClick={() => { setFilterAno("todos"); setFilterMes("todos") }} style={{ background: "#fee2e2", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 14, color: "#991b1b", fontWeight: 600, cursor: "pointer" }}>✕ Limpar</button>}
+          {(filterAno !== "todos" || filterMes !== "todos") && (
+            <button onClick={() => { setFilterAno("todos"); setFilterMes("todos") }}
+              style={{ background: "#fee2e2", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 14, color: "#991b1b", fontWeight: 600, cursor: "pointer" }}>
+              ✕ Limpar
+            </button>
+          )}
           <div style={{ flex: 1 }} />
-          <div style={{ background: "#eef1f8", border: `1px solid ${NAVY}30`, borderRadius: 8, padding: "9px 16px" }}><span style={{ fontSize: 14, color: NAVY, fontWeight: 600 }}>{periodoLabel}</span></div>
+          <div style={{ background: "#eef1f8", border: `1px solid ${NAVY}30`, borderRadius: 8, padding: "9px 16px" }}>
+            <span style={{ fontSize: 14, color: NAVY, fontWeight: 600 }}>{periodoLabel}</span>
+          </div>
         </div>
       </div>
+
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 22px", marginBottom: 16, boxShadow: T.elevSm }}>
-        <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: "0 0 12px", textTransform: "uppercase", letterSpacing: ".05em" }}>Orçamento total de marketing</p>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <input value={orcamentoInput} onChange={e => setOrcamentoInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter") saveOrcamento() }} placeholder="Ex: R$ 50.000,00" style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 15, color: T.cardFg, outline: "none", width: 240 }} />
+        <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: "0 0 12px", textTransform: "uppercase" as const, letterSpacing: ".05em" }}>Orçamento total de marketing</p>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" as const }}>
+          <input value={orcamentoInput} onChange={e => setOrcamentoInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") saveOrcamento() }}
+            placeholder="Ex: R$ 50.000,00"
+            style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: "9px 13px", fontSize: 15, color: T.cardFg, outline: "none", width: 240 }} />
           <button onClick={saveOrcamento} style={{ background: NAVY, border: "none", borderRadius: 8, padding: "9px 22px", fontSize: 14, color: "#fff", fontWeight: 600, cursor: "pointer" }}>Salvar</button>
-          <span style={{ fontSize: 13, color: T.mutedFg }}>Pressione Enter ou clique em Salvar</span>
         </div>
       </div>
-      {loading ? <div style={{ padding: 48, textAlign: "center", color: T.mutedFg }}>Carregando…</div> : (
+
+      {loading ? <div style={{ padding: 48, textAlign: "center" as const, color: T.mutedFg }}>Carregando...</div> : (
         <>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 14, marginBottom: 16 }}>
-            {[{ label: "Orçamento total", value: formatBRL(totalBudget), color: T.cardFg }, { label: "Já utilizado", value: formatBRL(totalGasto), color: "#185FA5" }, { label: "Saldo livre", value: formatBRL(saldoLivre), color: saldoLivre < 0 ? "#991b1b" : "#065f46" }].map(c => (
+            {[
+              { label: "Orçamento total", value: formatBRL(totalBudget), color: T.cardFg },
+              { label: "Já utilizado",    value: formatBRL(totalGasto),  color: "#185FA5" },
+              { label: "Saldo livre",     value: formatBRL(saldoLivre),  color: saldoLivre < 0 ? "#991b1b" : "#065f46" },
+            ].map(c => (
               <div key={c.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 22px", boxShadow: T.elevSm }}>
-                <p style={{ fontSize: 12, color: T.mutedFg, fontWeight: 700, margin: "0 0 8px", textTransform: "uppercase", letterSpacing: ".05em" }}>{c.label}</p>
+                <p style={{ fontSize: 12, color: T.mutedFg, fontWeight: 700, margin: "0 0 8px", textTransform: "uppercase" as const, letterSpacing: ".05em" }}>{c.label}</p>
                 <p style={{ fontSize: 26, fontWeight: 700, color: c.color, margin: 0 }}>{c.value}</p>
               </div>
             ))}
           </div>
+
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: "18px 22px", marginBottom: 16, boxShadow: T.elevSm }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 14, color: T.mutedFg, fontWeight: 600 }}>Utilização do orçamento</span>
@@ -488,10 +316,19 @@ function GeralTab() {
               <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 20, transition: "width .4s ease" }} />
             </div>
           </div>
+
           <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, boxShadow: T.elevSm, overflow: "hidden" }}>
-            <div style={{ padding: "16px 22px", borderBottom: `1px solid ${T.border}` }}><p style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, margin: 0 }}>Breakdown por campanha</p></div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr style={{ background: T.bg }}>{["Campanha", "Contratados", "Gasto", "% do orçamento"].map(h => <th key={h} style={{ padding: "12px 20px", textAlign: "left", fontSize: 12, fontWeight: 700, color: T.mutedFg, textTransform: "uppercase", letterSpacing: ".04em", borderBottom: `1px solid ${T.border}` }}>{h}</th>)}</tr></thead>
+            <div style={{ padding: "16px 22px", borderBottom: `1px solid ${T.border}` }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: T.cardFg, margin: 0 }}>Breakdown por campanha</p>
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse" as const }}>
+              <thead>
+                <tr style={{ background: T.bg }}>
+                  {["Campanha", "Contratados", "Gasto", "% do orçamento"].map(h => (
+                    <th key={h} style={{ padding: "12px 20px", textAlign: "left" as const, fontSize: 12, fontWeight: 700, color: T.mutedFg, textTransform: "uppercase" as const, letterSpacing: ".04em", borderBottom: `1px solid ${T.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {breakdown.map((b, i) => {
                   const campPct = totalBudget > 0 ? Math.min(100, Math.round((b.gasto / totalBudget) * 100)) : 0
@@ -501,7 +338,14 @@ function GeralTab() {
                       <td style={{ padding: "14px 20px" }}><span style={{ display: "inline-block", padding: "4px 12px", borderRadius: 20, fontSize: 14, fontWeight: 600, background: color + "18", color }}>{b.label}</span></td>
                       <td style={{ padding: "14px 20px", fontSize: 14, color: T.cardFg }}>{b.contratados} influencer{b.contratados !== 1 ? "s" : ""}</td>
                       <td style={{ padding: "14px 20px", fontSize: 15, fontWeight: 600, color: T.cardFg }}>{formatBRL(b.gasto)}</td>
-                      <td style={{ padding: "14px 20px" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ flex: 1, height: 8, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}><div style={{ height: "100%", width: `${campPct}%`, background: color, borderRadius: 20 }} /></div><span style={{ fontSize: 14, color: T.mutedFg, minWidth: 38, textAlign: "right" }}>{campPct}%</span></div></td>
+                      <td style={{ padding: "14px 20px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                          <div style={{ flex: 1, height: 8, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                            <div style={{ height: "100%", width: `${campPct}%`, background: color, borderRadius: 20 }} />
+                          </div>
+                          <span style={{ fontSize: 14, color: T.mutedFg, minWidth: 38, textAlign: "right" as const }}>{campPct}%</span>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
@@ -509,7 +353,14 @@ function GeralTab() {
                   <td style={{ padding: "14px 20px", fontSize: 15, fontWeight: 700, color: T.cardFg }}>Total</td>
                   <td style={{ padding: "14px 20px", fontSize: 14, fontWeight: 600, color: T.cardFg }}>{breakdown.reduce((a, b) => a + b.contratados, 0)} influencers</td>
                   <td style={{ padding: "14px 20px", fontSize: 15, fontWeight: 700, color: "#185FA5" }}>{formatBRL(totalGasto)}</td>
-                  <td style={{ padding: "14px 20px" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ flex: 1, height: 8, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}><div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 20 }} /></div><span style={{ fontSize: 14, color: T.mutedFg, minWidth: 38, textAlign: "right" }}>{pct}%</span></div></td>
+                  <td style={{ padding: "14px 20px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ flex: 1, height: 8, background: T.bg, borderRadius: 20, overflow: "hidden", border: `1px solid ${T.border}` }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 20 }} />
+                      </div>
+                      <span style={{ fontSize: 14, color: T.mutedFg, minWidth: 38, textAlign: "right" as const }}>{pct}%</span>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -520,501 +371,310 @@ function GeralTab() {
   )
 }
 
-// ── Página principal ──────────────────────────────────────────────────────────
-export default function Page() {
-  const [activeTab, setActiveTab]   = useState<Tab>("geral")
-  const [rows, setRows]             = useState<Row[]>([])
-  const [loading, setLoading]       = useState(false)
-  const [filters, setFilters]       = useState<Record<string, string[]>>({})
-  const [sort, setSort]             = useState<SortState>(null)
-  const [showNewRow, setShowNewRow] = useState(false)
-  const [rowHeight, setRowHeight]   = useState<number>(DEFAULT_ROW_HEIGHT)
-  const [colWidths, setColWidths]   = useState<Record<string, number>>({})
-  const [colLabels, setColLabels]   = useState<Record<string, string>>({})
-
-  // ── Google Sheets-like state ──────────────────────────────────────────────
-  const [activeCell, setActiveCell]     = useState<ActiveCell>(null)
-  const [editingCell, setEditingCell]   = useState<ActiveCell>(null)
-  const [editValue, setEditValue]       = useState("")
-  const [preEditValue, setPreEditValue] = useState("")
-  const [history, setHistory]           = useState<HistEntry[]>([])
-  const [historyIdx, setHistoryIdx]     = useState(-1)
-  const [clipboard, setClipboard]       = useState("")
-  const [contextMenu, setContextMenu]   = useState<{ x: number; y: number; rowId: unknown } | null>(null)
-  const [showFind, setShowFind]         = useState(false)
-  const [findQuery, setFindQuery]       = useState("")
-  const [findMatchIdx, setFindMatchIdx] = useState(0)
-
-  const tabInfo      = TABS.find(t => t.id === activeTab)!
-  const cols         = activeTab !== "geral" ? (COLS_BY_TAB[activeTab] ?? []) : []
-  const activeTabRef = useRef(activeTab)
-  const tableRef     = useRef<HTMLDivElement>(null)
-  const gridRef      = useRef<HTMLDivElement>(null)
-  const findInputRef = useRef<HTMLInputElement>(null)
-  // Refs para evitar stale closures no commitEdit (crítico para blur)
-  const editingCellRef  = useRef<ActiveCell>(null)
-  const editValueRef    = useRef("")
-  const preEditValueRef = useRef("")
-  const rowsRef         = useRef<Row[]>([])
-  const colsRef         = useRef<ColDef[]>([])
-  const tabInfoRef2     = useRef(TABS.find(t => t.id === activeTab)!)
-  useEffect(() => { activeTabRef.current = activeTab }, [activeTab])
-  useEffect(() => { editingCellRef.current = editingCell }, [editingCell])
-  useEffect(() => { editValueRef.current = editValue }, [editValue])
-  useEffect(() => { preEditValueRef.current = preEditValue }, [preEditValue])
-  useEffect(() => { rowsRef.current = rows }, [rows])
-  useEffect(() => { colsRef.current = cols }, [cols])
-  useEffect(() => { tabInfoRef2.current = TABS.find(t => t.id === activeTab)! }, [activeTab])
-
-  function getW(key: string, fallback: number) { return colWidths[key] ?? fallback }
-  const totalW = cols.reduce((s, c) => s + getW(c.key, c.w), 0) + ACT_W
-
-  // ── Derived: sorted + filtered rows ──────────────────────────────────────
-  const sortedFiltered = useMemo(() => {
-    const f = rows.filter(r => Object.entries(filters).every(([k, vals]) => !vals.length || vals.includes(String(r[k] ?? ""))))
-    if (!sort) return f
-    return [...f].sort((a, b) => {
-      const va = String(a[sort.key] ?? "").toLowerCase()
-      const vb = String(b[sort.key] ?? "").toLowerCase()
-      return sort.dir === "asc" ? va.localeCompare(vb, "pt-BR") : vb.localeCompare(va, "pt-BR")
-    })
-  }, [rows, filters, sort])
-
-  // ── Find matches ──────────────────────────────────────────────────────────
-  const findMatches = useMemo(() => {
-    if (!findQuery.trim()) return []
-    const q = findQuery.toLowerCase()
-    const res: { rowId: unknown; ci: number }[] = []
-    sortedFiltered.forEach(row => {
-      cols.forEach((col, ci) => {
-        if (String(row[col.key] ?? "").toLowerCase().includes(q)) res.push({ rowId: row.id, ci })
-      })
-    })
-    return res
-  }, [findQuery, sortedFiltered, cols])
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function updateLocalCell(rowId: unknown, colKey: string, value: string | null) {
-    setRows(prev => prev.map(r => r.id === rowId ? { ...r, [colKey]: value } : r))
-  }
-  function pushHistory(entry: HistEntry) {
-    setHistory(h => { const next = [...h.slice(0, historyIdx + 1), entry]; return next })
-    setHistoryIdx(h => h + 1)
-  }
-  function getCurrentRi(rowId: unknown) { return sortedFiltered.findIndex(r => r.id === rowId) }
-
-  // ── Cell navigation ───────────────────────────────────────────────────────
-  function navigateTo(rowId: unknown, ci: number) {
-    const ri = getCurrentRi(rowId)
-    const clampedCi = Math.max(0, Math.min(ci, cols.length - 1))
-    if (ri < 0) { setActiveCell({ rowId: sortedFiltered[0]?.id, ci: clampedCi }); return }
-    setActiveCell({ rowId, ci: clampedCi })
-  }
-  function navigateDelta(dri: number, dci: number, currentRowId: unknown, currentCi: number) {
-    const ri = getCurrentRi(currentRowId)
-    const newRi = Math.max(0, Math.min(ri + dri, sortedFiltered.length - 1))
-    const newCi = Math.max(0, Math.min(currentCi + dci, cols.length - 1))
-    const newRowId = sortedFiltered[newRi]?.id
-    if (newRowId !== undefined) setActiveCell({ rowId: newRowId, ci: newCi })
-    gridRef.current?.focus()
-  }
-
-  // ── Edit operations ───────────────────────────────────────────────────────
-  function startEdit(rowId: unknown, ci: number, initialChar?: string) {
-    const row = rows.find(r => r.id === rowId)
-    if (!row) return
-    const col = cols[ci]
-    const currentVal = String(row[col.key] ?? "")
-    const initialVal = initialChar !== undefined ? initialChar : currentVal
-    editingCellRef.current  = { rowId, ci }
-    editValueRef.current    = initialVal
-    preEditValueRef.current = currentVal
-    setEditingCell({ rowId, ci })
-    setActiveCell({ rowId, ci })
-    setPreEditValue(currentVal)
-    setEditValue(initialVal)
-  }
-
-  async function commitEdit(dir?: "down" | "right" | "left" | "up") {
-    // Usa refs para garantir valores atuais mesmo em stale closures (blur event)
-    const ec  = editingCellRef.current
-    const ev  = editValueRef.current
-    const pev = preEditValueRef.current
-    if (!ec) return
-    // Zera o ref IMEDIATAMENTE para evitar chamada recursiva via blur→focus
-    editingCellRef.current = null
-    const { rowId, ci } = ec
-    const row = rowsRef.current.find(r => r.id === rowId)
-    const col = colsRef.current[ci]
-    const table = tabInfoRef2.current?.table
-    if (!row || !col || !table) { setEditingCell(null); return }
-    const newVal = ev.trim()
-    const oldVal = pev
-    if (newVal !== oldVal) {
-      updateLocalCell(rowId, col.key, newVal || null)
-      await getSupabase().from(table).update({ [col.key]: newVal || null }).eq("id", rowId)
-      pushHistory({ rowId, colKey: col.key, oldVal, newVal })
-    }
-    setEditingCell(null); setEditValue("")
-    if (dir) { const deltas = { down: [1,0], up: [-1,0], right: [0,1], left: [0,-1] }; navigateDelta(deltas[dir][0], deltas[dir][1], rowId, ci) }
-    else { gridRef.current?.focus() }
-  }
-
-  function abortEdit() {
-    setEditValue(preEditValueRef.current)
-    setEditingCell(null)
-    editingCellRef.current = null
-    gridRef.current?.focus()
-  }
-
-  async function clearActiveCell() {
-    if (!activeCell) return
-    const { rowId, ci } = activeCell
-    const row = rows.find(r => r.id === rowId)
-    const col = cols[ci]
-    if (!row || !col) return
-    const oldVal = String(row[col.key] ?? "")
-    if (!oldVal) return
-    updateLocalCell(rowId, col.key, null)
-    await getSupabase().from(tabInfo.table).update({ [col.key]: null }).eq("id", rowId)
-    pushHistory({ rowId, colKey: col.key, oldVal, newVal: "" })
-  }
-
-  // ── Clipboard ─────────────────────────────────────────────────────────────
-  function copyActiveCell() {
-    if (!activeCell) return
-    const row = rows.find(r => r.id === activeCell.rowId)
-    const col = cols[activeCell.ci]
-    if (!row || !col) return
-    const val = String(row[col.key] ?? "")
-    setClipboard(val)
-    navigator.clipboard?.writeText(val).catch(() => {})
-  }
-
-  async function pasteToActiveCell() {
-    if (!activeCell) return
-    const row = rows.find(r => r.id === activeCell.rowId)
-    const col = cols[activeCell.ci]
-    if (!row || !col) return
-    let val = clipboard
-    try { val = await navigator.clipboard.readText() } catch {}
-    if (val === undefined || val === null) return
-    const oldVal = String(row[col.key] ?? "")
-    updateLocalCell(activeCell.rowId, col.key, val || null)
-    await getSupabase().from(tabInfo.table).update({ [col.key]: val || null }).eq("id", activeCell.rowId)
-    if (val !== oldVal) pushHistory({ rowId: activeCell.rowId, colKey: col.key, oldVal, newVal: val })
-  }
-
-  // ── Undo / Redo ───────────────────────────────────────────────────────────
-  async function undo() {
-    if (historyIdx < 0) return
-    const entry = history[historyIdx]
-    updateLocalCell(entry.rowId, entry.colKey, entry.oldVal || null)
-    await getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.oldVal || null }).eq("id", entry.rowId)
-    setHistoryIdx(h => h - 1)
-  }
-  async function redo() {
-    if (historyIdx >= history.length - 1) return
-    const entry = history[historyIdx + 1]
-    updateLocalCell(entry.rowId, entry.colKey, entry.newVal || null)
-    await getSupabase().from(tabInfo.table).update({ [entry.colKey]: entry.newVal || null }).eq("id", entry.rowId)
-    setHistoryIdx(h => h + 1)
-  }
-
-  // ── Option save (status/categoria) ────────────────────────────────────────
-  async function handleSaveOption(rowId: unknown, colKey: string, newVal: string) {
-    const row = rows.find(r => r.id === rowId)
-    const oldVal = String(row?.[colKey] ?? "")
-    updateLocalCell(rowId, colKey, newVal)
-    await getSupabase().from(tabInfo.table).update({ [colKey]: newVal }).eq("id", rowId)
-    if (oldVal !== newVal) pushHistory({ rowId, colKey, oldVal, newVal })
-  }
-
-  // ── Grid keyboard handler (navigate mode) ─────────────────────────────────
-  function handleGridKeyDown(e: React.KeyboardEvent) {
-    const target = e.target as HTMLElement
-    if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return
-    if (!activeCell) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") { e.preventDefault(); setShowFind(true); setTimeout(() => findInputRef.current?.focus(), 50) }
-      return
-    }
-    const { rowId, ci } = activeCell
-    const isEditing = editingCell?.rowId === rowId && editingCell?.ci === ci
-
-    if (!isEditing) {
-      if (e.key === "ArrowDown")  { e.preventDefault(); navigateDelta(1, 0, rowId, ci); return }
-      if (e.key === "ArrowUp")    { e.preventDefault(); navigateDelta(-1, 0, rowId, ci); return }
-      if (e.key === "ArrowRight") { e.preventDefault(); navigateDelta(0, 1, rowId, ci); return }
-      if (e.key === "ArrowLeft")  { e.preventDefault(); navigateDelta(0, -1, rowId, ci); return }
-      if (e.key === "Tab")   { e.preventDefault(); navigateDelta(0, e.shiftKey ? -1 : 1, rowId, ci); return }
-      if (e.key === "Enter") { e.preventDefault(); startEdit(rowId, ci); return }
-      if (e.key === "F2")    { e.preventDefault(); startEdit(rowId, ci); return }
-      if (e.key === "Escape") { setActiveCell(null); return }
-      if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); clearActiveCell(); return }
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-        if (e.key === "c") { e.preventDefault(); copyActiveCell(); return }
-        if (e.key === "v") { e.preventDefault(); pasteToActiveCell(); return }
-        if (e.key === "z") { e.preventDefault(); undo(); return }
-        if (e.key === "y") { e.preventDefault(); redo(); return }
-        if (e.key === "f") { e.preventDefault(); setShowFind(true); setTimeout(() => findInputRef.current?.focus(), 50); return }
-      }
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "z") { e.preventDefault(); redo(); return }
-      // Printable char → start editing with that char
-      if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        startEdit(rowId, ci, e.key)
-      }
-    }
-  }
-
-  // ── Keyboard inside editing cell ──────────────────────────────────────────
-  function makeEditKeyDown(rowId: unknown, ci: number) {
-    return (e: React.KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") return // handled in cell for newline
-      if (e.key === "Escape") { e.preventDefault(); abortEdit() }
-      else if (e.key === "Tab") { e.preventDefault(); commitEdit(e.shiftKey ? "left" : "right") }
-      else if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit("down") }
-    }
-  }
-
-  // ── Context menu actions ──────────────────────────────────────────────────
-  async function insertEmptyRow() {
-    const payload: Record<string, unknown> = {}; cols.forEach(c => { payload[c.key] = null })
-    await getSupabase().from(tabInfo.table).insert(payload); loadRows()
-  }
-  async function duplicateRowById(rowId: unknown) {
-    const row = rows.find(r => r.id === rowId)
-    if (!row) return
-    const payload: Record<string, unknown> = {}; cols.forEach(c => { payload[c.key] = row[c.key] ?? null })
-    await getSupabase().from(tabInfo.table).insert(payload); loadRows()
-  }
-  async function deleteRowById(rowId: unknown) {
-    if (!confirm("Excluir este influencer?")) return
-    await getSupabase().from(tabInfo.table).delete().eq("id", rowId)
-    if (activeCell?.rowId === rowId) setActiveCell(null)
-    loadRows()
-  }
-
-  // ── Data loading ──────────────────────────────────────────────────────────
-  async function loadRows() {
-    if (activeTab === "geral" || !tabInfo.table) return
-    setLoading(true)
-    const { data } = await getSupabase().from(tabInfo.table).select("*").order("ano", { ascending: false }).order("mes")
-    setRows(data ?? []); setLoading(false)
-  }
-
-  // ── Labels, widths, row height ────────────────────────────────────────────
-  async function loadLabels(tabId: string) {
-    const { data } = await getSupabase().from("influencers_column_labels").select("col_key,label").eq("tab_id", tabId)
-    const map: Record<string, string> = {}; data?.forEach(r => { map[String(r.col_key)] = String(r.label) }); setColLabels(map)
-  }
-  async function saveLabel(colKey: string, newLabel: string) {
-    setColLabels(p => ({ ...p, [colKey]: newLabel }))
-    await getSupabase().from("influencers_column_labels").upsert({ tab_id: activeTab, col_key: colKey, label: newLabel }, { onConflict: "tab_id,col_key" })
-  }
-  function getLabel(col: ColDef) { return colLabels[col.key] ?? col.label }
-
-  function loadWidths(tabId: string, tabCols: ColDef[]) {
-    const saved = localStorage.getItem(`influencers_col_widths_${tabId}`)
-    const parsed = saved ? (() => { try { return JSON.parse(saved) } catch { return {} } })() : {}
-    const result: Record<string, number> = {}; tabCols.forEach(c => { result[c.key] = parsed[c.key] ?? c.w }); setColWidths(result)
-  }
-  useEffect(() => { const s = localStorage.getItem("influencers_row_height"); if (s) setRowHeight(Number(s)) }, [])
-  function changeRowHeight(h: number) { setRowHeight(h); localStorage.setItem("influencers_row_height", String(h)) }
-
-  useEffect(() => {
-    setFilters({}); setSort(null); setRows([]); setShowNewRow(false)
-    setActiveCell(null); setEditingCell(null); setHistory([]); setHistoryIdx(-1)
-    setShowFind(false); setFindQuery(""); setContextMenu(null)
-    if (activeTab !== "geral") { const tc = COLS_BY_TAB[activeTab] ?? []; loadLabels(activeTab); loadWidths(activeTab, tc); loadRows() }
-  }, [activeTab])
-
-  // ── Column resize ─────────────────────────────────────────────────────────
-  const resizeRef = useRef<{ colKey: string; startX: number; startW: number } | null>(null)
-  function startResize(e: React.MouseEvent, colKey: string, currentW: number) {
-    e.preventDefault(); e.stopPropagation()
-    resizeRef.current = { colKey, startX: e.clientX, startW: currentW }
-    document.body.style.cursor = "col-resize"; document.body.style.userSelect = "none"
-  }
-  useEffect(() => {
-    function onMove(e: MouseEvent) { if (!resizeRef.current) return; const { colKey, startX, startW } = resizeRef.current; setColWidths(p => ({ ...p, [colKey]: Math.max(MIN_W, startW + (e.clientX - startX)) })) }
-    function onUp() { if (!resizeRef.current) return; resizeRef.current = null; document.body.style.cursor = ""; document.body.style.userSelect = ""; setColWidths(p => { localStorage.setItem(`influencers_col_widths_${activeTabRef.current}`, JSON.stringify(p)); return p }) }
-    document.addEventListener("mousemove", onMove); document.addEventListener("mouseup", onUp)
-    return () => { document.removeEventListener("mousemove", onMove); document.removeEventListener("mouseup", onUp) }
-  }, [])
-
-  // ── Shift+scroll horizontal ───────────────────────────────────────────────
+/* ── DataTab ── */
+function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
+  const tableRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = tableRef.current; if (!el) return
     function onWheel(e: WheelEvent) { if (e.shiftKey) { e.preventDefault(); if (el) el.scrollLeft += e.deltaY } }
     el.addEventListener("wheel", onWheel, { passive: false }); return () => el.removeEventListener("wheel", onWheel)
-  }, [activeTab])
+  }, [])
 
-  const activeFiltersCount = Object.values(filters).filter(v => v.length > 0).length
-  function setColSort(colKey: string, dir: "asc" | "desc" | null) { setSort(dir === null ? null : { key: colKey, dir }) }
-  function getColSort(colKey: string): "asc" | "desc" | null { return (!sort || sort.key !== colKey) ? null : sort.dir }
+  const [rows, setRows]                   = useState<InfluRow[]>([])
+  const [loading, setLoading]             = useState(true)
+  const [editCell, setEditCell]           = useState<{ id: string; key: string } | null>(null)
+  const [editVal, setEditVal]             = useState("")
+  const [saving, setSaving]               = useState(false)
+  const [colFilters, setColFilters]       = useState<Record<string, string[]>>({})
+  const [openFilterCol, setOpenFilterCol] = useState<string | null>(null)
+  const [search, setSearch]               = useState("")
+  const [selectedRow, setSelectedRow]     = useState<string | null>(null)
+  const [sortCol, setSortCol]             = useState<string | null>(null)
+  const [sortDir, setSortDir]             = useState<"asc" | "desc">("asc")
 
-  // ── Find navigation ───────────────────────────────────────────────────────
-  useEffect(() => { setFindMatchIdx(0) }, [findQuery])
-  function findNext() { if (findMatches.length === 0) return; const next = (findMatchIdx + 1) % findMatches.length; setFindMatchIdx(next); setActiveCell(findMatches[next]) }
-  function findPrev() { if (findMatches.length === 0) return; const prev = (findMatchIdx - 1 + findMatches.length) % findMatches.length; setFindMatchIdx(prev); setActiveCell(findMatches[prev]) }
+  useEffect(() => { loadRows() }, [tableName])
+
+  async function loadRows() {
+    setLoading(true)
+    const { data } = await getSupabase().from(tableName).select("*").order("ano", { ascending: false }).order("mes")
+    setRows((data ?? []).map(r => {
+      const o: InfluRow = {}
+      Object.entries(r).forEach(([k, v]) => { o[k] = v === null || v === undefined ? "" : String(v) })
+      return o
+    }))
+    setLoading(false)
+  }
+
+  let filtered = rows.filter(r => {
+    for (const [key, vals] of Object.entries(colFilters)) {
+      if (vals.length > 0 && !vals.includes(r[key] || "")) return false
+    }
+    if (search) {
+      const q = search.toLowerCase()
+      return cols.some(c => (r[c.key] || "").toLowerCase().includes(q))
+    }
+    return true
+  })
+
+  if (sortCol) {
+    filtered = [...filtered].sort((a, b) => {
+      const va = a[sortCol] || ""; const vb = b[sortCol] || ""
+      const cmp = va.localeCompare(vb, "pt-BR", { numeric: true })
+      return sortDir === "asc" ? cmp : -cmp
+    })
+  }
+
+  async function commitEdit(id: string, key: string, val: string) {
+    setSaving(true)
+    await getSupabase().from(tableName).update({ [key]: val || null }).eq("id", id)
+    setRows(prev => prev.map(r => r.id === id ? { ...r, [key]: val } : r))
+    setEditCell(null); setSaving(false)
+  }
+
+  async function addRow() {
+    const payload: Record<string, null> = {}; cols.forEach(c => { payload[c.key] = null })
+    const { data } = await getSupabase().from(tableName).insert(payload).select().single()
+    if (data) {
+      const newRow: InfluRow = {}
+      Object.entries(data).forEach(([k, v]) => { newRow[k] = v === null ? "" : String(v) })
+      setRows(prev => [...prev, newRow]); setSelectedRow(newRow.id)
+    }
+  }
+
+  async function deleteRow(id: string) {
+    if (!confirm("Excluir este influencer?")) return
+    await getSupabase().from(tableName).delete().eq("id", id)
+    setRows(prev => prev.filter(r => r.id !== id)); setSelectedRow(null)
+  }
+
+  async function duplicateRow(row: InfluRow) {
+    const payload: Record<string, string | null> = {}
+    cols.forEach(c => { payload[c.key] = row[c.key] || null })
+    const { data } = await getSupabase().from(tableName).insert(payload).select().single()
+    if (data) {
+      const newRow: InfluRow = {}
+      Object.entries(data).forEach(([k, v]) => { newRow[k] = v === null ? "" : String(v) })
+      setRows(prev => [...prev, newRow]); setSelectedRow(newRow.id)
+    }
+  }
+
+  function toggleSort(key: string) {
+    if (sortCol === key) setSortDir(d => d === "asc" ? "desc" : "asc")
+    else { setSortCol(key); setSortDir("asc") }
+  }
+
+  const activeFiltersCount = Object.values(colFilters).filter(v => v.length > 0).length
+
+  const GS = {
+    headerBg: "#f8f9fa", headerBorder: "#dadce0", cellBorder: "#e2e3e4",
+    rowHover: "#f6f8ff", rowSelected: "#e8f0fe", rowAlt: "#fafbfc",
+    text: "#202124", textMuted: "#5f6368", inputBorder: "#4285f4",
+  }
+
+  const cellBase: React.CSSProperties = {
+    padding: "4px 6px", minHeight: 28, maxHeight: 80,
+    borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`,
+    fontSize: 12, color: GS.text, overflow: "hidden", verticalAlign: "top" as const,
+    cursor: "cell", wordBreak: "break-word" as const, whiteSpace: "pre-wrap" as const, lineHeight: "18px",
+  }
+
+  if (loading) return <div style={{ padding: 48, textAlign: "center" as const, color: T.mutedFg }}>Carregando...</div>
+
+  return (
+    <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: GS.headerBg, border: `1px solid ${GS.headerBorder}`, borderBottom: "none", borderRadius: "6px 6px 0 0", flexWrap: "wrap" as const }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar..."
+          style={{ padding: "4px 8px", fontSize: 12, border: `1px solid ${GS.headerBorder}`, borderRadius: 4, outline: "none", background: "#fff", color: GS.text, width: 200 }} />
+        <span style={{ fontSize: 11, color: GS.textMuted }}>{filtered.length} linha{filtered.length !== 1 ? "s" : ""}</span>
+        {activeFiltersCount > 0 && (
+          <button onClick={() => setColFilters({})} style={{ padding: "3px 8px", background: "#fff3cd", border: "1px solid #fcd34d", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#92400e" }}>
+            {activeFiltersCount} filtro{activeFiltersCount > 1 ? "s" : ""} ativo{activeFiltersCount > 1 ? "s" : ""} ✕
+          </button>
+        )}
+        {sortCol && (
+          <button onClick={() => setSortCol(null)} style={{ padding: "3px 8px", background: "#e0f2fe", border: "1px solid #7dd3fc", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#0369a1" }}>
+            {cols.find(c => c.key === sortCol)?.label} {sortDir === "asc" ? "↑ A-Z" : "↓ Z-A"} ✕
+          </button>
+        )}
+        {selectedRow && (
+          <>
+            <button onClick={() => { const r = filtered.find(r => r.id === selectedRow); if (r) duplicateRow(r) }}
+              style={{ padding: "3px 8px", background: "#fff", border: `1px solid ${GS.headerBorder}`, borderRadius: 4, fontSize: 11, cursor: "pointer", color: GS.text, display: "flex", alignItems: "center", gap: 3 }}>
+              <Copy size={11} /> Duplicar
+            </button>
+            <button onClick={() => deleteRow(selectedRow)}
+              style={{ padding: "3px 8px", background: "#fff", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#991b1b", display: "flex", alignItems: "center", gap: 3 }}>
+              <Trash2 size={11} /> Excluir
+            </button>
+          </>
+        )}
+        <button onClick={addRow} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, padding: "4px 12px", background: NAVY, color: "#fff", border: "none", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+          <Plus size={12} /> Nova linha
+        </button>
+      </div>
+
+      <div ref={tableRef} style={{ overflowX: "auto", border: `1px solid ${GS.headerBorder}`, borderRadius: "0 0 6px 6px", maxHeight: 560, overflowY: "auto" }}>
+        <table style={{ borderCollapse: "collapse" as const, fontSize: 12, minWidth: "100%", tableLayout: "fixed" as const }}>
+          <colgroup>
+            <col style={{ width: 36 }} />
+            {cols.map(c => <col key={c.key} style={{ width: c.width }} />)}
+          </colgroup>
+          <thead style={{ position: "sticky" as const, top: 0, zIndex: 10 }}>
+            <tr style={{ background: GS.headerBg }}>
+              <th style={{ width: 36, padding: "6px 4px", borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: "center" as const, fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
+              {cols.map(c => {
+                const isFiltered = !!(colFilters[c.key]?.length > 0)
+                const isSorted = sortCol === c.key
+                const isOpen = openFilterCol === c.key
+                return (
+                  <th key={c.key} style={{ padding: 0, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, background: isFiltered ? `${COR}08` : GS.headerBg, position: "relative" as const }}>
+                    <div style={{ display: "flex", alignItems: "stretch", height: 32 }}>
+                      <button onClick={() => toggleSort(c.key)}
+                        style={{ flex: 1, padding: "0 4px 0 8px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const, fontSize: 11, color: isSorted || isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: "flex", alignItems: "center", gap: 3, overflow: "hidden", whiteSpace: "nowrap" as const }}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.label}</span>
+                        {isFiltered && <span style={{ fontSize: 9, background: COR, color: "#fff", borderRadius: 10, padding: "1px 4px", flexShrink: 0 }}>●</span>}
+                        {isSorted ? (sortDir === "asc" ? <ChevronUp size={10} color={COR} /> : <ChevronDown size={10} color={COR} />) : <ArrowUpDown size={9} style={{ opacity: 0.25, flexShrink: 0 }} />}
+                      </button>
+                      <div style={{ position: "relative" as const, flexShrink: 0 }}>
+                        <button
+                          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
+                          style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : "none", border: "none", borderLeft: `1px solid ${GS.headerBorder}`, cursor: "pointer", color: isFiltered || isOpen ? COR : GS.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
+                          ▾
+                        </button>
+                        {isOpen && (
+                          <ColFilterPopup
+                            colKey={c.key} label={c.label} allRows={rows}
+                            active={colFilters[c.key] || []}
+                            sortDir={sortCol === c.key ? sortDir : null}
+                            onApply={vals => setColFilters(prev => vals.length ? { ...prev, [c.key]: vals } : (({ [c.key]: _, ...rest }) => rest)(prev))}
+                            onSort={dir => { if (dir) { setSortCol(c.key); setSortDir(dir) } else { setSortCol(null) } }}
+                            onClose={() => setOpenFilterCol(null)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </th>
+                )
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((row, i) => {
+              const isSelected = selectedRow === row.id
+              const isAlt = i % 2 === 1
+              const bg = isSelected ? GS.rowSelected : isAlt ? GS.rowAlt : "#fff"
+              return (
+                <tr key={row.id}
+                  onClick={() => setSelectedRow(isSelected ? null : row.id)}
+                  style={{ background: bg, transition: "background 0.05s" }}
+                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover }}
+                  onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = bg }}
+                >
+                  <td style={{ ...cellBase, width: 36, textAlign: "center" as const, color: GS.textMuted, fontSize: 11, cursor: "default", whiteSpace: "nowrap" as const, background: bg, padding: "6px 4px" }}>
+                    {i + 1}
+                  </td>
+                  {cols.map(col => {
+                    const val = row[col.key] || ""
+                    const isEditing = editCell?.id === row.id && editCell?.key === col.key
+
+                    if (isEditing) return (
+                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: "top" as const }}>
+                        <textarea autoFocus value={editVal}
+                          onChange={e => setEditVal(e.target.value)}
+                          onBlur={() => setTimeout(() => commitEdit(row.id, col.key, editVal), 100)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
+                            if (e.key === "Escape") setEditCell(null)
+                            if (e.key === "Tab") { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
+                          }}
+                          style={{ width: "100%", minHeight: 28, maxHeight: 120, padding: "4px 6px", fontSize: 12, border: `2px solid ${GS.inputBorder}`, outline: "none", background: "#fff", color: GS.text, boxSizing: "border-box" as const, resize: "vertical" as const, lineHeight: "18px", fontFamily: "inherit" }} />
+                      </td>
+                    )
+
+                    if (col.type === "status") return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "3px 4px", whiteSpace: "nowrap" as const }}>
+                        <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
+                          style={{ ...statusStyle(val), width: "100%", padding: "2px 6px", fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: "pointer", outline: "none", height: 22 }}>
+                          <option value="">—</option>
+                          {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
+                    )
+
+                    if (col.type === "categoria") return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "3px 4px", whiteSpace: "nowrap" as const }}>
+                        <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
+                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: "pointer", outline: "none", height: 22, background: `${COR}12`, color: COR, border: `1px solid ${COR}30` }}>
+                          <option value="">—</option>
+                          {CATEGORIA_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                        </select>
+                      </td>
+                    )
+
+                    if (col.type === "link" && val?.startsWith("http")) return (
+                      <td key={col.key} style={{ ...cellBase, background: bg, textAlign: "center" as const, whiteSpace: "nowrap" as const }}
+                        onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
+                        <a href={val.split("\n")[0]} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ color: "#1a73e8", fontSize: 11, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                          ↗ ver
+                        </a>
+                      </td>
+                    )
+
+                    return (
+                      <td key={col.key} style={{ ...cellBase, background: bg }} title={val}
+                        onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
+                        {val
+                          ? <span style={{ fontSize: 12, whiteSpace: "pre-wrap" as const, wordBreak: "break-word" as const }}>{val}</span>
+                          : <span style={{ color: "#ccc", fontSize: 11 }}>—</span>}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )
+            })}
+            <tr style={{ background: "#fafafa" }} onClick={addRow}>
+              <td style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: "center" as const, color: "#ccc", cursor: "pointer", fontSize: 16 }}>+</td>
+              {cols.map(c => (
+                <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: "pointer" }} />
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
+        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▾ para filtrar · Shift+scroll horizontal
+      </p>
+    </div>
+  )
+}
+
+/* ── Page principal ── */
+export default function Page() {
+  const [activeTab, setActiveTab] = useState<Tab>("geral")
 
   return (
     <TeamLayout teamId="social-midia">
       <div style={{ marginBottom: 20 }}>
         <p style={{ fontSize: 19, fontWeight: 700, color: T.cardFg, margin: "0 0 3px" }}>Controle de Influencers</p>
-        <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
-          Clique para selecionar · Duplo clique ou F2 para editar · Setas para navegar · Ctrl+Enter para nova linha na célula · Ctrl+Z/Y desfaz/refaz · Ctrl+C/V copia/cola · Ctrl+F buscar · Shift+scroll rola horizontalmente
-        </p>
       </div>
 
-      {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" as const }}>
         {TABS.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "9px 20px", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", border: "none", transition: "all .15s", background: activeTab === t.id ? NAVY : T.card, color: activeTab === t.id ? "#fff" : T.mutedFg, boxShadow: activeTab === t.id ? "none" : T.elevSm }}>{t.label}</button>
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            style={{ padding: "9px 20px", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", border: "none", transition: "all .15s", background: activeTab === t.id ? NAVY : T.card, color: activeTab === t.id ? "#fff" : T.mutedFg, boxShadow: activeTab === t.id ? "none" : T.elevSm }}>
+            {t.label}
+          </button>
         ))}
       </div>
 
       {activeTab === "geral" && <GeralTab />}
-
       {activeTab !== "geral" && (
-        <>
-          {/* Barra de controles */}
-          <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-            {(activeFiltersCount > 0 || sort) && (
-              <button onClick={() => { setFilters({}); setSort(null) }} style={{ background: "#fee2e2", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 14, color: "#991b1b", fontWeight: 600, cursor: "pointer" }}>
-                ✕ Limpar filtros {activeFiltersCount > 0 ? `(${activeFiltersCount})` : ""}
-              </button>
-            )}
-            {/* Undo/Redo */}
-            <div style={{ display: "flex", gap: 4 }}>
-              <button onClick={undo} disabled={historyIdx < 0} title="Desfazer (Ctrl+Z)"
-                style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 14, cursor: historyIdx < 0 ? "not-allowed" : "pointer", opacity: historyIdx < 0 ? 0.4 : 1, boxShadow: T.elevSm }}>↩</button>
-              <button onClick={redo} disabled={historyIdx >= history.length - 1} title="Refazer (Ctrl+Y)"
-                style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 14, cursor: historyIdx >= history.length - 1 ? "not-allowed" : "pointer", opacity: historyIdx >= history.length - 1 ? 0.4 : 1, boxShadow: T.elevSm }}>↪</button>
-            </div>
-            {/* Altura */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "5px 10px", boxShadow: T.elevSm }}>
-              <span style={{ fontSize: 12, color: T.mutedFg, fontWeight: 600 }}>Altura:</span>
-              {ROW_HEIGHTS.map(h => (
-                <button key={h.value} onClick={() => changeRowHeight(h.value)} title={h.label}
-                  style={{ padding: "4px 10px", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", border: "none", background: rowHeight === h.value ? NAVY : T.bg, color: rowHeight === h.value ? "#fff" : T.mutedFg }}>{h.label}</button>
-              ))}
-            </div>
-            <div style={{ flex: 1 }} />
-            <p style={{ margin: 0, fontSize: 14, color: T.mutedFg }}>{loading ? "Carregando…" : `${sortedFiltered.length} influencer${sortedFiltered.length !== 1 ? "s" : ""}`}</p>
-            <button onClick={() => setShowNewRow(v => !v)} style={{ background: showNewRow ? "#fee2e2" : NAVY, border: "none", borderRadius: 10, padding: "10px 22px", fontSize: 15, color: showNewRow ? "#991b1b" : "#fff", fontWeight: 600, cursor: "pointer" }}>
-              {showNewRow ? "✗ Cancelar" : "+ Novo"}
-            </button>
-          </div>
-
-          {/* Find bar */}
-          {showFind && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "8px 14px", boxShadow: T.elevSm }}>
-              <span style={{ fontSize: 14, color: T.mutedFg }}>🔍</span>
-              <input ref={findInputRef} value={findQuery} onChange={e => setFindQuery(e.target.value)}
-                placeholder="Buscar na tabela…"
-                onKeyDown={e => { if (e.key === "Enter") { e.shiftKey ? findPrev() : findNext() } if (e.key === "Escape") { setShowFind(false); setFindQuery(""); gridRef.current?.focus() } }}
-                style={{ flex: 1, border: "none", outline: "none", fontSize: 14, background: "transparent", color: T.cardFg }} />
-              <span style={{ fontSize: 13, color: T.mutedFg, minWidth: 60 }}>
-                {findMatches.length === 0 ? (findQuery ? "Nenhum" : "") : `${findMatchIdx + 1} / ${findMatches.length}`}
-              </span>
-              <button onClick={findPrev} disabled={findMatches.length === 0} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 5, padding: "3px 8px", cursor: "pointer", fontSize: 13 }}>↑</button>
-              <button onClick={findNext} disabled={findMatches.length === 0} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 5, padding: "3px 8px", cursor: "pointer", fontSize: 13 }}>↓</button>
-              <button onClick={() => { setShowFind(false); setFindQuery(""); gridRef.current?.focus() }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: T.mutedFg, padding: "2px 4px" }}>✕</button>
-            </div>
-          )}
-
-          {/* Tabela */}
-          <div ref={tableRef} style={{ borderRadius: 14, border: `1px solid ${T.border}`, background: T.card, boxShadow: T.elevSm, overflowX: "auto", width: "100%" }}>
-            <div ref={gridRef} tabIndex={0} onKeyDown={handleGridKeyDown}
-              style={{ minWidth: totalW, width: "100%", outline: "none" }}>
-
-              {/* Cabeçalho */}
-              <div style={{ display: "flex", borderBottom: `2px solid ${T.border}`, background: NAVY, position: "sticky", top: 0, zIndex: 10 }}>
-                {cols.map(col => {
-                  const w = getW(col.key, col.w)
-                  return (
-                    <div key={col.key} style={{ flex: `${w} 0 ${w}px`, minWidth: 0, padding: "0 8px", height: rowHeight, boxSizing: "border-box", display: "flex", alignItems: "center", borderRight: `1px solid rgba(255,255,255,0.12)`, position: "relative" }}>
-                      <ColFilter col={col} label={getLabel(col)} rows={rows} filter={filters[col.key] ?? []} setFilter={v => setFilters(p => ({ ...p, [col.key]: v }))} sort={getColSort(col.key)} setSort={v => setColSort(col.key, v)} onLabelSave={v => saveLabel(col.key, v)} />
-                      <div onMouseDown={e => startResize(e, col.key, w)}
-                        style={{ position: "absolute", right: 0, top: "10%", bottom: "10%", width: 5, cursor: "col-resize", borderRadius: 3, background: "rgba(255,255,255,0.12)", zIndex: 20 }}
-                        onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.5)"}
-                        onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.12)"} />
-                    </div>
-                  )
-                })}
-                <div style={{ flex: `${ACT_W} 0 ${ACT_W}px`, minWidth: 0 }} />
-              </div>
-
-              {/* Nova linha inline */}
-              {showNewRow && <InlineNewRow cols={cols} colWidths={colWidths} tableName={tabInfo.table} onClose={() => setShowNewRow(false)} onSaved={loadRows} />}
-
-              {/* Linhas de dados */}
-              {loading ? (
-                <div style={{ padding: 48, textAlign: "center", color: T.mutedFg, fontSize: 15 }}>Carregando…</div>
-              ) : sortedFiltered.length === 0 ? (
-                <div style={{ padding: 48, textAlign: "center", color: T.mutedFg, fontSize: 15 }}>Nenhum resultado.</div>
-              ) : sortedFiltered.map((row, i) => (
-                <div key={String(row.id)}
-                  onContextMenu={e => { e.preventDefault(); setContextMenu({ x: e.clientX, y: e.clientY, rowId: row.id }) }}
-                  style={{ display: "flex", transition: "background .1s", borderBottom: i < sortedFiltered.length - 1 ? `1px solid ${T.border}` : "none", minHeight: rowHeight }}
-                  onMouseEnter={e => { if (!editingCell) e.currentTarget.style.background = T.bg }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "transparent" }}
-                >
-                  {cols.map((col, j) => {
-                    const w = getW(col.key, col.w)
-                    const isAct  = activeCell?.rowId === row.id && activeCell?.ci === j
-                    const isEdit = editingCell?.rowId === row.id && editingCell?.ci === j
-                    const isFM   = findMatches.some(m => m.rowId === row.id && m.ci === j)
-                    const isFA   = findMatches[findMatchIdx]?.rowId === row.id && findMatches[findMatchIdx]?.ci === j
-                    return (
-                      <div key={col.key} style={{
-                        flex: `${w} 0 ${w}px`, minWidth: 0,
-                        padding: "8px 8px", borderRight: `1px solid ${T.border}`,
-                        display: "flex", alignItems: "flex-start",
-                        height: rowHeight, boxSizing: "border-box", overflow: "hidden",
-                        outline: isAct ? `2px solid ${NAVY}` : "none",
-                        outlineOffset: "-1px",
-                        zIndex: isAct ? 2 : "auto",
-                        position: "relative",
-                      }}>
-                        <EditableCell
-                          value={String(row[col.key] ?? "")}
-                          colKey={col.key} type={col.type} rowHeight={rowHeight}
-                          isActive={isAct} isEditing={isEdit}
-                          editValue={editValue}
-                          isFindMatch={isFM} isFindActive={isFA}
-                          onChange={(v) => { editValueRef.current = v; setEditValue(v) }}
-                          onEditKeyDown={makeEditKeyDown(row.id, j)}
-                          onActivate={() => { setActiveCell({ rowId: row.id, ci: j }); setEditingCell(null); gridRef.current?.focus() }}
-                          onStartEdit={(initialChar) => startEdit(row.id, j, initialChar)}
-                          onBlurCommit={commitEdit}
-                          onSaveOption={v => handleSaveOption(row.id, col.key, v)}
-                        />
-                      </div>
-                    )
-                  })}
-                  <div style={{ flex: `${ACT_W} 0 ${ACT_W}px`, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 2, height: rowHeight, boxSizing: "border-box" }}>
-                    <button onClick={() => duplicateRowById(row.id)} title="Duplicar linha" style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: T.mutedFg, padding: "5px 6px", borderRadius: 4 }}>⧉</button>
-                    <button onClick={() => deleteRowById(row.id)} title="Excluir" style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: "#ef4444", padding: "5px 6px", borderRadius: 4 }}>🗑</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Context Menu */}
-          {contextMenu && (
-            <CtxMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} items={[
-              { label: "Inserir linha vazia", icon: "⊕", action: insertEmptyRow },
-              { label: "Duplicar linha", icon: "⧉", action: () => duplicateRowById(contextMenu.rowId) },
-              { label: "Copiar célula ativa", icon: "📋", action: copyActiveCell },
-              { label: "Colar na célula ativa", icon: "📌", action: pasteToActiveCell },
-              { label: "Limpar célula", icon: "🗑", action: clearActiveCell },
-              { label: "Excluir linha", icon: "✕", danger: true, action: () => deleteRowById(contextMenu.rowId) },
-            ]} />
-          )}
-        </>
+        <DataTab
+          key={activeTab}
+          tableName={TABS.find(t => t.id === activeTab)!.table}
+          cols={COLS_BY_TAB[activeTab] ?? BASE_COLS}
+        />
       )}
     </TeamLayout>
   )
