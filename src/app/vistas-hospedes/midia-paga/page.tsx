@@ -47,6 +47,7 @@ function todayStr() {
 
 async function apiGetRecords(): Promise<DailyRecord[]> {
   const r = await fetch("/api/hospedes-analise/records");
+  if (!r.ok) return [];
   return r.json();
 }
 
@@ -64,6 +65,7 @@ async function apiDeleteRecord(id: string): Promise<void> {
 
 async function apiGetSpending(): Promise<DailySpending[]> {
   const r = await fetch("/api/hospedes-analise/spending");
+  if (!r.ok) return [];
   return r.json();
 }
 
@@ -140,11 +142,11 @@ function buildAnalysisData(
     } else if (r.type === "midia-com-atendimento") {
       row.fatSzCom += fatSz; row.fatEffCom += fatEff; row.cleaningCom += cleaning; row.reservasCom += reservas;
     } else if (r.type === "relatorio-newbyte") {
-      row.fatSzNB += fatSz; row.fatEffNB += fatEff; row.cleaningNB += cleaning;
+      row.fatSzNB += fatSz; row.fatEffNB += fatEff;
       row.ticketsNB += parseMoneyValue(r.data.tickets);
       const conv = parseMoneyValue(r.data.conversoes);
       row.conversoesNB += conv;
-      reservas = conv;
+      row.reservasNB += conv;
     }
   });
 
@@ -159,7 +161,7 @@ function buildAnalysisData(
     let reservas = row.reservasSem + row.reservasCom + row.reservasNB;
     if (source === "sem-atendimento") { fatSz = row.fatSzSem; fatEff = row.fatEffSem; cleaning = row.cleaningSem; reservas = row.reservasSem; }
     else if (source === "com-atendimento") { fatSz = row.fatSzCom; fatEff = row.fatEffCom; cleaning = row.cleaningCom; reservas = row.reservasCom; }
-    else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.conversoesNB; }
+    else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.reservasNB; }
     const fatLiquido = fatEff - cleaning;
     const roi = row.gastoTotal > 0 ? (fatSz - row.gastoTotal) / row.gastoTotal : 0;
     return {
@@ -172,6 +174,28 @@ function buildAnalysisData(
 }
 
 // ─── MonthlyRoiTable ──────────────────────────────────────────────────────────
+
+const DEFAULT_HOW_CALC: { title: string; color: string; body: string }[] = [
+  { title: "Fat. Seazone", color: "#0055FF", body: "= soma de todas as frentes. Sem/Com Atend.: (Fat. Effective − Taxa Limpeza) × 24%. Newbyte: valor que você preenche manualmente (já descontado da limpeza)." },
+  { title: "Gasto Total", color: "#FC6058", body: "= Google Ads + Meta Ads + TikTok Ads. Google/Meta: sync automático da Nekt. TikTok: preenchimento manual." },
+  { title: "Reservas", color: "#10B981", body: "= soma de Sem Atend. + Com Atend. + Newbyte (conversões). Sem/Com Atend.: campo Reservas. Newbyte: campo Conversões." },
+  { title: "ROI", color: "#7C3AED", body: "= (Fat. Seazone − Gasto Total) ÷ Gasto Total. Positivo = lucro. Negativo = prejuízo no período." },
+];
+
+function saveHowCalc(items: typeof DEFAULT_HOW_CALC) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem("midia-how-calc", JSON.stringify(items));
+  }
+}
+
+function loadHowCalc(): typeof DEFAULT_HOW_CALC {
+  if (typeof window === "undefined") return DEFAULT_HOW_CALC;
+  try {
+    const raw = localStorage.getItem("midia-how-calc");
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return DEFAULT_HOW_CALC;
+}
 
 function MonthlyRoiTable({
   records,
@@ -187,23 +211,17 @@ function MonthlyRoiTable({
     const map: Record<string, {
       month: string;
       gastoTotal: number;
-      fatEffTotal: number;
       fatSzTotal: number;
-      cleaningTotal: number;
-      fatLiquido: number;
       reservasTotal: number;
     }> = {};
 
     for (const d of daily) {
       const month = d.date.slice(0, 7);
       if (!map[month]) {
-        map[month] = { month, gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
+        map[month] = { month, gastoTotal: 0, fatSzTotal: 0, reservasTotal: 0 };
       }
       map[month].gastoTotal += d.gastoTotal;
-      map[month].fatEffTotal += d.fatEffTotal;
       map[month].fatSzTotal += d.fatSzTotal;
-      map[month].cleaningTotal += d.cleaningTotal;
-      map[month].fatLiquido += d.fatLiquido;
       map[month].reservasTotal += d.reservasTotal;
     }
 
@@ -213,19 +231,24 @@ function MonthlyRoiTable({
     }));
   }, [records, spending, source]);
 
+  const [howCalc, setHowCalc] = useState(loadHowCalc);
+  const [editingCalc, setEditingCalc] = useState(false);
+  const [editItems, setEditItems] = useState<{ title: string; color: string; body: string }[]>([]);
+
+  const startEdit = () => { setEditItems(howCalc.map((i) => ({ ...i }))); setEditingCalc(true); };
+  const cancelEdit = () => { setEditingCalc(false); };
+  const saveEdit = () => { setHowCalc(editItems); saveHowCalc(editItems); setEditingCalc(false); };
+
   if (monthlyData.length === 0) return null;
 
   const totals = monthlyData.reduce(
     (acc, m) => {
       acc.gastoTotal += m.gastoTotal;
-      acc.fatEffTotal += m.fatEffTotal;
       acc.fatSzTotal += m.fatSzTotal;
-      acc.cleaningTotal += m.cleaningTotal;
-      acc.fatLiquido += m.fatLiquido;
       acc.reservasTotal += m.reservasTotal;
       return acc;
     },
-    { gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
+    { gastoTotal: 0, fatSzTotal: 0, reservasTotal: 0 }
   );
   const totalRoi = totals.gastoTotal > 0 ? (totals.fatSzTotal - totals.gastoTotal) / totals.gastoTotal : 0;
 
@@ -250,10 +273,7 @@ function MonthlyRoiTable({
             <tr>
               <th style={{ ...thS, textAlign: "left" }}>Mês</th>
               <th style={thS}>Gasto Total</th>
-              <th style={thS}>Fat. Effective</th>
               <th style={thS}>Fat. Seazone</th>
-              <th style={thS}>Tx. Limpeza</th>
-              <th style={thS}>Fat. Líquido</th>
               <th style={thS}>Reservas</th>
               <th style={{ ...thS, color: "#0055FF" }}>ROI</th>
             </tr>
@@ -263,11 +283,8 @@ function MonthlyRoiTable({
               <tr key={m.month}>
                 <td style={{ ...tdS, textAlign: "left", fontWeight: 600, color: "#00143D" }}>{fmtMonth(m.month)}</td>
                 <td style={{ ...tdS, color: "#FC6058" }}>{fmtCurrency(m.gastoTotal)}</td>
-                <td style={tdS}>{fmtCurrency(m.fatEffTotal)}</td>
                 <td style={{ ...tdS, color: "#0055FF" }}>{fmtCurrency(m.fatSzTotal)}</td>
-                <td style={{ ...tdS, color: "#94A3B8" }}>{fmtCurrency(m.cleaningTotal)}</td>
-                <td style={{ ...tdS, color: "#0EA5E9" }}>{fmtCurrency(m.fatLiquido)}</td>
-                <td style={tdS}>{m.reservasTotal > 0 ? m.reservasTotal.toFixed(0) : "—"}</td>
+                <td style={{ ...tdS }}>{m.reservasTotal > 0 ? m.reservasTotal.toFixed(0) : "—"}</td>
                 <td style={{ ...tdS, fontWeight: 700, color: m.roi >= 0 ? "#10B981" : "#FC6058" }}>
                   {m.gastoTotal > 0 ? `${(m.roi * 100).toFixed(1)}%` : "—"}
                 </td>
@@ -278,10 +295,7 @@ function MonthlyRoiTable({
             <tr style={{ background: "#F8FAFF" }}>
               <td style={{ ...tdS, textAlign: "left", fontWeight: 700, color: "#00143D", borderTop: "2px solid #E8EEF8" }}>Total</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#FC6058", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.gastoTotal)}</td>
-              <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatEffTotal)}</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#0055FF", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatSzTotal)}</td>
-              <td style={{ ...tdS, fontWeight: 700, color: "#94A3B8", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.cleaningTotal)}</td>
-              <td style={{ ...tdS, fontWeight: 700, color: "#0EA5E9", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatLiquido)}</td>
               <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{totals.reservasTotal > 0 ? totals.reservasTotal.toFixed(0) : "—"}</td>
               <td style={{ ...tdS, fontWeight: 700, color: totalRoi >= 0 ? "#10B981" : "#FC6058", borderTop: "2px solid #E8EEF8" }}>
                 {totals.gastoTotal > 0 ? `${(totalRoi * 100).toFixed(1)}%` : "—"}
@@ -289,6 +303,47 @@ function MonthlyRoiTable({
             </tr>
           </tfoot>
         </table>
+      </div>
+      <div style={{ padding: "14px 20px", borderTop: "1px solid #F0F3FA", background: "#FAFBFF" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Como foi calculado</p>
+          {!editingCalc && (
+            <button onClick={startEdit} style={{ fontSize: 11, color: "#0055FF", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>✏ Editar</button>
+          )}
+          {editingCalc && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={cancelEdit} style={{ fontSize: 11, color: "#7C7C7C", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
+              <button onClick={saveEdit} style={{ fontSize: 11, color: "#10B981", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ Salvar</button>
+            </div>
+          )}
+        </div>
+
+        {!editingCalc ? (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 20px" }}>
+            {howCalc.map((item) => (
+              <p key={item.title} style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong style={{ color: item.color }}>{item.title}</strong> — {item.body}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {editItems.map((item, i) => (
+              <div key={item.title} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "start" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 6 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 2, background: item.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: item.color }}>{item.title}</span>
+                </div>
+                <textarea
+                  value={item.body}
+                  onChange={(e) => setEditItems((prev) => prev.map((x, j) => j === i ? { ...x, body: e.target.value } : x))}
+                  rows={2}
+                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #E8EEF8", fontSize: 12, fontFamily: "inherit", color: "#00143D", resize: "vertical", boxSizing: "border-box", background: "#fff" }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -303,6 +358,23 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
   const [metrics, setMetrics] = useState<string[]>(["fatSzTotal", "reservasTotal"]);
   const [fixing, setFixing] = useState(false);
   const [fixResult, setFixResult] = useState<{ updated: number } | null>(null);
+  const [fixDupResult, setFixDupResult] = useState<{ removed: number } | null>(null);
+
+  const [config, setConfig] = useState<{ pct: number; roiType: "fatSz" | "fatEff" }>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("midia-config");
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* ignore */ }
+      }
+    }
+    return { pct: 0.24, roiType: "fatSz" };
+  });
+
+  const updateConfig = (patch: Partial<typeof config>) => {
+    const next = { ...config, ...patch };
+    setConfig(next);
+    if (typeof window !== "undefined") localStorage.setItem("midia-config", JSON.stringify(next));
+  };
 
   const handleFixFatSeazone = async () => {
     setFixing(true);
@@ -313,9 +385,19 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
       setFixResult(json);
       const updated = await fetch("/api/hospedes-analise/records").then((r) => r.json());
       onRecordsChange(updated);
-    } finally {
-      setFixing(false);
-    }
+    } finally { setFixing(false); }
+  };
+
+  const handleFixDuplicates = async () => {
+    setFixing(true);
+    setFixDupResult(null);
+    try {
+      const res = await fetch("/api/hospedes-analise/dedup", { method: "POST" });
+      const json = await res.json();
+      setFixDupResult(json);
+      const updated = await fetch("/api/hospedes-analise/records").then((r) => r.json());
+      onRecordsChange(updated);
+    } finally { setFixing(false); }
   };
 
   const data = useMemo(
@@ -325,15 +407,16 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
 
   const summary = useMemo(() => {
     const totalGasto = data.reduce((s, d) => s + d.gastoTotal, 0);
+    // Recalculate fatSz with editable % (only Sem/Com are formula-based; NB is manual)
     const totalFatSz = data.reduce((s, d) => s + d.fatSzTotal, 0);
+    // Keep fatEff available for ROI if user switches formula
     const totalFatEff = data.reduce((s, d) => s + d.fatEffTotal, 0);
-    const totalCleaning = data.reduce((s, d) => s + d.cleaningTotal, 0);
     const totalReservas = data.reduce((s, d) => s + d.reservasTotal, 0);
-    const totalFatLiquido = data.reduce((s, d) => s + d.fatLiquido, 0);
-    const roi = totalGasto > 0 ? (totalFatSz - totalGasto) / totalGasto : 0;
+    const roiBase = config.roiType === "fatEff" ? totalFatEff : totalFatSz;
+    const roi = totalGasto > 0 ? (roiBase - totalGasto) / totalGasto : 0;
     const custoReserva = totalReservas > 0 ? totalGasto / totalReservas : 0;
-    return { totalGasto, totalFatSz, totalFatEff, totalCleaning, totalFatLiquido, totalReservas, roi, custoReserva };
-  }, [data]);
+    return { totalGasto, totalFatSz, totalFatEff, totalReservas, roi, custoReserva };
+  }, [data, config]);
 
   const ALL_METRICS = [
     { key: "fatSzTotal", label: "Fat. Seazone", color: "#0055FF" },
@@ -387,21 +470,21 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
           <button onClick={handleFixFatSeazone} disabled={fixing} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E8EEF8", background: fixing ? "#F0F3FA" : "#fff", fontSize: 12, cursor: fixing ? "not-allowed" : "pointer", color: "#0055FF", fontWeight: 600 }}>
             {fixing ? "Corrigindo..." : "Corrigir Fat. Seazone nos dados"}
           </button>
+          <button onClick={handleFixDuplicates} disabled={fixing} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E8EEF8", background: fixing ? "#F0F3FA" : "#fff", fontSize: 12, cursor: fixing ? "not-allowed" : "pointer", color: "#F59E0B", fontWeight: 600 }}>
+            {fixing ? "Corrigindo..." : "Corrigir Duplicados"}
+          </button>
           {fixResult && <span style={{ fontSize: 12, color: "#10B981" }}>{fixResult.updated} registro(s) corrigido(s)</span>}
+          {fixDupResult && <span style={{ fontSize: 12, color: "#F59E0B" }}>{fixDupResult.removed} duplicado(s) removido(s)</span>}
         </div>
       </div>
 
       {hasData && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { label: "Fat. Seazone (24%)", value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
-            { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED", title: "" },
-            { label: "Tx. Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8", title: "" },
-            { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9", title: "Fat. Effective - Tx. Limpeza" },
+            { label: "Fat. Seazone", value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
             { label: "Gasto Total", value: fmtCurrency(summary.totalGasto), color: "#FC6058", title: "" },
             { label: "Reservas", value: summary.totalReservas.toFixed(0), color: "#10B981", title: "" },
             { label: "ROI", value: `${(summary.roi * 100).toFixed(1)}%`, color: summary.roi >= 0 ? "#10B981" : "#FC6058", title: "(Fat. Seazone - Gasto) / Gasto" },
-            { label: "Custo/Reserva", value: fmtCurrency(summary.custoReserva), color: "#F59E0B", title: "" },
           ].map((kpi) => (
             <div key={kpi.label} title={kpi.title} style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16 }}>
               <p style={{ fontSize: 11, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{kpi.label}</p>
@@ -707,7 +790,7 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
                 {expandedDate === col.date && col.reservations.length > 0 && (
-                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
+                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || ""; const campaign = utmParams["utm_campaign"] || ""; const medium = utmParams["utm_medium"] || ""; const promo = res.coupon || ""; const dest = res.destination || ""; const prop = (res as any).propertyCode || ""; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
                 )}
                 </React.Fragment>
               ))}
@@ -722,7 +805,15 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 // ─── DestinosTab ──────────────────────────────────────────────────────────────
 
 function DestinosTab({ records }: { records: DailyRecord[] }) {
-  const paidRecords = records.filter((r) => r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
+  const paidRecords = records.filter((r) => {
+    const isValid = r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento";
+    const inRange = (!startDate || r.date >= startDate) && (!endDate || r.date <= endDate);
+    return isValid && inRange;
+  });
+
   const cityMap: Record<string, { reservas: number; fatSz: number }> = {};
   const propMap: Record<string, { reservas: number; fatSz: number }> = {};
 
@@ -753,6 +844,19 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: "14px 20px", display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label>
+          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label>
+          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" }} />
+        </div>
+        {(startDate || endDate) && <button onClick={() => { setStartDate(""); setEndDate(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer", color: "#7C7C7C" }}>Limpar</button>}
+        <span style={{ fontSize: 12, color: "#7C7C7C", paddingBottom: 8 }}>{paidRecords.length} registro(s) encontrado(s)</span>
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 16 }}>Cidades mais reservadas</p>
@@ -884,23 +988,68 @@ function NektExplorerTab({ onSpendingChange }: { onSpendingChange: (s: DailySpen
   );
 }
 
+// ─── SyncNektButton ──────────────────────────────────────────────────────────
+
+function SyncNektButton({ onSpendingChange }: { onSpendingChange: (s: DailySpending[]) => void }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const handleSync = async () => {
+    setStatus("loading"); setResult(null); setErrorMsg(null);
+    try {
+      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || data.error || "Erro desconhecido");
+      setResult(data); setStatus("done");
+      const fresh = await apiGetSpending();
+      onSpendingChange(fresh);
+      setTimeout(() => setStatus("idle"), 5000);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 6000);
+    }
+  };
+
+  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
+  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#F5F3FF";
+  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt (gastos)"}
+      </button>
+      {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.synced} dias · {result.dateFrom} → {result.dateTo}</span>}
+      {status === "error" && errorMsg && <span style={{ fontSize: 11, color: "#FC6058" }}>{errorMsg.includes("config") ? "Não configurado na Vercel" : errorMsg.slice(0, 60)}</span>}
+    </div>
+  );
+}
+
 // ─── SyncMetabaseButton ───────────────────────────────────────────────────────
 
 function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<{ synced: number; dates: number; breakdown: { semAtendimento: number; comAtendimento: number } } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setStatus("loading"); setResult(null);
+    setStatus("loading"); setResult(null); setErrorMsg(null);
     try {
       const res = await fetch("/api/hospedes-analise/sync-metabase", { method: "POST" });
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setResult(data); setStatus("done");
+      let data: Record<string, unknown> = {};
+      try { data = await res.json(); } catch { /* ignore parse error */ }
+      if (!res.ok) throw new Error((data.error as string) || `Erro HTTP ${res.status}`);
+      setResult(data as Parameters<typeof setResult>[0]); setStatus("done");
       const fresh = await apiGetRecords();
       onSynced(fresh);
       setTimeout(() => setStatus("idle"), 4000);
-    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 3000); }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : String(err));
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 6000);
+    }
   };
 
   const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
@@ -913,6 +1062,7 @@ function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) =
         {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Metabase"}
       </button>
       {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.dates} dias · {result.breakdown.semAtendimento}s/ + {result.breakdown.comAtendimento}c/</span>}
+      {status === "error" && errorMsg && <span style={{ fontSize: 11, color: "#FC6058", maxWidth: 280 }} title={errorMsg}>{errorMsg}</span>}
     </div>
   );
 }
@@ -985,7 +1135,7 @@ function ImportModal({ onImported }: { onImported: (records: DailyRecord[], spen
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnaliseMidiaPagaHospedesPage() {
-  const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos" | "nekt">("resultados");
+  const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos">("resultados");
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [spending, setSpending] = useState<DailySpending[]>([]);
   const [loading, setLoading] = useState(true);
@@ -994,12 +1144,11 @@ export default function AnaliseMidiaPagaHospedesPage() {
     Promise.all([apiGetRecords(), apiGetSpending()]).then(([r, s]) => { setRecords(r); setSpending(s); setLoading(false); });
   }, []);
 
-  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos" | "nekt"; label: string; emoji: string }[] = [
+  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos"; label: string; emoji: string }[] = [
     { id: "resultados", label: "Resultados", emoji: "📈" },
     { id: "preenchimento", label: "Preenchimento", emoji: "📝" },
     { id: "tabela", label: "Tabela KPIs", emoji: "📋" },
     { id: "destinos", label: "Destinos", emoji: "📍" },
-    { id: "nekt", label: "Nekt", emoji: "🔍" },
   ];
 
   return (
@@ -1011,9 +1160,15 @@ export default function AnaliseMidiaPagaHospedesPage() {
           <span style={{ color: "#00143D", fontWeight: 600 }}>Análise Mídia Paga</span>
         </div>
         {!loading && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <SyncMetabaseButton onSynced={(r) => setRecords(r)} />
-            <ImportModal onImported={(r, s) => { setRecords(r); setSpending(s); }} />
+          <div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <SyncMetabaseButton onSynced={(r) => setRecords(r)} />
+              <SyncNektButton onSpendingChange={setSpending} />
+              <ImportModal onImported={(r, s) => { setRecords(r); setSpending(s); }} />
+            </div>
+            <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 5, textAlign: "right" }}>
+              Gastos Google/Meta: <code style={{ fontFamily: "monospace", background: "#F0F3FA", padding: "1px 4px", borderRadius: 3, fontSize: 11 }}>NEKT_SPENDING_SQL</code> (env var na Vercel)
+            </p>
           </div>
         )}
       </div>
@@ -1033,7 +1188,6 @@ export default function AnaliseMidiaPagaHospedesPage() {
         {tab === "preenchimento" && <PreenchimentoTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "tabela" && <TabelaTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "destinos" && <DestinosTab records={records} />}
-        {tab === "nekt" && <NektExplorerTab onSpendingChange={setSpending} />}
       </>)}
     </div>
   );

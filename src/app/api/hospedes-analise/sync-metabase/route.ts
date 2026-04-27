@@ -3,7 +3,7 @@ import { getRecords, saveRecords } from "@/lib/hospedes-analise-db";
 import type { DailyRecord, ReservationDetail } from "@/lib/hospedes-analise-db";
 
 const METABASE_URL = "https://metabase.seazone.com.br";
-const QUESTION_ID = 3350;
+const QUESTION_ID = 3335;
 
 const PAID_SOURCES = ["googleads", "metaads", "tiktokads", "site__vistasdeanita"];
 const PAID_PROMOS = ["vistas10", "cabana10"];
@@ -63,88 +63,123 @@ function buildUtm(row: MetabaseRow): string {
   ].filter(Boolean).join("&");
 }
 
-export async function POST() {
-  const apiKey = process.env.METABASE_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "METABASE_API_KEY não configurada" }, { status: 500 });
-  }
-
-  const res = await fetch(`${METABASE_URL}/api/card/${QUESTION_ID}/query/json`, {
-    method: "POST",
-    headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-    body: JSON.stringify({ parameters: [] }),
+export async function GET() {
+  const records = await getRecords();
+  const newbyte = records.filter((r) => r.type === "relatorio-newbyte");
+  return NextResponse.json({
+    total: records.length,
+    newbyteCount: newbyte.length,
+    newbyteRecords: newbyte.map((r) => ({ id: r.id, date: r.date, data: r.data })),
   });
+}
 
-  if (!res.ok) {
-    return NextResponse.json({ error: `Metabase retornou ${res.status}` }, { status: 502 });
-  }
-
-  const rows: MetabaseRow[] = await res.json();
-
-  type DayType = `${string}::${"midia-sem-atendimento" | "midia-com-atendimento"}`;
-  const groups: Record<DayType, {
-    type: "midia-sem-atendimento" | "midia-com-atendimento";
-    date: string;
-    reservas: number;
-    fatEffective: number;
-    fatSeazone: number;
-    cleaningFee: number;
-    reservations: ReservationDetail[];
-  }> = {};
-
-  for (const row of rows) {
-    const type = classifyRow(row);
-    if (!type) continue;
-
-    const date = toDateStr(row.payment_date);
-    const key: DayType = `${date}::${type}`;
-
-    if (!groups[key]) {
-      groups[key] = { type, date, reservas: 0, fatEffective: 0, fatSeazone: 0, cleaningFee: 0, reservations: [] };
+export async function POST() {
+  try {
+    const apiKey = process.env.METABASE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "METABASE_API_KEY não configurada" }, { status: 500 });
     }
 
-    const g = groups[key];
-    const eff = row.effective_price ?? 0;
-    const cleaning = row.cleaning_fee ?? 0;
-    g.reservas += 1;
-    g.fatEffective += eff;
-    g.fatSeazone += (eff - cleaning) * 0.24;
-    g.cleaningFee += cleaning;
-    const reservation: ReservationDetail & { propertyCode?: string } = {
-      id: `mb-${row.property_code ?? ""}-${row.payment_date}`,
-      source: row.utm_source ?? "",
-      utm: buildUtm(row),
-      coupon: row.promo_code ?? "",
-      destination: row.reservation_city ?? "",
-    };
-    if (row.property_code) (reservation as any).propertyCode = row.property_code;
-    g.reservations.push(reservation);
+    const res = await fetch(`${METABASE_URL}/api/card/${QUESTION_ID}/query/json`, {
+      method: "POST",
+      headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ parameters: [] }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      return NextResponse.json({ error: `Metabase retornou ${res.status}${text ? ": " + text.slice(0, 200) : ""}` }, { status: 502 });
+    }
+
+    const text = await res.text();
+    if (!text.trim()) {
+      return NextResponse.json({ error: "Metabase retornou resposta vazia" }, { status: 502 });
+    }
+
+    let rows: MetabaseRow[];
+    try {
+      rows = JSON.parse(text);
+    } catch {
+      return NextResponse.json({ error: "Resposta do Metabase não é JSON válido: " + text.slice(0, 200) }, { status: 502 });
+    }
+
+    type DayType = `${string}::${"midia-sem-atendimento" | "midia-com-atendimento"}`;
+    const groups: Record<DayType, {
+      type: "midia-sem-atendimento" | "midia-com-atendimento";
+      date: string;
+      reservas: number;
+      fatEffective: number;
+      fatSeazone: number;
+      cleaningFee: number;
+      reservations: ReservationDetail[];
+    }> = {};
+
+    for (const row of rows) {
+      const type = classifyRow(row);
+      if (!type) continue;
+
+      const date = toDateStr(row.payment_date);
+      const key: DayType = `${date}::${type}`;
+
+      if (!groups[key]) {
+        groups[key] = { type, date, reservas: 0, fatEffective: 0, fatSeazone: 0, cleaningFee: 0, reservations: [] };
+      }
+
+      const g = groups[key];
+      const eff = row.effective_price ?? 0;
+      const cleaning = row.cleaning_fee ?? 0;
+      g.reservas += 1;
+      g.fatEffective += eff;
+      g.fatSeazone += (eff - cleaning) * 0.24;
+      g.cleaningFee += cleaning;
+      const reservation: ReservationDetail & { propertyCode?: string } = {
+        id: `mb-${row.property_code ?? ""}-${row.payment_date}-${g.reservas}`,
+        source: row.utm_source ?? "",
+        utm: buildUtm(row),
+        coupon: row.promo_code ?? "",
+        destination: row.reservation_city ?? "",
+      };
+      if (row.property_code) (reservation as any).propertyCode = row.property_code;
+      g.reservations.push(reservation);
+    }
+
+    const existing = await getRecords();
+    const manual = existing.filter((r) => !r.id.startsWith("mb-sync-"));
+
+    // Preserve synced records that already have reservations (from previous syncs)
+    const existingWithData = existing.filter(
+      (r) => r.id.startsWith("mb-sync-") && r.reservations.length > 0
+    );
+
+    const synced: DailyRecord[] = Object.values(groups).map((g) => ({
+      id: `mb-sync-${g.date}-${g.type}`,
+      date: g.date,
+      type: g.type,
+      data: {
+        reservas: g.reservas,
+        fatEffective: parseFloat(g.fatEffective.toFixed(2)),
+        fatSeazone: parseFloat(g.fatSeazone.toFixed(2)),
+        cleaningFee: parseFloat(g.cleaningFee.toFixed(2)),
+      },
+      reservations: g.reservations,
+    }));
+
+    const manualKeys = new Set(manual.map((r) => `${r.date}::${r.type}`));
+    const deduped = synced.filter((s) => !manualKeys.has(`${s.date}::${s.type}`));
+
+    await saveRecords([...manual, ...existingWithData, ...deduped]);
+
+    return NextResponse.json({
+      synced: synced.length,
+      skipped: deduped.length === 0 ? synced.length : synced.length - deduped.length,
+      dates: [...new Set(synced.map((r) => r.date))].length,
+      breakdown: {
+        semAtendimento: synced.filter((r) => r.type === "midia-sem-atendimento").length,
+        comAtendimento: synced.filter((r) => r.type === "midia-com-atendimento").length,
+      },
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: "Erro interno: " + msg }, { status: 500 });
   }
-
-  const existing = await getRecords();
-  const manual = existing.filter((r) => !r.id.startsWith("mb-sync-"));
-
-  const synced: DailyRecord[] = Object.values(groups).map((g) => ({
-    id: `mb-sync-${g.date}-${g.type}`,
-    date: g.date,
-    type: g.type,
-    data: {
-      reservas: g.reservas,
-      fatEffective: parseFloat(g.fatEffective.toFixed(2)),
-      fatSeazone: parseFloat(g.fatSeazone.toFixed(2)),
-      cleaningFee: parseFloat(g.cleaningFee.toFixed(2)),
-    },
-    reservations: g.reservations,
-  }));
-
-  await saveRecords([...manual, ...synced]);
-
-  return NextResponse.json({
-    synced: synced.length,
-    dates: [...new Set(synced.map((r) => r.date))].length,
-    breakdown: {
-      semAtendimento: synced.filter((r) => r.type === "midia-sem-atendimento").length,
-      comAtendimento: synced.filter((r) => r.type === "midia-com-atendimento").length,
-    },
-  });
 }
