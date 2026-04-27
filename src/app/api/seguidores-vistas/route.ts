@@ -1,64 +1,93 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 const TOKEN = process.env.REPORTEI_TOKEN;
 const BASE = 'https://app.reportei.com/api/v2';
 const INTEGRATION_ID = 3313610;
 
-const METRICS = [
-  {
-    id: '371e93e0-f0a9-403d-8ada-0da32d72b917',
-    reference_key: 'ig:followers_count',
-    component: 'number_v1',
-    metrics: ['followers'],
-    dimensions: [],
-    filters: [],
-    filter: null,
-    sort: [],
-    chart_type: null,
-    custom: [],
-    type: [],
-  },
-  {
-    id: '5d397be5-60ef-42d1-973e-919998ffb96d',
-    reference_key: 'ig:new_followers_count',
-    component: 'number_v1',
-    metrics: ['new_followers'],
-    dimensions: [],
-    filters: [],
-    filter: null,
-    sort: [],
-    chart_type: null,
-    custom: [],
-    type: 'new_followers',
-  },
-];
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+const METRIC_TOTAL = { id: '371e93e0-f0a9-403d-8ada-0da32d72b917', reference_key: 'ig:followers_count', component: 'number_v1', metrics: ['followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: [] };
+const METRIC_NEW = { id: '5d397be5-60ef-42d1-973e-919998ffb96d', reference_key: 'ig:new_followers_count', component: 'number_v1', metrics: ['new_followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: 'new_followers' };
+
+async function fetchReportei(start: string, end: string, metricId: string) {
+  const resp = await fetch(`${BASE}/metrics/get-data`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ start, end, integration_id: INTEGRATION_ID, metrics: [METRIC_NEW] }),
+  });
+  const data = await resp.json();
+  return data?.data?.[metricId]?.values ?? null;
+}
 
 export async function GET() {
   try {
     const hoje = new Date().toISOString().split('T')[0];
     const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const inicioMes = hoje.slice(0, 7) + '-01';
 
-    const resp = await fetch(`${BASE}/metrics/get-data`, {
+    // Total seguidores + ganho hoje
+    const respHoje = await fetch(`${BASE}/metrics/get-data`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        start: ontem,
-        end: hoje,
-        integration_id: INTEGRATION_ID,
-        metrics: METRICS,
-      }),
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: ontem, end: hoje, integration_id: INTEGRATION_ID, metrics: [METRIC_TOTAL, METRIC_NEW] }),
     });
+    const dataHoje = await respHoje.json();
+    const total_seguidores = dataHoje?.data?.['371e93e0-f0a9-403d-8ada-0da32d72b917']?.values ?? null;
+    const ganho_hoje = dataHoje?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
 
-    const data = await resp.json();
-
-    return NextResponse.json({
-      total_seguidores: data?.data?.['371e93e0-f0a9-403d-8ada-0da32d72b917']?.values ?? null,
-      ganho_hoje: data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null,
+    // Ganho acumulado do mês
+    const respMes = await fetch(`${BASE}/metrics/get-data`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: inicioMes, end: hoje, integration_id: INTEGRATION_ID, metrics: [METRIC_NEW] }),
     });
+    const dataMes = await respMes.json();
+    const ganho_mes = dataMes?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
 
+    // Salva hoje no Supabase
+    if (total_seguidores !== null && ganho_hoje !== null) {
+      await supabase.from('seguidores_historico').upsert(
+        { data: hoje, total_seguidores, ganho_dia: ganho_hoje },
+        { onConflict: 'data' }
+      );
+    }
+
+    // Preenche dias faltando nos últimos 30 dias
+    const data30 = new Date(); data30.setDate(data30.getDate() - 30);
+    const inicioJanela = data30.toISOString().split('T')[0];
+
+    const { data: existentes } = await supabase
+      .from('seguidores_historico').select('data').gte('data', inicioJanela);
+
+    const datasExistentes = new Set((existentes || []).map((r: any) => r.data));
+    const diasFaltando: string[] = [];
+    for (let i = 29; i >= 1; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const iso = d.toISOString().split('T')[0];
+      if (!datasExistentes.has(iso)) diasFaltando.push(iso);
+    }
+
+    for (const dia of diasFaltando) {
+      try {
+        const ganho = await fetchReportei(dia, dia, '5d397be5-60ef-42d1-973e-919998ffb96d');
+        if (ganho !== null) {
+          await supabase.from('seguidores_historico').upsert(
+            { data: dia, ganho_dia: ganho }, { onConflict: 'data' }
+          );
+        }
+      } catch {}
+    }
+
+    // Retorna histórico dos últimos 30 dias
+    const { data: historico } = await supabase
+      .from('seguidores_historico').select('data, total_seguidores, ganho_dia')
+      .gte('data', inicioJanela).order('data', { ascending: true });
+
+    return NextResponse.json({ total_seguidores, ganho_hoje, ganho_mes, historico: historico || [] });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
