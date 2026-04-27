@@ -3,16 +3,10 @@
 import { useEffect, useState } from 'react';
 import { TeamLayout } from '@/components/team-layout';
 import { T } from '@/lib/constants';
-import { FOLLOWERS_DATA, MONTH_KEYS } from '@/lib/followers-config';
+import { Pencil, Check } from 'lucide-react';
 
 const COR = '#7C3AED';
-
-function getMetaMes(): number {
-  const mes = new Date().getMonth() + 1;
-  const key = MONTH_KEYS[mes];
-  const conta = FOLLOWERS_DATA.find(d => d.label === '@destinoseazone' && d.platform === 'Instagram');
-  return key && conta ? conta.goals[key] : 110000;
-}
+const META_DEFAULT = 15000;
 
 function getPeriodoLabel(periodo: 7 | 14 | 30 | 'mes'): string {
   const hoje = new Date();
@@ -46,9 +40,30 @@ export default function Page() {
   const [metricas, setMetricas] = useState<any>(null);
   const [loadingMetricas, setLoadingMetricas] = useState(false);
 
-  const META_MES = getMetaMes();
-  const faltam = total !== null ? Math.max(0, META_MES - total) : null;
-  const progresso = total !== null ? Math.min(100, (total / META_MES) * 100) : 0;
+  // Meta mensal editável
+  const [metaMes, setMetaMes] = useState<number>(META_DEFAULT);
+  const [editandoMeta, setEditandoMeta] = useState(false);
+  const [metaInput, setMetaInput] = useState('');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('seazone_meta_mensal_seguidores');
+      if (saved) setMetaMes(Number(saved));
+    } catch {}
+  }, []);
+
+  function salvarMeta() {
+    const n = parseInt(metaInput.replace(/\D/g, ''));
+    if (!isNaN(n) && n > 0) {
+      setMetaMes(n);
+      try { localStorage.setItem('seazone_meta_mensal_seguidores', String(n)); } catch {}
+    }
+    setEditandoMeta(false);
+  }
+
+  // Cálculo correto: falta = meta - ganho no mês
+  const faltam = ganhoMes !== null ? Math.max(0, metaMes - ganhoMes) : null;
+  const progresso = ganhoMes !== null ? Math.min(100, (ganhoMes / metaMes) * 100) : 0;
 
   useEffect(() => {
     fetch('/api/seguidores-seazone')
@@ -124,7 +139,7 @@ export default function Page() {
 
         <div>
           <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: '0 0 2px', textTransform: 'uppercase' as const, letterSpacing: 1 }}>INSTAGRAM</p>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: 0 }}>@destinoseazone — Metricas</h2>
+          <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: 0 }}>@destinoseazone — Métricas</h2>
         </div>
 
         {/* Seguidores */}
@@ -134,24 +149,66 @@ export default function Page() {
           {erroSeguidores && <p style={{ color: '#EF4444', fontSize: 13 }}>Erro: {erroSeguidores}</p>}
           {!loadingSeguidores && !erroSeguidores && (
             <div>
+              {/* KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
-                {[
-                  { label: 'Total de Seguidores', value: fmt(total), color: COR },
-                  { label: 'Ganho Hoje', value: ganhoHoje != null ? `+${fmt(ganhoHoje)}` : '—', color: '#16A34A' },
-                  { label: 'Meta Mensal', value: fmt(META_MES), color: '#D97706' },
-                  { label: 'Ganho no Mes', value: ganhoMes != null ? `+${fmt(ganhoMes)}` : '—', color: COR },
-                  { label: 'Falta para Meta', value: faltam != null ? (faltam > 0 ? fmt(faltam) : 'Batida!') : '—', color: faltam === 0 ? '#16A34A' : '#DC2626' },
-                ].map(kpi => (
-                  <div key={kpi.label} style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
-                    <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>{kpi.label}</p>
-                    <p style={{ fontSize: 20, fontWeight: 800, color: kpi.color, margin: 0 }}>{kpi.value}</p>
+
+                {/* Total */}
+                <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Total de Seguidores</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: COR, margin: 0 }}>{fmt(total)}</p>
+                </div>
+
+                {/* Ganho hoje */}
+                <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Ganho Hoje</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#16A34A', margin: 0 }}>{ganhoHoje != null ? `+${fmt(ganhoHoje)}` : '—'}</p>
+                </div>
+
+                {/* Meta Mensal — editável */}
+                <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: 0, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Meta Mensal</p>
+                    {!editandoMeta && (
+                      <button onClick={() => { setMetaInput(String(metaMes)); setEditandoMeta(true); }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.mutedFg, padding: 0, display: 'flex', alignItems: 'center' }}>
+                        <Pencil size={11} />
+                      </button>
+                    )}
                   </div>
-                ))}
+                  {editandoMeta ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input autoFocus value={metaInput} onChange={e => setMetaInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') salvarMeta(); if (e.key === 'Escape') setEditandoMeta(false); }}
+                        style={{ width: '100%', fontSize: 16, fontWeight: 700, color: '#D97706', background: 'transparent', border: 'none', borderBottom: `2px solid ${COR}`, outline: 'none', padding: '2px 0' }} />
+                      <button onClick={salvarMeta} style={{ background: COR, border: 'none', borderRadius: 4, padding: '3px 6px', cursor: 'pointer', color: '#fff', display: 'flex', alignItems: 'center' }}>
+                        <Check size={11} />
+                      </button>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 20, fontWeight: 800, color: '#D97706', margin: 0 }}>+{fmt(metaMes)}</p>
+                  )}
+                </div>
+
+                {/* Ganho no mês */}
+                <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Ganho no Mês</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: COR, margin: 0 }}>{ganhoMes != null ? `+${fmt(ganhoMes)}` : '—'}</p>
+                </div>
+
+                {/* Falta para meta = meta - ganho no mês */}
+                <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
+                  <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Falta para Meta</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: faltam === 0 ? '#16A34A' : '#DC2626', margin: 0 }}>
+                    {faltam != null ? (faltam === 0 ? '✔ Batida!' : fmt(faltam)) : '—'}
+                  </p>
+                </div>
+
               </div>
 
+              {/* Barra de progresso */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>Progresso para meta de {fmt(META_MES)}</p>
+                  <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>Progresso para meta de +{fmt(metaMes)} no mês</p>
                   <p style={{ fontSize: 12, fontWeight: 700, color: progresso >= 100 ? '#16A34A' : COR, margin: 0 }}>{progresso.toFixed(1)}%</p>
                 </div>
                 <div style={{ background: T.border, borderRadius: 999, height: 8, overflow: 'hidden' }}>
@@ -159,11 +216,11 @@ export default function Page() {
                 </div>
               </div>
 
-              {/* Grafico */}
+              {/* Gráfico */}
               <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap' as const, gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: 0, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Ganho diario</p>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: 0, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Ganho diário</p>
                     <div style={{ background: `${COR}12`, border: `1px solid ${COR}30`, borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ fontSize: 11, color: T.mutedFg }}>{getPeriodoLabel(periodoGrafico)}:</span>
                       <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>+{ganhoPeriodo.toLocaleString('pt-BR')}</span>
@@ -180,7 +237,7 @@ export default function Page() {
                 </div>
 
                 {historicoFiltrado.length === 0
-                  ? <p style={{ fontSize: 12, color: T.mutedFg, fontStyle: 'italic', textAlign: 'center' as const, padding: '16px 0' }}>Sem dados. O historico e preenchido automaticamente ao abrir a pagina.</p>
+                  ? <p style={{ fontSize: 12, color: T.mutedFg, fontStyle: 'italic', textAlign: 'center' as const, padding: '16px 0' }}>Sem dados. O histórico é preenchido automaticamente ao abrir a página.</p>
                   : (
                     <div style={{ overflow: 'hidden', position: 'relative' }} onMouseLeave={() => setTooltip(null)}>
                       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}
@@ -246,10 +303,10 @@ export default function Page() {
           )}
         </div>
 
-        {/* Metricas do Periodo */}
+        {/* Métricas do Período */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elevSm }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' as const, gap: 8 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: 0 }}>Metricas do Periodo</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: 0 }}>Métricas do Período</p>
             <div style={{ display: 'flex', gap: 6 }}>
               {([7, 14, 30] as Periodo[]).map(d => (
                 <button key={d} onClick={() => setPeriodo(d)} style={{ padding: '5px 14px', borderRadius: 20, border: `1px solid ${periodo === d ? COR : T.border}`, background: periodo === d ? COR : T.card, color: periodo === d ? '#fff' : T.mutedFg, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>{d}d</button>
@@ -262,7 +319,7 @@ export default function Page() {
             </p>
           )}
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' as const }}>
-            <MetCard label="Interacoes Posts"  value={metricas?.interacoes_posts ?? null} color="#10B981" icon="❤️" />
+            <MetCard label="Interações Posts"  value={metricas?.interacoes_posts ?? null} color="#10B981" icon="❤️" />
             <MetCard label="Alcance Reels"     value={metricas?.alcance_reels ?? null}    color="#F59E0B" icon="🎬" />
             <MetCard label="Views Stories"     value={metricas?.views_stories ?? null}    color="#EC4899" icon="📷" />
             <MetCard label="Visitas ao Perfil" value={metricas?.visitas_perfil ?? null}   color={COR}     icon="👁️" />
