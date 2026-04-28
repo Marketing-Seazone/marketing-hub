@@ -4,7 +4,7 @@ import { getRecords, getSpending } from "@/lib/hospedes-analise-db";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const dateFrom = searchParams.get("dateFrom") || "2024-01-01";
-  const dateTo = searchParams.get("dateTo") || "2026-04-27";
+  const dateTo = searchParams.get("dateTo") || new Date().toISOString().slice(0, 10);
   const format = searchParams.get("format") || "json";
 
   const records = await getRecords();

@@ -83,6 +83,7 @@ async function apiDeleteSpending(id: string): Promise<void> {
 
 async function apiGetFormulaConfig(): Promise<FormulaConfig> {
   const r = await fetch("/api/hospedes-analise/formula-config");
+  if (!r.ok) return DEFAULT_FORMULA_CONFIG;
   return r.json();
 }
 
@@ -818,7 +819,7 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
       )}
 
       {/* ── Importar Newbyte via Sheets ───────────────────────────────── */}
-      <NewbyteImportSection />
+      <NewbyteImportSection onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }} />
     </div>
   );
 }
@@ -830,18 +831,19 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
   const [filterTo, setFilterTo] = useState("");
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
 
+  const today = new Date().toISOString().slice(0, 10);
   const handleExportCSV = () => {
-    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || "2026-04-27"}&format=csv`;
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=csv`;
     window.open(url, "_blank");
   };
   const handleExportJSON = async () => {
-    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || "2026-04-27"}&format=json`;
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=json`;
     const res = await fetch(url);
     const data = await res.json();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `kpis-export-${filterFrom || "2024-01-01"}-${filterTo || "2026-04-27"}.json`;
+    a.download = `kpis-export-${filterFrom || "2024-01-01"}-${filterTo || today}.json`;
     a.click();
   };
 
@@ -1047,6 +1049,137 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
 }
 
 
+// ─── SyncNektButton ───────────────────────────────────────────────────────────
+
+function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
+
+  const handleSync = async () => {
+    setStatus("loading"); setResult(null);
+    try {
+      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResult(data); setStatus("done");
+      const fresh = await apiGetSpending();
+      onSynced(fresh);
+      setTimeout(() => setStatus("idle"), 6000);
+    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 5000); }
+  };
+
+  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
+  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#EBF2FF";
+  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt"}
+      </button>
+      {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.synced} dias · {result.dateFrom} → {result.dateTo}</span>}
+    </div>
+  );
+}
+
+// ─── SyncMetabaseButton ───────────────────────────────────────────────────────
+
+function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) => void }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ synced: number; dates: number; breakdown: { semAtendimento: number; comAtendimento: number } } | null>(null);
+
+  const handleSync = async () => {
+    setStatus("loading"); setResult(null);
+    try {
+      const res = await fetch("/api/hospedes-analise/sync-metabase", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResult(data); setStatus("done");
+      const fresh = await apiGetRecords();
+      onSynced(fresh);
+      setTimeout(() => setStatus("idle"), 4000);
+    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 3000); }
+  };
+
+  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
+  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#F5F3FF";
+  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Metabase"}
+      </button>
+      {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.dates} dias · {result.breakdown.semAtendimento}s/ + {result.breakdown.comAtendimento}c/</span>}
+    </div>
+  );
+}
+
+// ─── ImportModal ──────────────────────────────────────────────────────────────
+
+const EXPORT_SNIPPET = `copy(JSON.stringify({records:JSON.parse(localStorage.getItem('preenchimento-daily-data')||'[]'),spending:JSON.parse(localStorage.getItem('preenchimento-spending-data')||'[]')}))`;
+
+function ImportModal({ onImported }: { onImported: (records: DailyRecord[], spending: DailySpending[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [json, setJson] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ imported: { records: number; spending: number } } | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  const copySnippet = () => { navigator.clipboard.writeText(EXPORT_SNIPPET); setCopied(true); setTimeout(() => setCopied(false), 2000); };
+
+  const handleImport = async () => {
+    setStatus("loading");
+    try {
+      const parsed = JSON.parse(json);
+      const res = await fetch("/api/hospedes-analise/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(parsed) });
+      if (!res.ok) throw new Error("Erro no servidor");
+      const data = await res.json();
+      setResult(data); setStatus("done");
+      const [newRecords, newSpending] = await Promise.all([apiGetRecords(), apiGetSpending()]);
+      onImported(newRecords, newSpending);
+    } catch { setStatus("error"); }
+  };
+
+  if (!open) return <button onClick={() => setOpen(true)} style={{ padding: "8px 14px", borderRadius: 8, border: "1.5px solid #F59E0B", background: "#FFFBEB", color: "#92400E", fontWeight: 600, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>📥 Importar dados do Lovable</button>;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, maxWidth: 560, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+          <div><h2 style={{ fontSize: 16, fontWeight: 700, color: "#00143D", margin: 0 }}>Importar dados do Lovable</h2><p style={{ fontSize: 13, color: "#7C7C7C", marginTop: 4 }}>Migra todos os seus registros sem perder nada</p></div>
+          <button onClick={() => setOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#7C7C7C" }}>✕</button>
+        </div>
+        {status !== "done" && (<>
+          <div style={{ background: "#F0F3FA", borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 8 }}>Passo 1 — Exporte os dados do Lovable</p>
+            <ol style={{ fontSize: 13, color: "#7C7C7C", paddingLeft: 20, margin: "0 0 12px" }}><li>Abra <strong>analise-dados-midia-paga-hospedes.lovable.app</strong></li><li>Aperte <strong>F12</strong> para abrir o DevTools</li><li>Clique na aba <strong>Console</strong></li><li>Cole o comando abaixo e pressione Enter</li></ol>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code style={{ flex: 1, fontSize: 11, background: "#00143D", color: "#7FDBFF", padding: "8px 12px", borderRadius: 8, display: "block", overflow: "auto", whiteSpace: "nowrap" }}>{EXPORT_SNIPPET}</code>
+              <button onClick={copySnippet} style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap", fontWeight: 600, color: copied ? "#10B981" : "#00143D" }}>{copied ? "✓ Copiado!" : "Copiar"}</button>
+            </div>
+            <p style={{ fontSize: 12, color: "#7C7C7C", marginTop: 8 }}>O comando copia automaticamente o JSON para sua área de transferência.</p>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 8 }}>Passo 2 — Cole o JSON aqui</p>
+            <textarea value={json} onChange={(e) => setJson(e.target.value)} placeholder='{"records":[...],"spending":[...]}' rows={6} style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }} />
+          </div>
+          {status === "error" && <p style={{ fontSize: 12, color: "#FC6058", marginBottom: 12 }}>❌ JSON inválido ou erro no servidor. Verifique se o conteúdo está correto.</p>}
+          <button onClick={handleImport} disabled={!json.trim() || status === "loading"} style={{ width: "100%", padding: "12px", borderRadius: 8, border: "none", background: !json.trim() ? "#E8EEF8" : "#0055FF", color: !json.trim() ? "#7C7C7C" : "#fff", fontWeight: 700, fontSize: 14, cursor: json.trim() ? "pointer" : "default" }}>{status === "loading" ? "Importando..." : "Importar dados"}</button>
+        </>)}
+        {status === "done" && result && (
+          <div style={{ textAlign: "center", padding: "20px 0" }}>
+            <p style={{ fontSize: 40 }}>✅</p>
+            <p style={{ fontSize: 16, fontWeight: 700, color: "#00143D", marginTop: 12 }}>Importação concluída!</p>
+            <p style={{ fontSize: 13, color: "#7C7C7C", marginTop: 8 }}>{result.imported.records} registros e {result.imported.spending} entradas de gastos importados com sucesso.</p>
+            <button onClick={() => { setOpen(false); setJson(""); setStatus("idle"); setResult(null); }} style={{ marginTop: 20, padding: "10px 24px", borderRadius: 8, border: "none", background: "#0055FF", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Ver meus dados</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnaliseMidiaPagaHospedesPage() {
@@ -1062,7 +1195,7 @@ export default function AnaliseMidiaPagaHospedesPage() {
     });
   }, []);
 
-  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos" | "nekt"; label: string; emoji: string }[] = [
+  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos"; label: string; emoji: string }[] = [
     { id: "resultados", label: "Resultados", emoji: "📈" },
     { id: "preenchimento", label: "Preenchimento", emoji: "📝" },
     { id: "tabela", label: "Tabela KPIs", emoji: "📋" },

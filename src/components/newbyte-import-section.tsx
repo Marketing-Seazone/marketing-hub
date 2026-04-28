@@ -43,7 +43,7 @@ async function apiSaveRecord(record: DailyRecord): Promise<void> {
   });
 }
 
-export default function NewbyteImportSection() {
+export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void }) {
   const [pastedData, setPastedData] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -110,7 +110,7 @@ export default function NewbyteImportSection() {
         await apiSaveRecord(record);
       }
       setSavingStatus("done");
-      window.location.reload();
+      onSaved?.();
     } catch {
       setSavingStatus("idle");
     }
