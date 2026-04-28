@@ -1,14 +1,15 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { Sparkles, Loader2, Layers } from 'lucide-react';
+import { Sparkles, Loader2, Layers, Search } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { EDITORIALS } from '../_lib/calendar-constants';
 import { useContent } from '../_hooks/useContent';
 import { BatchMode } from './BatchMode';
+import { ResearchMode } from './ResearchMode';
 import type { EditorialSlug, ContentFormat } from '../_lib/types';
 
-type Mode = 'individual' | 'batch';
+type Mode = 'individual' | 'batch' | 'research';
 
 const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'carrossel', label: 'Carrossel' },
@@ -23,7 +24,7 @@ const CHANNEL_OPTIONS: { value: string; label: string }[] = [
 ];
 
 async function generateContent(params: { editorial: string; format: string; channel?: string; topic?: string }) {
-  const res = await fetch('/api/openrouter', {
+  const res = await fetch('/api/generate-content', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -182,17 +183,34 @@ export function CreateContentView({ onNavigate }: CreateContentViewProps) {
             <Layers size={18} />
             Em Lote
           </button>
+          <button
+            onClick={() => setMode('research')}
+            style={{
+              flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              borderRadius: 10, padding: 12, fontSize: 14, fontWeight: 600, border: 'none', cursor: 'pointer',
+              background: mode === 'research' ? T.primary : 'transparent',
+              color: mode === 'research' ? T.primaryFg : T.mutedFg,
+              boxShadow: mode === 'research' ? T.elevSm : 'none',
+            }}
+          >
+            <Search size={18} />
+            Pesquisa
+          </button>
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 4px' }}>Criar Conteudo</h2>
         <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
           {mode === 'individual'
             ? 'Selecione editorias, formatos, canais e preencha os temas — o Claude gera a estrutura completa'
-            : 'Gere varios posts de uma vez distribuidos por editorias e formatos'}
+            : mode === 'batch'
+            ? 'Gere varios posts de uma vez distribuidos por editorias e formatos'
+            : 'Pesquise tendencias e noticias reais e gere posts baseados no que encontrar'}
         </p>
       </div>
 
       {mode === 'batch' ? (
         <BatchMode onNavigate={onNavigate} />
+      ) : mode === 'research' ? (
+        <ResearchMode />
       ) : (
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: 24 }}>
           {/* Editorias */}

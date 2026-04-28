@@ -25,7 +25,7 @@ interface BatchResult {
 }
 
 async function generateContent(params: { editorial: string; format: string; channel?: string; topic?: string }) {
-  const res = await fetch('/api/openrouter', {
+  const res = await fetch('/api/generate-content', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
@@ -33,6 +33,8 @@ async function generateContent(params: { editorial: string; format: string; chan
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   return res.json() as Promise<{ title: string; description: string }>;
 }
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 interface BatchModeProps {
   onNavigate: (tab: string) => void;
@@ -105,6 +107,8 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
       const item = plan[i];
 
       try {
+        if (i > 0) await delay(2000);
+
         const res = await generateContent({
           editorial: getEditorial(item.editorial)?.name ?? item.editorial,
           format: FORMATS.find((f) => f.value === item.format)?.label ?? item.format,
@@ -159,7 +163,6 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
             {failCount} {failCount === 1 ? 'post falhou' : 'posts falharam'}
           </p>
         )}
-
         <div style={{ maxWidth: 500, margin: '0 auto 24px' }}>
           <div style={{ maxHeight: 256, overflowY: 'auto', background: T.cinza50, borderRadius: 8, padding: 12 }}>
             {results.map((r) => {
@@ -176,7 +179,6 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
             })}
           </div>
         </div>
-
         <div style={{ display: 'flex', justifyContent: 'center', gap: 12 }}>
           <button
             onClick={() => onNavigate('calendario')}
@@ -213,7 +215,6 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
             <span style={{ fontSize: 14, color: T.mutedFg }}>{currentEd?.name} — {currentFmt}</span>
           </div>
         </div>
-
         <div style={{ maxWidth: 400, margin: '0 auto' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: T.mutedFg, marginBottom: 8 }}>
             <span>Progresso</span>
@@ -223,7 +224,6 @@ export function BatchMode({ onNavigate }: BatchModeProps) {
             <div style={{ height: '100%', borderRadius: 6, background: T.primary, transition: 'width 0.5s', width: `${progressPercent}%` }} />
           </div>
         </div>
-
         {results.length > 0 && (
           <div style={{ maxWidth: 400, margin: '24px auto 0' }}>
             <div style={{ maxHeight: 160, overflowY: 'auto', background: T.cinza50, borderRadius: 8, padding: 12 }}>

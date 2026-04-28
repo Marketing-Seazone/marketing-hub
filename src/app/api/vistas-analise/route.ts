@@ -64,7 +64,7 @@ Analise estes dados e forneça insights e recomendações estratégicas.`
       Authorization: `Bearer ${OPENROUTER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-5",
+      model: "anthropic/claude-sonnet-4-6",
       max_tokens: 1500,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },

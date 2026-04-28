@@ -81,6 +81,23 @@ export default function Page() {
           </p>
         </a>
 
+        <Link href="/social-midia/seguidores-seazone" style={{
+          background: T.card,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          padding: "20px 24px",
+          textDecoration: "none",
+          display: "block",
+          boxShadow: T.elevSm,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
+            Seazone — Métricas
+          </p>
+          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+            Seguidores, ganho diário e métricas do @destinoseazone via Reportei.
+          </p>
+        </Link>
+
       </div>
     </TeamLayout>
   )

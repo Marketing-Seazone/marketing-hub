@@ -6,7 +6,9 @@ import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ComposedChart, Area, Legend,
 } from "recharts";
-import type { DailyRecord, DailySpending, ReservationDetail } from "@/lib/hospedes-analise-db";
+import type { DailyRecord, DailySpending, ReservationDetail, FormulaConfig } from "@/lib/hospedes-analise-db";
+import { DEFAULT_FORMULA_CONFIG } from "@/lib/hospedes-analise-db";
+import NewbyteImportSection from "@/components/newbyte-import-section";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -47,7 +49,6 @@ function todayStr() {
 
 async function apiGetRecords(): Promise<DailyRecord[]> {
   const r = await fetch("/api/hospedes-analise/records");
-  if (!r.ok) return [];
   return r.json();
 }
 
@@ -65,7 +66,6 @@ async function apiDeleteRecord(id: string): Promise<void> {
 
 async function apiGetSpending(): Promise<DailySpending[]> {
   const r = await fetch("/api/hospedes-analise/spending");
-  if (!r.ok) return [];
   return r.json();
 }
 
@@ -79,6 +79,20 @@ async function apiSaveSpending(entry: DailySpending): Promise<void> {
 
 async function apiDeleteSpending(id: string): Promise<void> {
   await fetch(`/api/hospedes-analise/spending/${id}`, { method: "DELETE" });
+}
+
+async function apiGetFormulaConfig(): Promise<FormulaConfig> {
+  const r = await fetch("/api/hospedes-analise/formula-config");
+  if (!r.ok) return DEFAULT_FORMULA_CONFIG;
+  return r.json();
+}
+
+async function apiSaveFormulaConfig(config: FormulaConfig): Promise<void> {
+  await fetch("/api/hospedes-analise/formula-config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
 }
 
 // ─── useAnalysis hook ─────────────────────────────────────────────────────────
@@ -96,6 +110,7 @@ function buildAnalysisData(
   source: string,
   startDate: string,
   endDate: string,
+  config: FormulaConfig = DEFAULT_FORMULA_CONFIG,
 ): AnalysisRow[] {
   const map: Record<string, {
     date: string;
@@ -132,9 +147,10 @@ function buildAnalysisData(
     const row = ensure(r.date);
     const fatEff = parseMoneyValue(r.data.fatEffective);
     const cleaning = parseMoneyValue(r.data.cleaningFee);
+    const fatSzBase = config.szBase === "fat-effective" ? fatEff : (fatEff - cleaning);
     const fatSz = r.type === "relatorio-newbyte"
       ? parseMoneyValue(r.data.fatSeazone)
-      : (fatEff - cleaning) * 0.24;
+      : fatSzBase * config.szTaxa;
     let reservas = parseMoneyValue(r.data.reservas);
 
     if (r.type === "midia-sem-atendimento") {
@@ -142,11 +158,11 @@ function buildAnalysisData(
     } else if (r.type === "midia-com-atendimento") {
       row.fatSzCom += fatSz; row.fatEffCom += fatEff; row.cleaningCom += cleaning; row.reservasCom += reservas;
     } else if (r.type === "relatorio-newbyte") {
-      row.fatSzNB += fatSz; row.fatEffNB += fatEff;
+      row.fatSzNB += fatSz; row.fatEffNB += fatEff; row.cleaningNB += cleaning;
       row.ticketsNB += parseMoneyValue(r.data.tickets);
       const conv = parseMoneyValue(r.data.conversoes);
       row.conversoesNB += conv;
-      row.reservasNB += conv;
+      reservas = conv;
     }
   });
 
@@ -161,9 +177,11 @@ function buildAnalysisData(
     let reservas = row.reservasSem + row.reservasCom + row.reservasNB;
     if (source === "sem-atendimento") { fatSz = row.fatSzSem; fatEff = row.fatEffSem; cleaning = row.cleaningSem; reservas = row.reservasSem; }
     else if (source === "com-atendimento") { fatSz = row.fatSzCom; fatEff = row.fatEffCom; cleaning = row.cleaningCom; reservas = row.reservasCom; }
-    else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.reservasNB; }
-    const fatLiquido = fatEff - cleaning;
-    const roi = row.gastoTotal > 0 ? (fatSz - row.gastoTotal) / row.gastoTotal : 0;
+    else if (source === "newbyte") { fatSz = row.fatSzNB; fatEff = row.fatEffNB; cleaning = row.cleaningNB; reservas = row.conversoesNB; }
+    const fatLiquido = config.liqSubtrairLimpeza ? fatEff - cleaning : fatEff;
+    const roiNum = config.roiNumerador === "fat-liquido" ? fatLiquido : config.roiNumerador === "fat-effective" ? fatEff : fatSz;
+    const roiDenom = config.roiDenominador === "gasto-google" ? row.gastoGoogle : config.roiDenominador === "gasto-meta" ? row.gastoMeta : row.gastoTotal;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
     return {
       date: row.date,
       gastoGoogle: row.gastoGoogle, gastoMeta: row.gastoMeta, gastoTiktok: row.gastoTiktok, gastoTotal: row.gastoTotal,
@@ -175,82 +193,67 @@ function buildAnalysisData(
 
 // ─── MonthlyRoiTable ──────────────────────────────────────────────────────────
 
-const DEFAULT_HOW_CALC: { title: string; color: string; body: string }[] = [
-  { title: "Fat. Seazone", color: "#0055FF", body: "= soma de todas as frentes. Sem/Com Atend.: (Fat. Effective − Taxa Limpeza) × 24%. Newbyte: valor que você preenche manualmente (já descontado da limpeza)." },
-  { title: "Gasto Total", color: "#FC6058", body: "= Google Ads + Meta Ads + TikTok Ads. Google/Meta: sync automático da Nekt. TikTok: preenchimento manual." },
-  { title: "Reservas", color: "#10B981", body: "= soma de Sem Atend. + Com Atend. + Newbyte (conversões). Sem/Com Atend.: campo Reservas. Newbyte: campo Conversões." },
-  { title: "ROI", color: "#7C3AED", body: "= (Fat. Seazone − Gasto Total) ÷ Gasto Total. Positivo = lucro. Negativo = prejuízo no período." },
-];
-
-function saveHowCalc(items: typeof DEFAULT_HOW_CALC) {
-  if (typeof window !== "undefined") {
-    localStorage.setItem("midia-how-calc", JSON.stringify(items));
-  }
-}
-
-function loadHowCalc(): typeof DEFAULT_HOW_CALC {
-  if (typeof window === "undefined") return DEFAULT_HOW_CALC;
-  try {
-    const raw = localStorage.getItem("midia-how-calc");
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return DEFAULT_HOW_CALC;
-}
-
 function MonthlyRoiTable({
   records,
   spending,
   source,
+  config = DEFAULT_FORMULA_CONFIG,
 }: {
   records: DailyRecord[];
   spending: DailySpending[];
   source: string;
+  config?: FormulaConfig;
 }) {
   const monthlyData = useMemo(() => {
-    const daily = buildAnalysisData(records, spending, source, "", "");
+    const daily = buildAnalysisData(records, spending, source, "", "", config);
     const map: Record<string, {
       month: string;
-      gastoTotal: number;
-      fatSzTotal: number;
-      reservasTotal: number;
+      gastoTotal: number; gastoGoogle: number; gastoMeta: number;
+      fatEffTotal: number; fatSzTotal: number; cleaningTotal: number;
+      fatLiquido: number; reservasTotal: number;
     }> = {};
 
     for (const d of daily) {
       const month = d.date.slice(0, 7);
       if (!map[month]) {
-        map[month] = { month, gastoTotal: 0, fatSzTotal: 0, reservasTotal: 0 };
+        map[month] = { month, gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
       }
       map[month].gastoTotal += d.gastoTotal;
+      map[month].gastoGoogle += d.gastoGoogle;
+      map[month].gastoMeta += d.gastoMeta;
+      map[month].fatEffTotal += d.fatEffTotal;
       map[month].fatSzTotal += d.fatSzTotal;
+      map[month].cleaningTotal += d.cleaningTotal;
+      map[month].fatLiquido += d.fatLiquido;
       map[month].reservasTotal += d.reservasTotal;
     }
 
-    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => ({
-      ...m,
-      roi: m.gastoTotal > 0 ? (m.fatSzTotal - m.gastoTotal) / m.gastoTotal : 0,
-    }));
-  }, [records, spending, source]);
-
-  const [howCalc, setHowCalc] = useState(loadHowCalc);
-  const [editingCalc, setEditingCalc] = useState(false);
-  const [editItems, setEditItems] = useState<{ title: string; color: string; body: string }[]>([]);
-
-  const startEdit = () => { setEditItems(howCalc.map((i) => ({ ...i }))); setEditingCalc(true); };
-  const cancelEdit = () => { setEditingCalc(false); };
-  const saveEdit = () => { setHowCalc(editItems); saveHowCalc(editItems); setEditingCalc(false); };
+    return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => {
+      const roiNum = config.roiNumerador === "fat-liquido" ? m.fatLiquido : config.roiNumerador === "fat-effective" ? m.fatEffTotal : m.fatSzTotal;
+      const roiDenom = config.roiDenominador === "gasto-google" ? m.gastoGoogle : config.roiDenominador === "gasto-meta" ? m.gastoMeta : m.gastoTotal;
+      return { ...m, roi: roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0 };
+    });
+  }, [records, spending, source, config]);
 
   if (monthlyData.length === 0) return null;
 
   const totals = monthlyData.reduce(
     (acc, m) => {
       acc.gastoTotal += m.gastoTotal;
+      acc.gastoGoogle += m.gastoGoogle;
+      acc.gastoMeta += m.gastoMeta;
+      acc.fatEffTotal += m.fatEffTotal;
       acc.fatSzTotal += m.fatSzTotal;
+      acc.cleaningTotal += m.cleaningTotal;
+      acc.fatLiquido += m.fatLiquido;
       acc.reservasTotal += m.reservasTotal;
       return acc;
     },
-    { gastoTotal: 0, fatSzTotal: 0, reservasTotal: 0 }
+    { gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
   );
-  const totalRoi = totals.gastoTotal > 0 ? (totals.fatSzTotal - totals.gastoTotal) / totals.gastoTotal : 0;
+  const totalRoiNum = config.roiNumerador === "fat-liquido" ? totals.fatLiquido : config.roiNumerador === "fat-effective" ? totals.fatEffTotal : totals.fatSzTotal;
+  const totalRoiDenom = config.roiDenominador === "gasto-google" ? totals.gastoGoogle : config.roiDenominador === "gasto-meta" ? totals.gastoMeta : totals.gastoTotal;
+  const totalRoi = totalRoiDenom > 0 ? (totalRoiNum - totalRoiDenom) / totalRoiDenom : 0;
 
   const fmtMonth = (m: string) => {
     const [y, mo] = m.split("-");
@@ -273,7 +276,10 @@ function MonthlyRoiTable({
             <tr>
               <th style={{ ...thS, textAlign: "left" }}>Mês</th>
               <th style={thS}>Gasto Total</th>
+              <th style={thS}>Fat. Effective</th>
               <th style={thS}>Fat. Seazone</th>
+              <th style={thS}>Tx. Limpeza</th>
+              <th style={thS}>Fat. Líquido</th>
               <th style={thS}>Reservas</th>
               <th style={{ ...thS, color: "#0055FF" }}>ROI</th>
             </tr>
@@ -283,8 +289,11 @@ function MonthlyRoiTable({
               <tr key={m.month}>
                 <td style={{ ...tdS, textAlign: "left", fontWeight: 600, color: "#00143D" }}>{fmtMonth(m.month)}</td>
                 <td style={{ ...tdS, color: "#FC6058" }}>{fmtCurrency(m.gastoTotal)}</td>
+                <td style={tdS}>{fmtCurrency(m.fatEffTotal)}</td>
                 <td style={{ ...tdS, color: "#0055FF" }}>{fmtCurrency(m.fatSzTotal)}</td>
-                <td style={{ ...tdS }}>{m.reservasTotal > 0 ? m.reservasTotal.toFixed(0) : "—"}</td>
+                <td style={{ ...tdS, color: "#94A3B8" }}>{fmtCurrency(m.cleaningTotal)}</td>
+                <td style={{ ...tdS, color: "#0EA5E9" }}>{fmtCurrency(m.fatLiquido)}</td>
+                <td style={tdS}>{m.reservasTotal > 0 ? m.reservasTotal.toFixed(0) : "—"}</td>
                 <td style={{ ...tdS, fontWeight: 700, color: m.roi >= 0 ? "#10B981" : "#FC6058" }}>
                   {m.gastoTotal > 0 ? `${(m.roi * 100).toFixed(1)}%` : "—"}
                 </td>
@@ -295,7 +304,10 @@ function MonthlyRoiTable({
             <tr style={{ background: "#F8FAFF" }}>
               <td style={{ ...tdS, textAlign: "left", fontWeight: 700, color: "#00143D", borderTop: "2px solid #E8EEF8" }}>Total</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#FC6058", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.gastoTotal)}</td>
+              <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatEffTotal)}</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#0055FF", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatSzTotal)}</td>
+              <td style={{ ...tdS, fontWeight: 700, color: "#94A3B8", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.cleaningTotal)}</td>
+              <td style={{ ...tdS, fontWeight: 700, color: "#0EA5E9", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatLiquido)}</td>
               <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{totals.reservasTotal > 0 ? totals.reservasTotal.toFixed(0) : "—"}</td>
               <td style={{ ...tdS, fontWeight: 700, color: totalRoi >= 0 ? "#10B981" : "#FC6058", borderTop: "2px solid #E8EEF8" }}>
                 {totals.gastoTotal > 0 ? `${(totalRoi * 100).toFixed(1)}%` : "—"}
@@ -304,77 +316,28 @@ function MonthlyRoiTable({
           </tfoot>
         </table>
       </div>
-      <div style={{ padding: "14px 20px", borderTop: "1px solid #F0F3FA", background: "#FAFBFF" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Como foi calculado</p>
-          {!editingCalc && (
-            <button onClick={startEdit} style={{ fontSize: 11, color: "#0055FF", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>✏ Editar</button>
-          )}
-          {editingCalc && (
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={cancelEdit} style={{ fontSize: 11, color: "#7C7C7C", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Cancelar</button>
-              <button onClick={saveEdit} style={{ fontSize: 11, color: "#10B981", background: "none", border: "none", cursor: "pointer", fontWeight: 700 }}>✓ Salvar</button>
-            </div>
-          )}
-        </div>
-
-        {!editingCalc ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 20px" }}>
-            {howCalc.map((item) => (
-              <p key={item.title} style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
-                <strong style={{ color: item.color }}>{item.title}</strong> — {item.body}
-              </p>
-            ))}
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {editItems.map((item, i) => (
-              <div key={item.title} style={{ display: "grid", gridTemplateColumns: "110px 1fr", gap: 8, alignItems: "start" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, paddingTop: 6 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 2, background: item.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 600, color: item.color }}>{item.title}</span>
-                </div>
-                <textarea
-                  value={item.body}
-                  onChange={(e) => setEditItems((prev) => prev.map((x, j) => j === i ? { ...x, body: e.target.value } : x))}
-                  rows={2}
-                  style={{ width: "100%", padding: "6px 10px", borderRadius: 6, border: "1px solid #E8EEF8", fontSize: 12, fontFamily: "inherit", color: "#00143D", resize: "vertical", boxSizing: "border-box", background: "#fff" }}
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
 
 // ─── ResultadosTab ────────────────────────────────────────────────────────────
 
-function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyRecord[]; spending: DailySpending[]; onRecordsChange: (r: DailyRecord[]) => void }) {
+function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFormulaConfigChange }: {
+  records: DailyRecord[];
+  spending: DailySpending[];
+  onRecordsChange: (r: DailyRecord[]) => void;
+  formulaConfig: FormulaConfig;
+  onFormulaConfigChange: (c: FormulaConfig) => void;
+}) {
   const [source, setSource] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [metrics, setMetrics] = useState<string[]>(["fatSzTotal", "reservasTotal"]);
   const [fixing, setFixing] = useState(false);
   const [fixResult, setFixResult] = useState<{ updated: number } | null>(null);
-  const [fixDupResult, setFixDupResult] = useState<{ removed: number } | null>(null);
-
-  const [config, setConfig] = useState<{ pct: number; roiType: "fatSz" | "fatEff" }>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("midia-config");
-      if (saved) {
-        try { return JSON.parse(saved); } catch { /* ignore */ }
-      }
-    }
-    return { pct: 0.24, roiType: "fatSz" };
-  });
-
-  const updateConfig = (patch: Partial<typeof config>) => {
-    const next = { ...config, ...patch };
-    setConfig(next);
-    if (typeof window !== "undefined") localStorage.setItem("midia-config", JSON.stringify(next));
-  };
+  const [draftConfig, setDraftConfig] = useState<FormulaConfig>(formulaConfig);
+  const [editingFormulas, setEditingFormulas] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
 
   const handleFixFatSeazone = async () => {
     setFixing(true);
@@ -385,38 +348,32 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
       setFixResult(json);
       const updated = await fetch("/api/hospedes-analise/records").then((r) => r.json());
       onRecordsChange(updated);
-    } finally { setFixing(false); }
-  };
-
-  const handleFixDuplicates = async () => {
-    setFixing(true);
-    setFixDupResult(null);
-    try {
-      const res = await fetch("/api/hospedes-analise/dedup", { method: "POST" });
-      const json = await res.json();
-      setFixDupResult(json);
-      const updated = await fetch("/api/hospedes-analise/records").then((r) => r.json());
-      onRecordsChange(updated);
-    } finally { setFixing(false); }
+    } finally {
+      setFixing(false);
+    }
   };
 
   const data = useMemo(
-    () => buildAnalysisData(records, spending, source, startDate, endDate),
-    [records, spending, source, startDate, endDate]
+    () => buildAnalysisData(records, spending, source, startDate, endDate, formulaConfig),
+    [records, spending, source, startDate, endDate, formulaConfig]
   );
 
   const summary = useMemo(() => {
     const totalGasto = data.reduce((s, d) => s + d.gastoTotal, 0);
-    // Recalculate fatSz with editable % (only Sem/Com are formula-based; NB is manual)
+    const totalGastoGoogle = data.reduce((s, d) => s + d.gastoGoogle, 0);
+    const totalGastoMeta = data.reduce((s, d) => s + d.gastoMeta, 0);
     const totalFatSz = data.reduce((s, d) => s + d.fatSzTotal, 0);
-    // Keep fatEff available for ROI if user switches formula
     const totalFatEff = data.reduce((s, d) => s + d.fatEffTotal, 0);
+    const totalCleaning = data.reduce((s, d) => s + d.cleaningTotal, 0);
     const totalReservas = data.reduce((s, d) => s + d.reservasTotal, 0);
-    const roiBase = config.roiType === "fatEff" ? totalFatEff : totalFatSz;
-    const roi = totalGasto > 0 ? (roiBase - totalGasto) / totalGasto : 0;
-    const custoReserva = totalReservas > 0 ? totalGasto / totalReservas : 0;
-    return { totalGasto, totalFatSz, totalFatEff, totalReservas, roi, custoReserva };
-  }, [data, config]);
+    const totalFatLiquido = data.reduce((s, d) => s + d.fatLiquido, 0);
+    const roiNum = formulaConfig.roiNumerador === "fat-liquido" ? totalFatLiquido : formulaConfig.roiNumerador === "fat-effective" ? totalFatEff : totalFatSz;
+    const roiDenom = formulaConfig.roiDenominador === "gasto-google" ? totalGastoGoogle : formulaConfig.roiDenominador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const roi = roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0;
+    const crNum = formulaConfig.crNumerador === "gasto-google" ? totalGastoGoogle : formulaConfig.crNumerador === "gasto-meta" ? totalGastoMeta : totalGasto;
+    const custoReserva = totalReservas > 0 ? crNum / totalReservas : 0;
+    return { totalGasto, totalFatSz, totalFatEff, totalCleaning, totalFatLiquido, totalReservas, roi, custoReserva };
+  }, [data, formulaConfig]);
 
   const ALL_METRICS = [
     { key: "fatSzTotal", label: "Fat. Seazone", color: "#0055FF" },
@@ -470,21 +427,21 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
           <button onClick={handleFixFatSeazone} disabled={fixing} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E8EEF8", background: fixing ? "#F0F3FA" : "#fff", fontSize: 12, cursor: fixing ? "not-allowed" : "pointer", color: "#0055FF", fontWeight: 600 }}>
             {fixing ? "Corrigindo..." : "Corrigir Fat. Seazone nos dados"}
           </button>
-          <button onClick={handleFixDuplicates} disabled={fixing} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #E8EEF8", background: fixing ? "#F0F3FA" : "#fff", fontSize: 12, cursor: fixing ? "not-allowed" : "pointer", color: "#F59E0B", fontWeight: 600 }}>
-            {fixing ? "Corrigindo..." : "Corrigir Duplicados"}
-          </button>
           {fixResult && <span style={{ fontSize: 12, color: "#10B981" }}>{fixResult.updated} registro(s) corrigido(s)</span>}
-          {fixDupResult && <span style={{ fontSize: 12, color: "#F59E0B" }}>{fixDupResult.removed} duplicado(s) removido(s)</span>}
         </div>
       </div>
 
       {hasData && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { label: "Fat. Seazone", value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
+            { label: `Fat. Seazone (${(formulaConfig.szTaxa * 100).toFixed(0)}%)`, value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
+            { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED", title: "" },
+            { label: "Tx. Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8", title: "" },
+            { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9", title: "Fat. Effective - Tx. Limpeza" },
             { label: "Gasto Total", value: fmtCurrency(summary.totalGasto), color: "#FC6058", title: "" },
             { label: "Reservas", value: summary.totalReservas.toFixed(0), color: "#10B981", title: "" },
             { label: "ROI", value: `${(summary.roi * 100).toFixed(1)}%`, color: summary.roi >= 0 ? "#10B981" : "#FC6058", title: "(Fat. Seazone - Gasto) / Gasto" },
+            { label: "Custo/Reserva", value: fmtCurrency(summary.custoReserva), color: "#F59E0B", title: "" },
           ].map((kpi) => (
             <div key={kpi.label} title={kpi.title} style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16 }}>
               <p style={{ fontSize: 11, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{kpi.label}</p>
@@ -534,7 +491,133 @@ function ResultadosTab({ records, spending, onRecordsChange }: { records: DailyR
         </div>
       )}
 
-      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} />}
+      {hasData && <MonthlyRoiTable records={records} spending={spending} source={source} config={formulaConfig} />}
+
+      {(() => {
+        const szBaseLabel = formulaConfig.szBase === "fat-effective" ? "Fat. Effective" : "Fat. Líquido (Eff. − Limpeza)";
+        const roiNumLabel = { "fat-seazone": "Fat. Seazone", "fat-liquido": "Fat. Líquido", "fat-effective": "Fat. Effective" }[formulaConfig.roiNumerador];
+        const roiDenomLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.roiDenominador];
+        const liqLabel = formulaConfig.liqSubtrairLimpeza ? "Fat. Effective − Tx. Limpeza" : "Fat. Effective (sem desconto)";
+        const crNumLabel = { "gasto-total": "Gasto Total", "gasto-google": "Gasto Google", "gasto-meta": "Gasto Meta" }[formulaConfig.crNumerador];
+
+        const selStyle: React.CSSProperties = { padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, background: "#fff", cursor: "pointer" };
+        const numInStyle: React.CSSProperties = { width: 64, padding: "5px 8px", borderRadius: 7, border: "1px solid #CBD5E1", fontSize: 12, textAlign: "center" as const };
+
+        return (
+          <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+            <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 4, height: 18, borderRadius: 2, background: "#F59E0B" }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", margin: 0 }}>Como são calculados os resultados</p>
+              </div>
+              <button
+                onClick={() => { setEditingFormulas(!editingFormulas); setDraftConfig(formulaConfig); }}
+                style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: editingFormulas ? "#EBF2FF" : "#F8FAFF", color: editingFormulas ? "#0055FF" : "#7C7C7C", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+              >
+                {editingFormulas ? "Fechar editor" : "Editar fórmulas"}
+              </button>
+            </div>
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* Cards mostrando fórmulas atuais */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ padding: "12px 14px", background: "#EBF2FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0055FF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Seazone</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{szBaseLabel}</strong> × <strong>{(formulaConfig.szTaxa * 100).toFixed(0)}%</strong></p>
+                  <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 3 }}>Newbyte: valor direto do relatório</p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#ECFDF5", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#10B981", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>ROI</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= (<strong>{roiNumLabel}</strong> − <strong>{roiDenomLabel}</strong>) ÷ <strong>{roiDenomLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#F0F9FF", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#0EA5E9", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Fat. Líquido</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{liqLabel}</strong></p>
+                </div>
+                <div style={{ padding: "12px 14px", background: "#FFFBEB", borderRadius: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#F59E0B", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Custo/Reserva</p>
+                  <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>= <strong>{crNumLabel}</strong> ÷ Reservas</p>
+                </div>
+              </div>
+
+              {/* Editor */}
+              {editingFormulas && (
+                <div style={{ padding: "16px 18px", background: "#F8FAFF", borderRadius: 8, border: "1px dashed #CBD5E1", display: "flex", flexDirection: "column", gap: 16 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Editar fórmulas</p>
+
+                  {/* Fat. Seazone */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0055FF", minWidth: 100 }}>Fat. Seazone =</span>
+                    <select value={draftConfig.szBase} onChange={(e) => setDraftConfig((p) => ({ ...p, szBase: e.target.value as FormulaConfig["szBase"] }))} style={selStyle}>
+                      <option value="fat-liquido">Fat. Líquido (Eff. − Limpeza)</option>
+                      <option value="fat-effective">Fat. Effective (bruto)</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>×</span>
+                    <input type="number" min={0} max={100} step={0.1} value={(draftConfig.szTaxa * 100).toFixed(1)} onChange={(e) => setDraftConfig((p) => ({ ...p, szTaxa: (Number(e.target.value) || 0) / 100 }))} style={numInStyle} />
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>%</span>
+                  </div>
+
+                  {/* Fat. Líquido */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#0EA5E9", minWidth: 100 }}>Fat. Líquido =</span>
+                    <select value={draftConfig.liqSubtrairLimpeza ? "com" : "sem"} onChange={(e) => setDraftConfig((p) => ({ ...p, liqSubtrairLimpeza: e.target.value === "com" }))} style={selStyle}>
+                      <option value="com">Fat. Effective − Tx. Limpeza</option>
+                      <option value="sem">Fat. Effective (sem desconto de limpeza)</option>
+                    </select>
+                  </div>
+
+                  {/* ROI */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#10B981", minWidth: 100 }}>ROI =</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>(</span>
+                    <select value={draftConfig.roiNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiNumerador: e.target.value as FormulaConfig["roiNumerador"] }))} style={selStyle}>
+                      <option value="fat-seazone">Fat. Seazone</option>
+                      <option value="fat-liquido">Fat. Líquido</option>
+                      <option value="fat-effective">Fat. Effective</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>−</span>
+                    <select value={draftConfig.roiDenominador} onChange={(e) => setDraftConfig((p) => ({ ...p, roiDenominador: e.target.value as FormulaConfig["roiDenominador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>)</span>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ mesmo denominador</span>
+                  </div>
+
+                  {/* Custo/Reserva */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#F59E0B", minWidth: 100 }}>Custo/Reserva =</span>
+                    <select value={draftConfig.crNumerador} onChange={(e) => setDraftConfig((p) => ({ ...p, crNumerador: e.target.value as FormulaConfig["crNumerador"] }))} style={selStyle}>
+                      <option value="gasto-total">Gasto Total</option>
+                      <option value="gasto-google">Gasto Google</option>
+                      <option value="gasto-meta">Gasto Meta</option>
+                    </select>
+                    <span style={{ fontSize: 12, color: "#7C7C7C" }}>÷ Reservas</span>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, paddingTop: 4, borderTop: "1px solid #E2E8F0" }}>
+                    <button
+                      onClick={async () => {
+                        setSavingConfig(true);
+                        await apiSaveFormulaConfig(draftConfig);
+                        onFormulaConfigChange(draftConfig);
+                        setSavingConfig(false);
+                        setEditingFormulas(false);
+                      }}
+                      disabled={savingConfig}
+                      style={{ padding: "7px 20px", borderRadius: 8, border: "none", background: savingConfig ? "#94A3B8" : "#0055FF", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingConfig ? "default" : "pointer" }}
+                    >
+                      {savingConfig ? "Salvando..." : "Aplicar para todos"}
+                    </button>
+                    <span style={{ fontSize: 11, color: "#94A3B8" }}>Todas as tabelas e KPIs recalculam. Visível para todos os usuários.</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -562,8 +645,11 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const [spGoogle, setSpGoogle] = useState("");
   const [spMeta, setSpMeta] = useState("");
   const [spTiktok, setSpTiktok] = useState("");
-  const [spEditId, setSpEditId] = useState<string | null>(null);
   const [spSaved, setSpSaved] = useState(false);
+  const [inlineEditId, setInlineEditId] = useState<string | null>(null);
+  const [inlineGoogle, setInlineGoogle] = useState("");
+  const [inlineMeta, setInlineMeta] = useState("");
+  const [inlineTiktok, setInlineTiktok] = useState("");
 
   const resetForm = () => { setFormData({}); setReservations([]); setSaved(false); setEditingId(null); };
 
@@ -586,18 +672,25 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
   const handleSaveSpending = async () => {
     if (!spDate) return;
     const metaTotal = Number(spMeta) || 0;
-    const entry: DailySpending = { id: spEditId || uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
-    const updated = spEditId ? spending.map((s) => (s.id === spEditId ? entry : s)) : [...spending, entry];
+    const entry: DailySpending = { id: uid(), date: spDate, google: Number(spGoogle) || 0, meta: metaTotal, tiktok: Number(spTiktok) || 0, meta565: metaTotal, meta566: 0 };
     await apiSaveSpending(entry);
-    onSpendingChange(updated);
+    onSpendingChange([...spending, entry]);
     setSpSaved(true);
-    setSpEditId(null);
     setTimeout(() => { setSpGoogle(""); setSpMeta(""); setSpTiktok(""); setSpSaved(false); }, 1500);
+  };
+
+  const startInlineEdit = (s: DailySpending) => { setInlineEditId(s.id); setInlineGoogle(String(s.google || "")); setInlineMeta(String(s.meta || "")); setInlineTiktok(String(s.tiktok || "")); };
+
+  const saveInlineEdit = async (s: DailySpending) => {
+    const metaTotal = Number(inlineMeta) || 0;
+    const entry: DailySpending = { ...s, google: Number(inlineGoogle) || 0, meta: metaTotal, tiktok: Number(inlineTiktok) || 0, meta565: metaTotal };
+    await apiSaveSpending(entry);
+    onSpendingChange(spending.map((x) => (x.id === s.id ? entry : x)));
+    setInlineEditId(null);
   };
 
   const handleEditRecord = (r: DailyRecord) => { setSelectedType(r.type); setSelectedDate(r.date); setFormData(Object.fromEntries(Object.entries(r.data).map(([k, v]) => [k, String(v)]))); setReservations(r.reservations); setEditingId(r.id); window.scrollTo({ top: 0, behavior: "smooth" }); };
   const handleDeleteRecord = async (id: string) => { await apiDeleteRecord(id); onRecordsChange(records.filter((r) => r.id !== id)); };
-  const handleEditSpending = (s: DailySpending) => { setSpDate(s.date); setSpGoogle(String(s.google || "")); setSpMeta(String(s.meta || "")); setSpTiktok(String(s.tiktok || "")); setSpEditId(s.id); };
   const handleDeleteSpending = async (id: string) => { await apiDeleteSpending(id); onSpendingChange(spending.filter((s) => s.id !== id)); };
 
   const isNewbyte = selectedType === "relatorio-newbyte";
@@ -672,19 +765,37 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
           <div><label style={labelStyle}>Meta Ads (R$)</label><input type="number" placeholder="0" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={fieldStyle} /></div>
           <div><label style={labelStyle}>TikTok Ads (R$)</label><input type="number" placeholder="0" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={fieldStyle} /></div>
         </div>
-        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : spEditId ? "Salvar edição" : "Salvar gastos"}</button>
+        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
         {spending.length > 0 && (
           <div style={{ marginTop: 16 }}>
             <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 8 }}>Registros de gastos</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[...spending].sort((a, b) => b.date.localeCompare(a.date)).map((s) => (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
-                  <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <button onClick={() => handleEditSpending(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
-                    <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
-                  </div>
+                <div key={s.id} style={{ padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
+                  {inlineEditId === s.id ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 70 }}>{fmtDate(s.date)}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Google</span>
+                        <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Meta</span>
+                        <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>TikTok</span>
+                        <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
+                        <button onClick={() => saveInlineEdit(s)} style={{ padding: "3px 12px", borderRadius: 6, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓</button>
+                        <button onClick={() => setInlineEditId(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1", background: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
+                      <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
+                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -706,6 +817,9 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
           ))}
         </div>
       )}
+
+      {/* ── Importar Newbyte via Sheets ───────────────────────────────── */}
+      <NewbyteImportSection onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }} />
     </div>
   );
 }
@@ -716,6 +830,22 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const handleExportCSV = () => {
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=csv`;
+    window.open(url, "_blank");
+  };
+  const handleExportJSON = async () => {
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=json`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kpis-export-${filterFrom || "2024-01-01"}-${filterTo || today}.json`;
+    a.click();
+  };
 
   type DateColumn = { date: string; sem?: DailyRecord; com?: DailyRecord; nb?: DailyRecord; spending?: { google: number; meta: number; tiktok: number; total: number }; reservations: ReservationDetail[] };
 
@@ -737,44 +867,55 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 
   const thStyle: React.CSSProperties = { padding: "8px 10px", fontSize: 11, fontWeight: 600, color: "#7C7C7C", textAlign: "center", whiteSpace: "nowrap", background: "#F8FAFF", borderBottom: "1px solid #E8EEF8" };
   const tdStyle: React.CSSProperties = { padding: "6px 10px", fontSize: 12, textAlign: "center", borderBottom: "1px solid #F0F3FA", whiteSpace: "nowrap" };
+  const th1: React.CSSProperties = { ...thStyle, position: "sticky", top: 0, zIndex: 3 };
+  const th2: React.CSSProperties = { ...thStyle, position: "sticky", top: 34, zIndex: 3 };
+  const tdTotal: React.CSSProperties = { ...tdStyle, position: "sticky", top: 68, zIndex: 2, background: "#F8FAFF", fontWeight: 700 };
+  const tdSpend: React.CSSProperties = { ...tdStyle, background: "#FFFBEB" };
+  const tdSem: React.CSSProperties = { ...tdStyle, background: "#EBF2FF" };
+  const tdCom: React.CSSProperties = { ...tdStyle, background: "#ECFDF5" };
+  const tdNB: React.CSSProperties = { ...tdStyle, background: "#F5F3FF" };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end" }}>
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label><input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
         <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label><input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
         {(filterFrom || filterTo) && <button onClick={() => { setFilterFrom(""); setFilterTo(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer" }}>Limpar</button>}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={handleExportCSV} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #10B981", background: "#ECFDF5", color: "#10B981", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>📥 CSV</button>
+          <button onClick={handleExportJSON} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0055FF", background: "#EBF2FF", color: "#0055FF", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>📥 JSON</button>
+        </div>
       </div>
       {columns.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p style={{ fontSize: 32 }}>📋</p><p style={{ marginTop: 8 }}>Nenhum dado. Preencha registros na aba Preenchimento.</p></div>
       ) : (
-        <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8EEF8" }}>
+        <div style={{ overflow: "auto", maxHeight: "70vh", borderRadius: 12, border: "1px solid #E8EEF8" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff" }}>
             <thead>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}>Data</th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
-                <th style={thStyle}>Res.</th>
-                <th style={thStyle}>Ações</th>
+                <th style={{ ...th1, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}>Data</th>
+                <th style={{ ...th1, background: "#EBF2FF" }} colSpan={4}>Sem atend.</th>
+                <th style={{ ...th1, background: "#ECFDF5" }} colSpan={4}>Com atend.</th>
+                <th style={{ ...th1, background: "#F5F3FF" }} colSpan={4}>Newbyte</th>
+                <th style={{ ...th1, background: "#FFFBEB" }} colSpan={4}>Gastos</th>
+                <th style={th1}>Res.</th>
+                <th style={th1}>Ações</th>
               </tr>
               <tr>
-                <th style={{ ...thStyle, textAlign: "left", position: "sticky", left: 0, zIndex: 2 }}></th>
-                <th style={{ ...thStyle, background: "#EBF2FF" }}>Res.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#EBF2FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#ECFDF5" }}>Res.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...thStyle, background: "#ECFDF5" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#F5F3FF" }}>Tickets</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Conv.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...thStyle, background: "#F5F3FF" }}>Fat. Sz</th>
-                <th style={{ ...thStyle, background: "#FFFBEB" }}>Google</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Meta</th><th style={{ ...thStyle, background: "#FFFBEB" }}>TikTok</th><th style={{ ...thStyle, background: "#FFFBEB" }}>Total</th>
-                <th style={thStyle}>Det.</th><th style={thStyle}></th>
+                <th style={{ ...th2, textAlign: "left", position: "sticky", left: 0, zIndex: 4 }}></th>
+                <th style={{ ...th2, background: "#EBF2FF" }}>Res.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#EBF2FF" }}>Tx. Limp.</th><th style={{ ...th2, background: "#EBF2FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#ECFDF5" }}>Res.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Eff.</th><th style={{ ...th2, background: "#ECFDF5" }}>Tx. Limp.</th><th style={{ ...th2, background: "#ECFDF5" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#F5F3FF" }}>Tickets</th><th style={{ ...th2, background: "#F5F3FF" }}>Conv.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Eff.</th><th style={{ ...th2, background: "#F5F3FF" }}>Fat. Sz</th>
+                <th style={{ ...th2, background: "#FFFBEB" }}>Google</th><th style={{ ...th2, background: "#FFFBEB" }}>Meta</th><th style={{ ...th2, background: "#FFFBEB" }}>TikTok</th><th style={{ ...th2, background: "#FFFBEB" }}>Total</th>
+                <th style={th2}>Det.</th><th style={th2}></th>
               </tr>
-              <tr style={{ background: "#F8FAFF", fontWeight: 700 }}>
-                <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#F8FAFF", fontWeight: 700, fontSize: 11 }}>TOTAL</td>
-                <td style={tdStyle}>{totals.resSem || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffSem)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningSem)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzSem)}</td>
-                <td style={tdStyle}>{totals.resCom || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffCom)}</td><td style={tdStyle}>{fmtCurrency(totals.cleaningCom)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzCom)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}>{totals.resNB || "—"}</td><td style={tdStyle}>{fmtCurrency(totals.fatEffNB)}</td><td style={tdStyle}>{fmtCurrency(totals.fatSzNB)}</td>
-                <td style={tdStyle}>{fmtCurrency(totals.google)}</td><td style={tdStyle}>{fmtCurrency(totals.meta)}</td><td style={tdStyle}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdStyle, fontWeight: 700, color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
-                <td style={tdStyle}>—</td><td style={tdStyle}></td>
+              <tr>
+                <td style={{ ...tdTotal, textAlign: "left", position: "sticky", left: 0, zIndex: 3, fontSize: 11 }}>TOTAL</td>
+                <td style={{ ...tdTotal, background: "#EBF2FF" }}>{totals.resSem || "—"}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatEffSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.cleaningSem)}</td><td style={{ ...tdTotal, background: "#EBF2FF" }}>{fmtCurrency(totals.fatSzSem)}</td>
+                <td style={{ ...tdTotal, background: "#ECFDF5" }}>{totals.resCom || "—"}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatEffCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.cleaningCom)}</td><td style={{ ...tdTotal, background: "#ECFDF5" }}>{fmtCurrency(totals.fatSzCom)}</td>
+                <td style={{ ...tdTotal, background: "#F5F3FF" }}>—</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{totals.resNB || "—"}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatEffNB)}</td><td style={{ ...tdTotal, background: "#F5F3FF" }}>{fmtCurrency(totals.fatSzNB)}</td>
+                <td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.google)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.meta)}</td><td style={{ ...tdTotal, background: "#FFFBEB" }}>{fmtCurrency(totals.tiktok)}</td><td style={{ ...tdTotal, background: "#FFFBEB", color: "#FC6058" }}>{fmtCurrency(totals.total)}</td>
+                <td style={tdTotal}>—</td><td style={tdTotal}></td>
               </tr>
             </thead>
             <tbody>
@@ -782,15 +923,15 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                 <React.Fragment key={col.date}>
                 <tr style={{ borderBottom: "1px solid #F0F3FA" }}>
                   <td style={{ ...tdStyle, textAlign: "left", position: "sticky", left: 0, background: "#fff", fontWeight: 600, color: "#00143D" }}>{fmtDate(col.date)}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdStyle}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
-                  <td style={tdStyle}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdStyle}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdStyle, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
+                  <td style={tdSem}>{fmtVal(getVal(col.sem, "reservas"), "number")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatEffective"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "cleaningFee"), "currency")}</td><td style={tdSem}>{fmtVal(getVal(col.sem, "fatSeazone"), "currency")}</td>
+                  <td style={tdCom}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
+                  <td style={tdNB}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
+                  <td style={tdSpend}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdSpend, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
                   <td style={tdStyle}>{col.reservations.length > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.reservations.length} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
                 {expandedDate === col.date && col.reservations.length > 0 && (
-                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || ""; const campaign = utmParams["utm_campaign"] || ""; const medium = utmParams["utm_medium"] || ""; const promo = res.coupon || ""; const dest = res.destination || ""; const prop = (res as any).propertyCode || ""; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
+                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
                 )}
                 </React.Fragment>
               ))}
@@ -798,6 +939,43 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
           </table>
         </div>
       )}
+
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 4, height: 16, borderRadius: 2, background: "#94A3B8" }} />
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#00143D", margin: 0 }}>Origem dos dados</p>
+        </div>
+        <div style={{ padding: "14px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ padding: "10px 14px", background: "#EBF2FF", borderRadius: 8, borderLeft: "3px solid #3B82F6" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#1D4ED8", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Sem atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#3B82F6", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#ECFDF5", borderRadius: 8, borderLeft: "3px solid #10B981" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Com atendimento</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>Reservas, Fat. Effective, Tx. Limpeza e Fat. Seazone</p>
+              <p style={{ fontSize: 11, color: "#10B981", marginTop: 3, fontWeight: 600 }}>Fonte: Metabase</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#F5F3FF", borderRadius: 8, borderLeft: "3px solid #7C3AED" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#5B21B6", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Newbyte</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Tickets e Conversões:</strong> extraídos diretamente da Newbyte<br />
+                <strong>Fat. Seazone:</strong> planilha Comercial do Atendimento
+              </p>
+              <p style={{ fontSize: 11, color: "#7C3AED", marginTop: 3, fontWeight: 600 }}>Fonte: Newbyte + Planilha Comercial</p>
+            </div>
+            <div style={{ padding: "10px 14px", background: "#FFFBEB", borderRadius: 8, borderLeft: "3px solid #F59E0B" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: "#92400E", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>Gastos (Google · Meta · TikTok)</p>
+              <p style={{ fontSize: 12, color: "#00143D", margin: 0 }}>
+                <strong>Google e Meta:</strong> sincronizados automaticamente via Nekt<br />
+                <strong>TikTok:</strong> preenchido manualmente — gasto não está disponível na Nekt
+              </p>
+              <p style={{ fontSize: 11, color: "#F59E0B", marginTop: 3, fontWeight: 600 }}>Fonte: Nekt (auto) · Manual (TikTok)</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -805,15 +983,15 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 // ─── DestinosTab ──────────────────────────────────────────────────────────────
 
 function DestinosTab({ records }: { records: DailyRecord[] }) {
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
 
-  const paidRecords = records.filter((r) => {
-    const isValid = r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento";
-    const inRange = (!startDate || r.date >= startDate) && (!endDate || r.date <= endDate);
-    return isValid && inRange;
-  });
-
+  const paidRecords = useMemo(() => {
+    let filtered = records.filter((r) => r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento");
+    if (filterFrom) filtered = filtered.filter((r) => r.date >= filterFrom);
+    if (filterTo) filtered = filtered.filter((r) => r.date <= filterTo);
+    return filtered;
+  }, [records, filterFrom, filterTo]);
   const cityMap: Record<string, { reservas: number; fatSz: number }> = {};
   const propMap: Record<string, { reservas: number; fatSz: number }> = {};
 
@@ -844,19 +1022,12 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: "14px 20px", display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label>
-          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" }} />
-        </div>
-        <div>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label>
-          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" }} />
-        </div>
-        {(startDate || endDate) && <button onClick={() => { setStartDate(""); setEndDate(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer", color: "#7C7C7C" }}>Limpar</button>}
-        <span style={{ fontSize: 12, color: "#7C7C7C", paddingBottom: 8 }}>{paidRecords.length} registro(s) encontrado(s)</span>
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label><input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
+        <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label><input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
+        {(filterFrom || filterTo) && <button onClick={() => { setFilterFrom(""); setFilterTo(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer" }}>Limpar</button>}
+        <span style={{ fontSize: 11, color: "#7C7C7C" }}>{paidRecords.length} registros no período</span>
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 16 }}>Cidades mais reservadas</p>
@@ -877,152 +1048,36 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
   );
 }
 
-// ─── NektExplorerTab ──────────────────────────────────────────────────────────
 
-const NEKT_PRESET_QUERIES = [
-  { label: "Listar tabelas", sql: `SELECT table_schema, table_name\nFROM information_schema.tables\nWHERE table_schema NOT IN ('information_schema', 'pg_catalog')\nORDER BY 1, 2\nLIMIT 100` },
-  { label: "Colunas de uma tabela", sql: `SELECT column_name, data_type, is_nullable\nFROM information_schema.columns\nWHERE table_name = 'NOME_DA_TABELA'\nORDER BY ordinal_position` },
-  { label: "Prévia (5 linhas)", sql: `SELECT *\nFROM SCHEMA.TABELA\nLIMIT 5` },
-  { label: "Template gastos (Meta + Google)", sql: `-- Adapte os nomes de tabela e coluna\n-- Colunas obrigatórias: date, google, meta, tiktok\nSELECT\n  data_referencia::DATE                                    AS date,\n  SUM(CASE WHEN canal = 'google' THEN gasto ELSE 0 END)   AS google,\n  SUM(CASE WHEN canal = 'meta'   THEN gasto ELSE 0 END)   AS meta,\n  0                                                        AS tiktok\nFROM marketing_hub.gastos_hospedes\nWHERE data_referencia BETWEEN :date_from AND :date_to\nGROUP BY 1\nORDER BY 1` },
-];
+// ─── SyncNektButton ───────────────────────────────────────────────────────────
 
-function NektExplorerTab({ onSpendingChange }: { onSpendingChange: (s: DailySpending[]) => void }) {
-  const [sql, setSql] = useState(NEKT_PRESET_QUERIES[0].sql);
-  const [queryStatus, setQueryStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: Record<string, string | number | null>[] } | null>(null);
-  const [queryError, setQueryError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [syncResult, setSyncResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncFrom, setSyncFrom] = useState("");
-  const [syncTo, setSyncTo] = useState("");
-
-  const runQuery = async () => {
-    setQueryStatus("loading"); setQueryError(null); setQueryResult(null);
-    try {
-      const res = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao consultar Nekt");
-      setQueryResult(data); setQueryStatus("done");
-    } catch (err) { setQueryError(err instanceof Error ? err.message : String(err)); setQueryStatus("error"); }
-  };
-
-  const handleSync = async () => {
-    setSyncStatus("loading"); setSyncResult(null); setSyncError(null);
-    try {
-      const body: Record<string, string> = {};
-      if (syncFrom) body.dateFrom = syncFrom;
-      if (syncTo) body.dateTo = syncTo;
-      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "Erro");
-      setSyncResult(data); setSyncStatus("done");
-      const fresh = await fetch("/api/hospedes-analise/spending").then((r) => r.json());
-      onSpendingChange(fresh);
-      setTimeout(() => setSyncStatus("idle"), 6000);
-    } catch (err) { setSyncError(err instanceof Error ? err.message : String(err)); setSyncStatus("error"); setTimeout(() => setSyncStatus("idle"), 5000); }
-  };
-
-  const labelS: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 };
-  const inputS: React.CSSProperties = { padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" };
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#00143D", borderRadius: 16, padding: "24px 28px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(0,85,255,0.12), transparent)" }} />
-        <div style={{ position: "relative" }}>
-          <div style={{ width: 40, height: 3, background: "#0055FF", borderRadius: 2, marginBottom: 12 }} />
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Nekt Explorer</h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4 }}>Explore as tabelas do hub de marketing e configure a sincronização automática de gastos</p>
-        </div>
-      </div>
-
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 4 }}>Sincronização automática de gastos</p>
-        <p style={{ fontSize: 12, color: "#7C7C7C", marginBottom: 16 }}>Cron ativo: todo dia às <strong>8h BRT</strong> (11h UTC) chama <code style={{ fontFamily: "monospace", background: "#F0F3FA", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>/api/hospedes-analise/sync-nekt-spending</code>. Busca os últimos 30 dias e preenche a tabela de gastos automaticamente.</p>
-        <div style={{ padding: 14, background: "#F8FAFF", borderRadius: 8, borderLeft: "3px solid #0055FF", marginBottom: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#0055FF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>O que pedir ao Sampa para ativar</p>
-          <ol style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: "#00143D", lineHeight: 2 }}>
-            <li>Confirmar o nome exato da tabela com gastos diários de Meta Ads e Google Ads</li>
-            <li>Adicionar a env var <code style={{ fontFamily: "monospace", background: "#E8EEF8", padding: "1px 5px", borderRadius: 4 }}>NEKT_SPENDING_SQL</code> na Vercel com a query que retorna: <code style={{ fontFamily: "monospace", fontSize: 11 }}>date, google, meta, tiktok</code></li>
-          </ol>
-          <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 8 }}>Use o explorador abaixo para encontrar a tabela certa e montar o SQL antes de passar pro Sampa.</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div><label style={labelS}>De (opcional)</label><input type="date" value={syncFrom} onChange={(e) => setSyncFrom(e.target.value)} style={inputS} /></div>
-          <div><label style={labelS}>Até (opcional)</label><input type="date" value={syncTo} onChange={(e) => setSyncTo(e.target.value)} style={inputS} /></div>
-          <button onClick={handleSync} disabled={syncStatus === "loading"} style={{ padding: "8px 16px", borderRadius: 8, border: `1.5px solid ${syncStatus === "done" ? "#10B981" : syncStatus === "error" ? "#FC6058" : "#0055FF"}`, background: syncStatus === "done" ? "#ECFDF5" : syncStatus === "error" ? "#FEF2F2" : "#EBF2FF", color: syncStatus === "done" ? "#10B981" : syncStatus === "error" ? "#FC6058" : "#0055FF", fontWeight: 600, fontSize: 12, cursor: syncStatus === "loading" ? "default" : "pointer", whiteSpace: "nowrap" }}>
-            {syncStatus === "loading" ? "⏳ Sincronizando..." : syncStatus === "done" ? "✓ Sincronizado!" : syncStatus === "error" ? "❌ Erro" : "🔄 Sincronizar agora"}
-          </button>
-          {syncResult && <span style={{ fontSize: 11, color: "#10B981" }}>{syncResult.synced} dias importados · {syncResult.dateFrom} → {syncResult.dateTo}</span>}
-        </div>
-        {syncError && <div style={{ marginTop: 10, padding: "10px 14px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}><p style={{ fontSize: 12, color: "#DC2626", fontFamily: "monospace" }}>{syncError}</p></div>}
-      </div>
-
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 12 }}>Consultar Nekt</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          {NEKT_PRESET_QUERIES.map((p) => (<button key={p.label} onClick={() => { setSql(p.sql); setQueryStatus("idle"); setQueryResult(null); setQueryError(null); }} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${sql === p.sql ? "#0055FF" : "#E8EEF8"}`, background: sql === p.sql ? "#EBF2FF" : "#F8FAFF", color: sql === p.sql ? "#0055FF" : "#7C7C7C", fontSize: 11, fontWeight: sql === p.sql ? 600 : 400, cursor: "pointer" }}>{p.label}</button>))}
-        </div>
-        <textarea value={sql} onChange={(e) => { setSql(e.target.value); setQueryStatus("idle"); }} style={{ width: "100%", height: 160, padding: "10px 12px", borderRadius: 8, border: "1px solid #E8EEF8", fontFamily: "monospace", fontSize: 12, background: "#F8FAFF", color: "#00143D", resize: "vertical", boxSizing: "border-box" }} placeholder="SELECT * FROM tabela LIMIT 10" spellCheck={false} />
-        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-          <button onClick={runQuery} disabled={queryStatus === "loading" || !sql.trim()} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: !sql.trim() || queryStatus === "loading" ? "#E8EEF8" : "#0055FF", color: !sql.trim() || queryStatus === "loading" ? "#7C7C7C" : "#fff", fontWeight: 700, fontSize: 13, cursor: !sql.trim() || queryStatus === "loading" ? "default" : "pointer" }}>
-            {queryStatus === "loading" ? "Executando..." : "Executar query"}
-          </button>
-          {queryStatus === "done" && queryResult && <span style={{ fontSize: 12, color: "#10B981" }}>✓ {queryResult.rows.length} linha(s)</span>}
-        </div>
-        {queryStatus === "error" && queryError && <div style={{ marginTop: 12, padding: 12, background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}><p style={{ fontSize: 12, color: "#DC2626", fontFamily: "monospace", whiteSpace: "pre-wrap" }}>{queryError}</p></div>}
-        {queryStatus === "done" && queryResult && queryResult.rows.length > 0 && (
-          <div style={{ marginTop: 16, overflowX: "auto", border: "1px solid #E8EEF8", borderRadius: 8 }}>
-            <p style={{ fontSize: 11, color: "#7C7C7C", padding: "6px 12px", borderBottom: "1px solid #F0F3FA" }}>Colunas: <strong>{queryResult.columns.join(", ")}</strong></p>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr>{queryResult.columns.map((col) => <th key={col} style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600, color: "#7C7C7C", background: "#F8FAFF", borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{col}</th>)}</tr></thead>
-              <tbody>{queryResult.rows.slice(0, 100).map((row, i) => <tr key={i} style={{ borderBottom: "1px solid #F0F3FA" }}>{queryResult.columns.map((col) => <td key={col} style={{ padding: "6px 12px", color: "#00143D", whiteSpace: "nowrap", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis" }}>{row[col] === null ? <span style={{ color: "#ccc" }}>null</span> : String(row[col])}</td>)}</tr>)}</tbody>
-            </table>
-            {queryResult.rows.length > 100 && <p style={{ padding: "8px 12px", fontSize: 11, color: "#7C7C7C", borderTop: "1px solid #F0F3FA" }}>Mostrando 100 de {queryResult.rows.length} linhas.</p>}
-          </div>
-        )}
-        {queryStatus === "done" && queryResult && queryResult.rows.length === 0 && <p style={{ marginTop: 12, fontSize: 12, color: "#7C7C7C" }}>Query executada sem resultados.</p>}
-      </div>
-    </div>
-  );
-}
-
-// ─── SyncNektButton ──────────────────────────────────────────────────────────
-
-function SyncNektButton({ onSpendingChange }: { onSpendingChange: (s: DailySpending[]) => void }) {
+function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setStatus("loading"); setResult(null); setErrorMsg(null);
+    setStatus("loading"); setResult(null);
     try {
-      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST" });
+      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "Erro desconhecido");
       setResult(data); setStatus("done");
       const fresh = await apiGetSpending();
-      onSpendingChange(fresh);
-      setTimeout(() => setStatus("idle"), 5000);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : String(err));
-      setStatus("error");
+      onSynced(fresh);
       setTimeout(() => setStatus("idle"), 6000);
-    }
+    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 5000); }
   };
 
-  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
-  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#F5F3FF";
-  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
+  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
+  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#EBF2FF";
+  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt (gastos)"}
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt"}
       </button>
       {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.synced} dias · {result.dateFrom} → {result.dateTo}</span>}
-      {status === "error" && errorMsg && <span style={{ fontSize: 11, color: "#FC6058" }}>{errorMsg.includes("config") ? "Não configurado na Vercel" : errorMsg.slice(0, 60)}</span>}
     </div>
   );
 }
@@ -1032,24 +1087,18 @@ function SyncNektButton({ onSpendingChange }: { onSpendingChange: (s: DailySpend
 function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<{ synced: number; dates: number; breakdown: { semAtendimento: number; comAtendimento: number } } | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setStatus("loading"); setResult(null); setErrorMsg(null);
+    setStatus("loading"); setResult(null);
     try {
       const res = await fetch("/api/hospedes-analise/sync-metabase", { method: "POST" });
-      let data: Record<string, unknown> = {};
-      try { data = await res.json(); } catch { /* ignore parse error */ }
-      if (!res.ok) throw new Error((data.error as string) || `Erro HTTP ${res.status}`);
-      setResult(data as Parameters<typeof setResult>[0]); setStatus("done");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setResult(data); setStatus("done");
       const fresh = await apiGetRecords();
       onSynced(fresh);
       setTimeout(() => setStatus("idle"), 4000);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : String(err));
-      setStatus("error");
-      setTimeout(() => setStatus("idle"), 6000);
-    }
+    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 3000); }
   };
 
   const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
@@ -1062,7 +1111,6 @@ function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) =
         {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Metabase"}
       </button>
       {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.dates} dias · {result.breakdown.semAtendimento}s/ + {result.breakdown.comAtendimento}c/</span>}
-      {status === "error" && errorMsg && <span style={{ fontSize: 11, color: "#FC6058", maxWidth: 280 }} title={errorMsg}>{errorMsg}</span>}
     </div>
   );
 }
@@ -1138,10 +1186,13 @@ export default function AnaliseMidiaPagaHospedesPage() {
   const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos">("resultados");
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [spending, setSpending] = useState<DailySpending[]>([]);
+  const [formulaConfig, setFormulaConfig] = useState<FormulaConfig>(DEFAULT_FORMULA_CONFIG);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([apiGetRecords(), apiGetSpending()]).then(([r, s]) => { setRecords(r); setSpending(s); setLoading(false); });
+    Promise.all([apiGetRecords(), apiGetSpending(), apiGetFormulaConfig()]).then(([r, s, fc]) => {
+      setRecords(r); setSpending(s); setFormulaConfig(fc); setLoading(false);
+    });
   }, []);
 
   const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos"; label: string; emoji: string }[] = [
@@ -1160,15 +1211,10 @@ export default function AnaliseMidiaPagaHospedesPage() {
           <span style={{ color: "#00143D", fontWeight: 600 }}>Análise Mídia Paga</span>
         </div>
         {!loading && (
-          <div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <SyncMetabaseButton onSynced={(r) => setRecords(r)} />
-              <SyncNektButton onSpendingChange={setSpending} />
-              <ImportModal onImported={(r, s) => { setRecords(r); setSpending(s); }} />
-            </div>
-            <p style={{ fontSize: 11, color: "#7C7C7C", marginTop: 5, textAlign: "right" }}>
-              Gastos Google/Meta: <code style={{ fontFamily: "monospace", background: "#F0F3FA", padding: "1px 4px", borderRadius: 3, fontSize: 11 }}>NEKT_SPENDING_SQL</code> (env var na Vercel)
-            </p>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <SyncMetabaseButton onSynced={(r) => setRecords(r)} />
+            <SyncNektButton onSynced={(s) => setSpending(s)} />
+            <ImportModal onImported={(r, s) => { setRecords(r); setSpending(s); }} />
           </div>
         )}
       </div>
@@ -1184,7 +1230,7 @@ export default function AnaliseMidiaPagaHospedesPage() {
       {loading ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p>Carregando dados...</p></div>
       ) : (<>
-        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} />}
+        {tab === "resultados" && <ResultadosTab records={records} spending={spending} onRecordsChange={setRecords} formulaConfig={formulaConfig} onFormulaConfigChange={setFormulaConfig} />}
         {tab === "preenchimento" && <PreenchimentoTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "tabela" && <TabelaTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "destinos" && <DestinosTab records={records} />}

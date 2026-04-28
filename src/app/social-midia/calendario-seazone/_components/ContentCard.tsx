@@ -1,19 +1,20 @@
 "use client";
 
 import { useState, type DragEvent } from 'react';
+import { Copy } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { getEditorial } from '../_lib/calendar-constants';
 import type { Post, ContentStatus, ContentFormat } from '../_lib/types';
 
 const STATUS_OPTIONS: { value: ContentStatus; label: string; bg: string; fg: string }[] = [
-  { value: 'ideia',    label: 'Em aprovacao', bg: T.statusWarnBg,              fg: T.statusWarnDark },
-  { value: 'aprovado', label: 'Aprovado',      bg: `${T.roxo600}18`,            fg: T.roxo600 },
-  { value: 'producao', label: 'Em producao',   bg: `${T.laranja500}18`,         fg: T.laranja500 },
-  { value: 'agendado', label: 'Agendado',      bg: T.pendingBg,                 fg: T.pendingFg },
-  { value: 'publicado',label: 'Publicado',     bg: T.statusOkBg,                fg: T.statusOkFg },
-  { value: 'rascunho', label: 'Rascunho',      bg: T.cinza50,                   fg: T.cinza600 },
-  { value: 'gravacao', label: 'Gravacao',      bg: T.cinza50,                   fg: T.cinza600 },
-  { value: 'edicao',   label: 'Edicao',        bg: T.cinza50,                   fg: T.cinza600 },
+  { value: 'ideia',     label: 'Em aprovacao', bg: T.statusWarnBg,      fg: T.statusWarnDark },
+  { value: 'aprovado',  label: 'Aprovado',      bg: `${T.roxo600}18`,    fg: T.roxo600 },
+  { value: 'producao',  label: 'Em producao',   bg: `${T.laranja500}18`, fg: T.laranja500 },
+  { value: 'agendado',  label: 'Agendado',      bg: T.pendingBg,         fg: T.pendingFg },
+  { value: 'publicado', label: 'Publicado',     bg: T.statusOkBg,        fg: T.statusOkFg },
+  { value: 'rascunho',  label: 'Rascunho',      bg: T.cinza50,           fg: T.cinza600 },
+  { value: 'gravacao',  label: 'Gravacao',      bg: T.cinza50,           fg: T.cinza600 },
+  { value: 'edicao',    label: 'Edicao',        bg: T.cinza50,           fg: T.cinza600 },
 ];
 
 export function getStatusTag(status: ContentStatus) {
@@ -25,9 +26,9 @@ export function getStatusTag(status: ContentStatus) {
 
 const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'carrossel', label: 'Carrossel' },
-  { value: 'feed', label: 'Post Fixo' },
-  { value: 'reels', label: 'Reels' },
-  { value: 'stories', label: 'Story' },
+  { value: 'feed',      label: 'Post Fixo' },
+  { value: 'reels',     label: 'Reels' },
+  { value: 'stories',   label: 'Story' },
 ];
 
 interface ContentCardProps {
@@ -37,13 +38,15 @@ interface ContentCardProps {
   draggable?: boolean;
   onStatusChange?: (id: string, status: ContentStatus) => void;
   onUpdate?: (id: string, updates: Partial<Post>) => void;
+  onDuplicate?: (item: Post) => void;
 }
 
-export function ContentCard({ item, compact, onClick, draggable, onStatusChange, onUpdate }: ContentCardProps) {
+export function ContentCard({ item, compact, onClick, draggable, onStatusChange, onUpdate, onDuplicate }: ContentCardProps) {
   const editorial = getEditorial(item.editoria);
   const formatLabel = FORMAT_OPTIONS.find((f) => f.value === item.formato)?.label ?? item.formato;
   const tag = getStatusTag(item.status);
   const [editingField, setEditingField] = useState<'title' | 'notas' | null>(null);
+  const [hovered, setHovered] = useState(false);
 
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData('text/plain', item.id);
@@ -61,21 +64,41 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
       draggable={draggable && !editingField}
       onDragStart={draggable ? handleDragStart : undefined}
       onDragEnd={draggable ? handleDragEnd : undefined}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = T.elevMd; setHovered(true); }}
+      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; setHovered(false); }}
       style={{
         background: T.card,
         border: `1px solid ${T.border}`,
-        borderRadius: 12,
-        padding: compact ? 8 : 12,
+        borderRadius: compact ? 8 : 12,
+        padding: compact ? 6 : 12,
         cursor: draggable && !editingField ? 'grab' : 'pointer',
         transition: 'box-shadow 0.15s',
+        overflow: 'hidden',
+        minWidth: 0,
+        position: 'relative',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = T.elevMd; }}
-      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <span style={{ width: 10, height: 10, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
+      {/* Botao duplicar — aparece no hover */}
+      {onDuplicate && hovered && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDuplicate(item); }}
+          title="Duplicar post"
+          style={{
+            position: 'absolute', top: 4, right: 4,
+            background: T.card, border: `1px solid ${T.border}`,
+            borderRadius: 5, padding: '2px 5px',
+            cursor: 'pointer', display: 'flex', alignItems: 'center',
+            color: T.cinza400, zIndex: 2,
+          }}
+        >
+          <Copy size={11} />
+        </button>
+      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+        <span style={{ width: 8, height: 8, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
         {!compact && (
-          <span style={{ fontSize: 12, fontWeight: 500, color: T.mutedFg }}>{editorial?.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 500, color: T.mutedFg, whiteSpace: 'nowrap' }}>{editorial?.name}</span>
         )}
         {onStatusChange ? (
           <select
@@ -83,15 +106,10 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => { e.stopPropagation(); onStatusChange(item.id, e.target.value as ContentStatus); }}
             style={{
-              background: tag.bg,
-              color: tag.fg,
-              border: `1px solid ${tag.bg}`,
-              borderRadius: 6,
-              padding: '2px 6px',
-              fontSize: 10,
-              fontWeight: 600,
-              cursor: 'pointer',
-              outline: 'none',
+              background: tag.bg, color: tag.fg,
+              border: `1px solid ${tag.bg}`, borderRadius: 6,
+              padding: '1px 4px', fontSize: 10, fontWeight: 600,
+              cursor: 'pointer', outline: 'none', flexShrink: 0,
             }}
           >
             {STATUS_OPTIONS.map((opt) => (
@@ -99,7 +117,7 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
             ))}
           </select>
         ) : (
-          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '2px 6px', fontSize: 10, fontWeight: 600 }}>
+          <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '1px 4px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
             {tag.label}
           </span>
         )}
@@ -117,19 +135,24 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
           }}
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
           style={{
-            width: '100%',
-            border: `1px solid ${T.primary}`,
-            borderRadius: 6,
-            padding: '2px 4px',
-            fontSize: compact ? 12 : 14,
-            fontWeight: 600,
-            color: T.cardFg,
-            outline: 'none',
+            width: '100%', border: `1px solid ${T.primary}`, borderRadius: 6,
+            padding: '2px 4px', fontSize: compact ? 11 : 14, fontWeight: 600,
+            color: T.cardFg, outline: 'none',
           }}
         />
       ) : (
         <p
-          style={{ fontSize: compact ? 12 : 14, fontWeight: 600, color: T.cardFg, margin: 0, lineHeight: 1.3, cursor: onUpdate ? 'text' : undefined }}
+          style={{
+            fontSize: compact ? 11 : 14, fontWeight: 600, color: T.cardFg,
+            margin: 0, lineHeight: 1.3,
+            cursor: onUpdate ? 'text' : undefined,
+            ...(compact ? {
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical' as const,
+              overflow: 'hidden',
+            } : {}),
+          }}
           onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('title'); } : undefined}
         >
           {item.title}
@@ -137,46 +160,44 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
       )}
 
       {compact && (editorial?.name || formatLabel) && (
-        <p style={{ fontSize: 12, color: T.mutedFg, margin: '2px 0 0' }}>
+        <p style={{ fontSize: 11, color: T.mutedFg, margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           <span style={{ fontWeight: 700, color: editorial?.color }}>{editorial?.name}</span>
           {editorial?.name && formatLabel ? ' · ' : ''}
           {formatLabel}
         </p>
       )}
 
-      {onUpdate && editingField === 'notas' ? (
-        <textarea
-          autoFocus
-          defaultValue={item.notas || ''}
-          onClick={(e) => e.stopPropagation()}
-          onBlur={(e) => {
-            const val = e.target.value.trim();
-            if (val !== (item.notas || '')) onUpdate(item.id, { notas: val || null });
-            setEditingField(null);
-          }}
-          rows={2}
-          style={{
-            width: '100%',
-            border: `1px solid ${T.primary}`,
-            borderRadius: 6,
-            padding: '2px 4px',
-            fontSize: 12,
-            color: T.mutedFg,
-            outline: 'none',
-            resize: 'vertical',
-            marginTop: 4,
-          }}
-        />
-      ) : (item.notas || onUpdate) ? (
-        <p
-          style={{ fontSize: 12, color: T.mutedFg, margin: '4px 0 0', cursor: onUpdate ? 'text' : undefined }}
-          onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('notas'); } : undefined}
-        >
-          {item.notas || 'Adicionar descricao...'}
-        </p>
-      ) : null}
+      {!compact && (
+        <>
+          {onUpdate && editingField === 'notas' ? (
+            <textarea
+              autoFocus
+              defaultValue={item.notas || ''}
+              onClick={(e) => e.stopPropagation()}
+              onBlur={(e) => {
+                const val = e.target.value.trim();
+                if (val !== (item.notas || '')) onUpdate(item.id, { notas: val || null });
+                setEditingField(null);
+              }}
+              rows={2}
+              style={{
+                width: '100%', border: `1px solid ${T.primary}`, borderRadius: 6,
+                padding: '2px 4px', fontSize: 12, color: T.mutedFg,
+                outline: 'none', resize: 'vertical', marginTop: 4,
+              }}
+            />
+          ) : (item.notas || onUpdate) ? (
+            <p
+              style={{ fontSize: 12, color: T.mutedFg, margin: '4px 0 0', cursor: onUpdate ? 'text' : undefined }}
+              onClick={onUpdate ? (e) => { e.stopPropagation(); setEditingField('notas'); } : undefined}
+            >
+              {item.notas || 'Adicionar descricao...'}
+            </p>
+          ) : null}
+        </>
+      )}
 
-      {(!compact || onUpdate) && (
+      {!compact && (
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8 }}>
           {onUpdate ? (
             <select
@@ -184,14 +205,8 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => { e.stopPropagation(); onUpdate(item.id, { formato: e.target.value as ContentFormat }); }}
               style={{
-                background: T.cinza50,
-                border: `1px solid ${T.border}`,
-                borderRadius: 6,
-                padding: '2px 8px',
-                fontSize: 12,
-                color: T.cinza600,
-                cursor: 'pointer',
-                outline: 'none',
+                background: T.cinza50, border: `1px solid ${T.border}`, borderRadius: 6,
+                padding: '2px 8px', fontSize: 12, color: T.cinza600, cursor: 'pointer', outline: 'none',
               }}
             >
               {FORMAT_OPTIONS.map((opt) => (

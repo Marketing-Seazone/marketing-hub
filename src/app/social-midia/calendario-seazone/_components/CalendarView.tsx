@@ -6,21 +6,88 @@ import {
   isSameMonth, addMonths, subMonths, getDay, isToday, parseISO,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Plus, X } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { useContent } from '../_hooks/useContent';
 import { EDITORIALS } from '../_lib/calendar-constants';
 import { ContentCard } from './ContentCard';
 import { ContentModal } from './ContentModal';
+import { QuickCreateModal } from './QuickCreateModal';
 import type { Post, EditorialSlug, ContentStatus } from '../_lib/types';
 
+// Modal com todos os posts do dia
+interface DayModalProps {
+  date: string;
+  items: Post[];
+  onClose: () => void;
+  onSelectItem: (item: Post) => void;
+  onStatusChange: (id: string, status: ContentStatus) => void;
+  onDuplicate: (item: Post) => void;
+  onUpdate: (id: string, updates: Partial<Post>) => Promise<void>;
+}
+
+function DayModal({ date, items, onClose, onSelectItem, onStatusChange, onDuplicate, onUpdate }: DayModalProps) {
+  const [d, m, y] = [
+    parseInt(date.substring(8, 10)),
+    parseInt(date.substring(5, 7)) - 1,
+    parseInt(date.substring(0, 4)),
+  ];
+  const displayDate = format(new Date(y, m, d), "d 'de' MMMM yyyy", { locale: ptBR });
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)' }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          width: '100%', maxWidth: 520, background: T.card, borderRadius: 14,
+          padding: 24, boxShadow: T.elevMd, maxHeight: '85vh', overflowY: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+          <div>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: T.cardFg, margin: '0 0 2px', textTransform: 'capitalize' }}>
+              {displayDate}
+            </h3>
+            <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
+              {items.length} {items.length === 1 ? 'post' : 'posts'}
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.cinza400 }}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {items.map((item) => (
+            <ContentCard
+              key={item.id}
+              item={item}
+              compact={false}
+              onClick={() => { onClose(); onSelectItem(item); }}
+              onStatusChange={onStatusChange}
+              onDuplicate={onDuplicate}
+              onUpdate={async (id, updates) => { await onUpdate(id, updates); }}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function CalendarView() {
-  const { items, loading, updateItem, deleteItem, fetchItems } = useContent();
+  const { items, loading, updateItem, deleteItem, fetchItems, createItem } = useContent();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterEditorial, setFilterEditorial] = useState<EditorialSlug | ''>('');
   const [selectedItem, setSelectedItem] = useState<Post | null>(null);
+  const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [dayModalDate, setDayModalDate] = useState<string | null>(null);
 
   const days = useMemo(() => {
     const start = startOfMonth(currentMonth);
@@ -49,7 +116,6 @@ export function CalendarView() {
       await fetchItems();
       showToast(`Status atualizado para "${status}"`);
     } catch (err) {
-      console.error('Error updating status:', err);
       showToast('Erro ao atualizar status');
     }
   };
@@ -66,40 +132,60 @@ export function CalendarView() {
     setTimeout(() => setToast(null), 2500);
   }, []);
 
+  const handleDuplicate = async (item: Post) => {
+    try {
+      await createItem({
+        title: `${item.title} (copia)`,
+        editoria: item.editoria,
+        formato: item.formato,
+        canal: item.canal,
+        status: 'ideia',
+        scheduled_at: item.scheduled_at,
+        tema: item.tema,
+        estrutura: item.estrutura,
+        copy: item.copy,
+        notas: item.notas,
+      });
+      await fetchItems();
+      showToast('Post duplicado!');
+    } catch {
+      showToast('Erro ao duplicar');
+    }
+  };
+
   const handleDragOver = (e: DragEvent<HTMLDivElement>, dateStr: string) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverDate(dateStr);
   };
 
-  const handleDragLeave = () => {
-    setDragOverDate(null);
-  };
+  const handleDragLeave = () => setDragOverDate(null);
 
   const handleDrop = async (e: DragEvent<HTMLDivElement>, targetDate: string) => {
     e.preventDefault();
     setDragOverDate(null);
-
     const itemId = e.dataTransfer.getData('text/plain');
     if (!itemId) return;
-
     const item = items.find((i) => i.id === itemId);
-    if (!item) return;
-
-    if (item.scheduled_at === targetDate) return;
-
+    if (!item || item.scheduled_at === targetDate) return;
     try {
       await updateItem(itemId, { scheduled_at: targetDate });
       await fetchItems();
       const formattedDate = format(parseISO(targetDate), "d 'de' MMMM", { locale: ptBR });
       showToast(`"${item.title}" movido para ${formattedDate}`);
-    } catch (err) {
-      console.error('Error moving content:', err);
+    } catch {
       showToast('Erro ao mover conteudo');
     }
   };
 
   const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+
+  const dayModalItems = useMemo(() => {
+    if (!dayModalDate) return [];
+    return filteredItems.filter(
+      (item) => item.scheduled_at && item.scheduled_at.substring(0, 10) === dayModalDate
+    );
+  }, [dayModalDate, filteredItems]);
 
   return (
     <div>
@@ -120,7 +206,7 @@ export function CalendarView() {
         </select>
       </div>
 
-      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14 }}>
+      <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: `1px solid ${T.border}`, padding: '16px 24px' }}>
           <button
             onClick={() => setCurrentMonth((m) => subMonths(m, 1))}
@@ -152,42 +238,79 @@ export function CalendarView() {
             Carregando...
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '130px' }}>
             {days.map((day, i) => {
               const dayItems = getItemsForDay(day);
               const isCurrentMonth = isSameMonth(day, currentMonth);
               const dateStr = format(day, 'yyyy-MM-dd');
               const isDragOver = dragOverDate === dateStr;
               const today = isToday(day);
+              const isHovered = hoveredDate === dateStr;
+              const hasMore = dayItems.length > 2;
 
               return (
                 <div
                   key={i}
+                  onMouseEnter={() => isCurrentMonth && setHoveredDate(dateStr)}
+                  onMouseLeave={() => setHoveredDate(null)}
                   onDragOver={(e) => handleDragOver(e, dateStr)}
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dateStr)}
                   style={{
-                    minHeight: 120,
+                    height: 130, overflow: 'hidden',
                     borderBottom: `1px solid ${T.cinza50}`,
                     borderRight: `1px solid ${T.cinza50}`,
                     padding: 8,
                     transition: 'background 0.15s',
-                    background: isDragOver ? T.pendingBg : today ? `${T.pendingBg}80` : !isCurrentMonth ? `${T.cinza50}80` : 'transparent',
-                    boxShadow: isDragOver ? `inset 0 0 0 2px ${T.primary}60` : today ? `inset 0 0 0 2px ${T.primary}30` : 'none',
+                    background: isDragOver
+                      ? T.pendingBg
+                      : today
+                        ? `${T.pendingBg}80`
+                        : !isCurrentMonth
+                          ? `${T.cinza50}80`
+                          : 'transparent',
+                    boxShadow: isDragOver
+                      ? `inset 0 0 0 2px ${T.primary}60`
+                      : today
+                        ? `inset 0 0 0 2px ${T.primary}30`
+                        : 'none',
+                    position: 'relative',
                   }}
                 >
-                  <span
-                    style={{
-                      display: 'inline-flex', width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
-                      borderRadius: '50%', fontSize: 12, fontWeight: today ? 700 : 500, marginBottom: 4,
-                      background: today ? T.primary : 'transparent',
-                      color: today ? T.primaryFg : isCurrentMonth ? T.cinza700 : T.cinza200,
-                    }}
-                  >
-                    {format(day, 'd')}
-                  </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {dayItems.slice(0, 3).map((item) => (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    {/* Numero do dia — clicavel para abrir modal do dia */}
+                    <span
+                      onClick={() => isCurrentMonth && dayItems.length > 0 && setDayModalDate(dateStr)}
+                      style={{
+                        display: 'inline-flex', width: 24, height: 24,
+                        alignItems: 'center', justifyContent: 'center',
+                        borderRadius: '50%', fontSize: 12, fontWeight: today ? 700 : 500,
+                        background: today ? T.primary : 'transparent',
+                        color: today ? T.primaryFg : isCurrentMonth ? T.cinza700 : T.cinza200,
+                        flexShrink: 0,
+                        cursor: isCurrentMonth && dayItems.length > 0 ? 'pointer' : 'default',
+                      }}
+                    >
+                      {format(day, 'd')}
+                    </span>
+                    {isCurrentMonth && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setQuickCreateDate(dateStr); }}
+                        title="Adicionar post"
+                        style={{
+                          background: 'none', border: `1px solid ${T.border}`, cursor: 'pointer',
+                          color: T.cinza400, padding: '1px 4px', borderRadius: 4,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          opacity: isHovered ? 1 : 0, transition: 'opacity 0.15s',
+                        }}
+                      >
+                        <Plus size={12} />
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3, overflow: 'hidden' }}>
+                    {dayItems.slice(0, 2).map((item) => (
                       <ContentCard
                         key={item.id}
                         item={item}
@@ -195,14 +318,24 @@ export function CalendarView() {
                         draggable
                         onClick={() => setSelectedItem(item)}
                         onStatusChange={handleStatusChange}
+                        onDuplicate={handleDuplicate}
                         onUpdate={async (id, updates) => {
                           await updateItem(id, updates);
                           await fetchItems();
                         }}
                       />
                     ))}
-                    {dayItems.length > 3 && (
-                      <span style={{ fontSize: 12, color: T.cinza400 }}>+{dayItems.length - 3} mais</span>
+                    {hasMore && (
+                      <button
+                        onClick={() => setDayModalDate(dateStr)}
+                        style={{
+                          background: 'none', border: 'none', cursor: 'pointer',
+                          fontSize: 11, color: T.primary, fontWeight: 600,
+                          padding: '1px 2px', textAlign: 'left',
+                        }}
+                      >
+                        +{dayItems.length - 2} mais
+                      </button>
                     )}
                   </div>
                 </div>
@@ -212,12 +345,37 @@ export function CalendarView() {
         )}
       </div>
 
+      {/* Modal do dia */}
+      {dayModalDate && (
+        <DayModal
+          date={dayModalDate}
+          items={dayModalItems}
+          onClose={() => setDayModalDate(null)}
+          onSelectItem={(item) => { setDayModalDate(null); setSelectedItem(item); }}
+          onStatusChange={handleStatusChange}
+          onDuplicate={handleDuplicate}
+          onUpdate={async (id, updates) => { await updateItem(id, updates); await fetchItems(); }}
+        />
+      )}
+
       {selectedItem && (
         <ContentModal
           item={selectedItem}
           onClose={() => setSelectedItem(null)}
           onUpdate={updateItem}
           onDelete={deleteItem}
+        />
+      )}
+
+      {quickCreateDate && (
+        <QuickCreateModal
+          date={quickCreateDate}
+          onClose={() => setQuickCreateDate(null)}
+          onCreate={async (item) => {
+            const created = await createItem(item);
+            showToast('Post criado com sucesso!');
+            return created;
+          }}
         />
       )}
 
