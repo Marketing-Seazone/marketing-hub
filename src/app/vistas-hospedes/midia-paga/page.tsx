@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import type { DailyRecord, DailySpending, ReservationDetail, FormulaConfig } from "@/lib/hospedes-analise-db";
 import { DEFAULT_FORMULA_CONFIG } from "@/lib/hospedes-analise-db";
+import NewbyteImportSection from "@/components/newbyte-import-section";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,7 @@ async function apiDeleteSpending(id: string): Promise<void> {
 
 async function apiGetFormulaConfig(): Promise<FormulaConfig> {
   const r = await fetch("/api/hospedes-analise/formula-config");
+  if (!r.ok) return DEFAULT_FORMULA_CONFIG;
   return r.json();
 }
 
@@ -815,6 +817,9 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
           ))}
         </div>
       )}
+
+      {/* ── Importar Newbyte via Sheets ───────────────────────────────── */}
+      <NewbyteImportSection onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }} />
     </div>
   );
 }
@@ -825,6 +830,22 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
   const [filterFrom, setFilterFrom] = useState("");
   const [filterTo, setFilterTo] = useState("");
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const handleExportCSV = () => {
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=csv`;
+    window.open(url, "_blank");
+  };
+  const handleExportJSON = async () => {
+    const url = `/api/hospedes-analise/export-kpis?dateFrom=${filterFrom || "2024-01-01"}&dateTo=${filterTo || today}&format=json`;
+    const res = await fetch(url);
+    const data = await res.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `kpis-export-${filterFrom || "2024-01-01"}-${filterTo || today}.json`;
+    a.click();
+  };
 
   type DateColumn = { date: string; sem?: DailyRecord; com?: DailyRecord; nb?: DailyRecord; spending?: { google: number; meta: number; tiktok: number; total: number }; reservations: ReservationDetail[] };
 
@@ -856,10 +877,14 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end" }}>
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
         <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label><input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
         <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label><input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
         {(filterFrom || filterTo) && <button onClick={() => { setFilterFrom(""); setFilterTo(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer" }}>Limpar</button>}
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={handleExportCSV} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #10B981", background: "#ECFDF5", color: "#10B981", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>📥 CSV</button>
+          <button onClick={handleExportJSON} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0055FF", background: "#EBF2FF", color: "#0055FF", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>📥 JSON</button>
+        </div>
       </div>
       {columns.length === 0 ? (
         <div style={{ textAlign: "center", padding: "60px 20px", color: "#7C7C7C" }}><p style={{ fontSize: 32 }}>📋</p><p style={{ marginTop: 8 }}>Nenhum dado. Preencha registros na aba Preenchimento.</p></div>
@@ -958,7 +983,15 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 // ─── DestinosTab ──────────────────────────────────────────────────────────────
 
 function DestinosTab({ records }: { records: DailyRecord[] }) {
-  const paidRecords = records.filter((r) => r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento");
+  const [filterFrom, setFilterFrom] = useState("");
+  const [filterTo, setFilterTo] = useState("");
+
+  const paidRecords = useMemo(() => {
+    let filtered = records.filter((r) => r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento");
+    if (filterFrom) filtered = filtered.filter((r) => r.date >= filterFrom);
+    if (filterTo) filtered = filtered.filter((r) => r.date <= filterTo);
+    return filtered;
+  }, [records, filterFrom, filterTo]);
   const cityMap: Record<string, { reservas: number; fatSz: number }> = {};
   const propMap: Record<string, { reservas: number; fatSz: number }> = {};
 
@@ -989,6 +1022,12 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16, display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>De</label><input type="date" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
+        <div><label style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", display: "block", marginBottom: 4 }}>Até</label><input type="date" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13 }} /></div>
+        {(filterFrom || filterTo) && <button onClick={() => { setFilterFrom(""); setFilterTo(""); }} style={{ padding: "7px 12px", borderRadius: 8, border: "1px solid #E8EEF8", background: "#fff", fontSize: 12, cursor: "pointer" }}>Limpar</button>}
+        <span style={{ fontSize: 11, color: "#7C7C7C" }}>{paidRecords.length} registros no período</span>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
         <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
           <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 16 }}>Cidades mais reservadas</p>
@@ -1009,109 +1048,36 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
   );
 }
 
-// ─── NektExplorerTab ──────────────────────────────────────────────────────────
 
-const NEKT_PRESET_QUERIES = [
-  { label: "Listar tabelas", sql: `SELECT table_schema, table_name\nFROM information_schema.tables\nWHERE table_schema NOT IN ('information_schema', 'pg_catalog')\nORDER BY 1, 2\nLIMIT 100` },
-  { label: "Colunas de uma tabela", sql: `SELECT column_name, data_type, is_nullable\nFROM information_schema.columns\nWHERE table_name = 'NOME_DA_TABELA'\nORDER BY ordinal_position` },
-  { label: "Prévia (5 linhas)", sql: `SELECT *\nFROM SCHEMA.TABELA\nLIMIT 5` },
-  { label: "Template gastos (Meta + Google)", sql: `-- Adapte os nomes de tabela e coluna\n-- Colunas obrigatórias: date, google, meta, tiktok\nSELECT\n  data_referencia::DATE                                    AS date,\n  SUM(CASE WHEN canal = 'google' THEN gasto ELSE 0 END)   AS google,\n  SUM(CASE WHEN canal = 'meta'   THEN gasto ELSE 0 END)   AS meta,\n  0                                                        AS tiktok\nFROM marketing_hub.gastos_hospedes\nWHERE data_referencia BETWEEN :date_from AND :date_to\nGROUP BY 1\nORDER BY 1` },
-];
+// ─── SyncNektButton ───────────────────────────────────────────────────────────
 
-function NektExplorerTab({ onSpendingChange }: { onSpendingChange: (s: DailySpending[]) => void }) {
-  const [sql, setSql] = useState(NEKT_PRESET_QUERIES[0].sql);
-  const [queryStatus, setQueryStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [queryResult, setQueryResult] = useState<{ columns: string[]; rows: Record<string, string | number | null>[] } | null>(null);
-  const [queryError, setQueryError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
-  const [syncResult, setSyncResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
-  const [syncError, setSyncError] = useState<string | null>(null);
-  const [syncFrom, setSyncFrom] = useState("");
-  const [syncTo, setSyncTo] = useState("");
-
-  const runQuery = async () => {
-    setQueryStatus("loading"); setQueryError(null); setQueryResult(null);
-    try {
-      const res = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql }) });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Erro ao consultar Nekt");
-      setQueryResult(data); setQueryStatus("done");
-    } catch (err) { setQueryError(err instanceof Error ? err.message : String(err)); setQueryStatus("error"); }
-  };
+function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }) {
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [result, setResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
 
   const handleSync = async () => {
-    setSyncStatus("loading"); setSyncResult(null); setSyncError(null);
+    setStatus("loading"); setResult(null);
     try {
-      const body: Record<string, string> = {};
-      if (syncFrom) body.dateFrom = syncFrom;
-      if (syncTo) body.dateTo = syncTo;
-      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      if (!res.ok) throw new Error();
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || data.error || "Erro");
-      setSyncResult(data); setSyncStatus("done");
-      const fresh = await fetch("/api/hospedes-analise/spending").then((r) => r.json());
-      onSpendingChange(fresh);
-      setTimeout(() => setSyncStatus("idle"), 6000);
-    } catch (err) { setSyncError(err instanceof Error ? err.message : String(err)); setSyncStatus("error"); setTimeout(() => setSyncStatus("idle"), 5000); }
+      setResult(data); setStatus("done");
+      const fresh = await apiGetSpending();
+      onSynced(fresh);
+      setTimeout(() => setStatus("idle"), 6000);
+    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 5000); }
   };
 
-  const labelS: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 4 };
-  const inputS: React.CSSProperties = { padding: "7px 10px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 13, background: "#fff" };
+  const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
+  const bg = status === "done" ? "#ECFDF5" : status === "error" ? "#FEF2F2" : "#EBF2FF";
+  const border = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ background: "#00143D", borderRadius: 16, padding: "24px 28px", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(0,85,255,0.12), transparent)" }} />
-        <div style={{ position: "relative" }}>
-          <div style={{ width: 40, height: 3, background: "#0055FF", borderRadius: 2, marginBottom: 12 }} />
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Nekt Explorer</h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 12, marginTop: 4 }}>Explore as tabelas do hub de marketing e configure a sincronização automática de gastos</p>
-        </div>
-      </div>
-
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 4 }}>Sincronização automática de gastos</p>
-        <p style={{ fontSize: 12, color: "#7C7C7C", marginBottom: 16 }}>Cron ativo: todo dia às <strong>8h BRT</strong> (11h UTC) chama <code style={{ fontFamily: "monospace", background: "#F0F3FA", padding: "1px 5px", borderRadius: 4, fontSize: 11 }}>/api/hospedes-analise/sync-nekt-spending</code>. Busca os últimos 30 dias e preenche a tabela de gastos automaticamente.</p>
-        <div style={{ padding: 14, background: "#ECFDF5", borderRadius: 8, borderLeft: "3px solid #10B981", marginBottom: 16 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: "#065F46", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>✓ Sincronização ativa</p>
-          <p style={{ fontSize: 12, color: "#065F46", margin: 0 }}>Busca Google Ads (<code style={{ fontFamily: "monospace", background: "#D1FAE5", padding: "1px 5px", borderRadius: 4 }}>[SZH] Vistas</code>) e Meta Ads (<code style={{ fontFamily: "monospace", background: "#D1FAE5", padding: "1px 5px", borderRadius: 4 }}>[SH] Vista</code>) automaticamente. TikTok deve ser preenchido manualmente.</p>
-        </div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div><label style={labelS}>De (opcional)</label><input type="date" value={syncFrom} onChange={(e) => setSyncFrom(e.target.value)} style={inputS} /></div>
-          <div><label style={labelS}>Até (opcional)</label><input type="date" value={syncTo} onChange={(e) => setSyncTo(e.target.value)} style={inputS} /></div>
-          <button onClick={handleSync} disabled={syncStatus === "loading"} style={{ padding: "8px 16px", borderRadius: 8, border: `1.5px solid ${syncStatus === "done" ? "#10B981" : syncStatus === "error" ? "#FC6058" : "#0055FF"}`, background: syncStatus === "done" ? "#ECFDF5" : syncStatus === "error" ? "#FEF2F2" : "#EBF2FF", color: syncStatus === "done" ? "#10B981" : syncStatus === "error" ? "#FC6058" : "#0055FF", fontWeight: 600, fontSize: 12, cursor: syncStatus === "loading" ? "default" : "pointer", whiteSpace: "nowrap" }}>
-            {syncStatus === "loading" ? "⏳ Sincronizando..." : syncStatus === "done" ? "✓ Sincronizado!" : syncStatus === "error" ? "❌ Erro" : "🔄 Sincronizar agora"}
-          </button>
-          {syncResult && <span style={{ fontSize: 11, color: "#10B981" }}>{syncResult.synced} dias importados · {syncResult.dateFrom} → {syncResult.dateTo}</span>}
-        </div>
-        {syncError && <div style={{ marginTop: 10, padding: "10px 14px", background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}><p style={{ fontSize: 12, color: "#DC2626", fontFamily: "monospace" }}>{syncError}</p></div>}
-      </div>
-
-      <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 12 }}>Consultar Nekt</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
-          {NEKT_PRESET_QUERIES.map((p) => (<button key={p.label} onClick={() => { setSql(p.sql); setQueryStatus("idle"); setQueryResult(null); setQueryError(null); }} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${sql === p.sql ? "#0055FF" : "#E8EEF8"}`, background: sql === p.sql ? "#EBF2FF" : "#F8FAFF", color: sql === p.sql ? "#0055FF" : "#7C7C7C", fontSize: 11, fontWeight: sql === p.sql ? 600 : 400, cursor: "pointer" }}>{p.label}</button>))}
-        </div>
-        <textarea value={sql} onChange={(e) => { setSql(e.target.value); setQueryStatus("idle"); }} style={{ width: "100%", height: 160, padding: "10px 12px", borderRadius: 8, border: "1px solid #E8EEF8", fontFamily: "monospace", fontSize: 12, background: "#F8FAFF", color: "#00143D", resize: "vertical", boxSizing: "border-box" }} placeholder="SELECT * FROM tabela LIMIT 10" spellCheck={false} />
-        <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
-          <button onClick={runQuery} disabled={queryStatus === "loading" || !sql.trim()} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: !sql.trim() || queryStatus === "loading" ? "#E8EEF8" : "#0055FF", color: !sql.trim() || queryStatus === "loading" ? "#7C7C7C" : "#fff", fontWeight: 700, fontSize: 13, cursor: !sql.trim() || queryStatus === "loading" ? "default" : "pointer" }}>
-            {queryStatus === "loading" ? "Executando..." : "Executar query"}
-          </button>
-          {queryStatus === "done" && queryResult && <span style={{ fontSize: 12, color: "#10B981" }}>✓ {queryResult.rows.length} linha(s)</span>}
-        </div>
-        {queryStatus === "error" && queryError && <div style={{ marginTop: 12, padding: 12, background: "#FEF2F2", borderRadius: 8, border: "1px solid #FECACA" }}><p style={{ fontSize: 12, color: "#DC2626", fontFamily: "monospace", whiteSpace: "pre-wrap" }}>{queryError}</p></div>}
-        {queryStatus === "done" && queryResult && queryResult.rows.length > 0 && (
-          <div style={{ marginTop: 16, overflowX: "auto", border: "1px solid #E8EEF8", borderRadius: 8 }}>
-            <p style={{ fontSize: 11, color: "#7C7C7C", padding: "6px 12px", borderBottom: "1px solid #F0F3FA" }}>Colunas: <strong>{queryResult.columns.join(", ")}</strong></p>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead><tr>{queryResult.columns.map((col) => <th key={col} style={{ padding: "7px 12px", textAlign: "left", fontWeight: 600, color: "#7C7C7C", background: "#F8FAFF", borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{col}</th>)}</tr></thead>
-              <tbody>{queryResult.rows.slice(0, 100).map((row, i) => <tr key={i} style={{ borderBottom: "1px solid #F0F3FA" }}>{queryResult.columns.map((col) => <td key={col} style={{ padding: "6px 12px", color: "#00143D", whiteSpace: "nowrap", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis" }}>{row[col] === null ? <span style={{ color: "#ccc" }}>null</span> : String(row[col])}</td>)}</tr>)}</tbody>
-            </table>
-            {queryResult.rows.length > 100 && <p style={{ padding: "8px 12px", fontSize: 11, color: "#7C7C7C", borderTop: "1px solid #F0F3FA" }}>Mostrando 100 de {queryResult.rows.length} linhas.</p>}
-          </div>
-        )}
-        {queryStatus === "done" && queryResult && queryResult.rows.length === 0 && <p style={{ marginTop: 12, fontSize: 12, color: "#7C7C7C" }}>Query executada sem resultados.</p>}
-      </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt"}
+      </button>
+      {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.synced} dias · {result.dateFrom} → {result.dateTo}</span>}
     </div>
   );
 }
@@ -1217,7 +1183,7 @@ function ImportModal({ onImported }: { onImported: (records: DailyRecord[], spen
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnaliseMidiaPagaHospedesPage() {
-  const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos" | "nekt">("resultados");
+  const [tab, setTab] = useState<"resultados" | "preenchimento" | "tabela" | "destinos">("resultados");
   const [records, setRecords] = useState<DailyRecord[]>([]);
   const [spending, setSpending] = useState<DailySpending[]>([]);
   const [formulaConfig, setFormulaConfig] = useState<FormulaConfig>(DEFAULT_FORMULA_CONFIG);
@@ -1229,12 +1195,11 @@ export default function AnaliseMidiaPagaHospedesPage() {
     });
   }, []);
 
-  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos" | "nekt"; label: string; emoji: string }[] = [
+  const tabs: { id: "resultados" | "preenchimento" | "tabela" | "destinos"; label: string; emoji: string }[] = [
     { id: "resultados", label: "Resultados", emoji: "📈" },
     { id: "preenchimento", label: "Preenchimento", emoji: "📝" },
     { id: "tabela", label: "Tabela KPIs", emoji: "📋" },
     { id: "destinos", label: "Destinos", emoji: "📍" },
-    { id: "nekt", label: "Nekt", emoji: "🔍" },
   ];
 
   return (
@@ -1248,6 +1213,7 @@ export default function AnaliseMidiaPagaHospedesPage() {
         {!loading && (
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <SyncMetabaseButton onSynced={(r) => setRecords(r)} />
+            <SyncNektButton onSynced={(s) => setSpending(s)} />
             <ImportModal onImported={(r, s) => { setRecords(r); setSpending(s); }} />
           </div>
         )}
@@ -1268,7 +1234,6 @@ export default function AnaliseMidiaPagaHospedesPage() {
         {tab === "preenchimento" && <PreenchimentoTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "tabela" && <TabelaTab records={records} spending={spending} onRecordsChange={setRecords} onSpendingChange={setSpending} />}
         {tab === "destinos" && <DestinosTab records={records} />}
-        {tab === "nekt" && <NektExplorerTab onSpendingChange={setSpending} />}
       </>)}
     </div>
   );

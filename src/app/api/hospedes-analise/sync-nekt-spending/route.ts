@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { queryNekt } from "@/lib/nekt";
 import { getSpending, saveSpending } from "@/lib/hospedes-analise-db";
+import { exportSpendingToFile } from "@/lib/hospedes-analise-backup";
 import type { DailySpending } from "@/lib/hospedes-analise-db";
 
 export const maxDuration = 60;
@@ -45,18 +46,15 @@ async function runSync(dateFrom: string, dateTo: string) {
 
   const { rows } = nektResult;
 
-  // Busca entradas existentes antes de montar os novos registros
-  const existing = await getSpending();
-
   const synced: DailySpending[] = rows
     .filter((r) => r.date)
     .map((r) => {
       const date = String(r.date).slice(0, 10);
       const google = Number(r.google ?? 0);
       const meta = Number(r.meta ?? 0);
-      // Preserva tiktok da entrada nekt-sync existente para não apagar valor preenchido manualmente
-      const existingNektEntry = existing.find((e) => e.id === `nekt-sync-${date}`);
-      const tiktok = existingNektEntry?.tiktok ?? 0;
+      // Preserva o tiktok existente (manual ou não) para não apagar
+      const existingEntry = existing.find((e) => e.id === `nekt-sync-${date}`);
+      const tiktok = existingEntry?.tiktok ?? 0;
       return {
         id: `nekt-sync-${date}`,
         date,
@@ -68,11 +66,22 @@ async function runSync(dateFrom: string, dateTo: string) {
       };
     });
 
-  // Upsert: mantém tudo que não está sendo substituído por esta batch
-  const syncedIds = new Set(synced.map((s) => s.id));
-  const keepExisting = existing.filter((s) => !syncedIds.has(s.id));
+  // Sempre preserva entradas MANUAIS (que não são nekt-sync)
+  // Nekt sincroniza só as suas próprias entradas
+  const existing = await getSpending();
+  const manualEntries = existing.filter((s) => !s.id.startsWith("nekt-sync-"));
+  const otherNektEntries = existing.filter((s) => s.id.startsWith("nekt-sync-") && !synced.find((n) => n.id === s.id));
 
-  await saveSpending([...keepExisting, ...synced]);
+  await saveSpending([...manualEntries, ...otherNektEntries, ...synced]);
+
+  // Backup em arquivo
+  try {
+    const allSpending = await getSpending();
+    const backupPath = await exportSpendingToFile(allSpending);
+    console.log(`Backup salvo: ${backupPath}`);
+  } catch (e) {
+    console.error("Erro ao fazer backup:", e);
+  }
 
   return {
     ok: true as const,
@@ -82,13 +91,13 @@ async function runSync(dateFrom: string, dateTo: string) {
 
 // GET → chamado pelo cron da Vercel (todo dia às 8h BRT / 11h UTC)
 export async function GET() {
-  const result = await runSync(nDaysAgo(30), nDaysAgo(1));
+  const result = await runSync(nDaysAgo(365), nDaysAgo(1));
   return NextResponse.json(result.body, { status: result.ok ? 200 : result.status ?? 500 });
 }
 
 // POST → chamado manualmente pelo botão na UI
 export async function POST(req: NextRequest) {
-  let dateFrom = nDaysAgo(30);
+  let dateFrom = nDaysAgo(365);
   let dateTo = nDaysAgo(1);
 
   try {
