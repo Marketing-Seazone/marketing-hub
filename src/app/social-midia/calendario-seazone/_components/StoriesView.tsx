@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ExternalLink, X, Check, Pencil, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ExternalLink, X, Check, Pencil, GripVertical, MoreVertical } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { useStories, type StoryLink, type Story } from '../_hooks/useStories';
 
@@ -20,7 +20,6 @@ function displayDateStr(dateStr: string): string {
   return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
-// Modal compartilhado para adicionar e editar
 interface StoryModalProps {
   date: string;
   initial?: { name: string; links: StoryLink[] };
@@ -168,6 +167,7 @@ export function StoriesView() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [addingDate, setAddingDate] = useState<string | null>(null);
   const [editingStory, setEditingStory] = useState<Story | null>(null);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   // Drag state
   const [dragStoryId, setDragStoryId] = useState<string | null>(null);
@@ -491,21 +491,97 @@ export function StoriesView() {
                           )}
                         </div>
 
-                        {/* Editar */}
-                        <button
-                          onClick={() => setEditingStory(story)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.cinza400, padding: 4, borderRadius: 4, flexShrink: 0 }}
-                        >
-                          <Pencil size={13} />
-                        </button>
+                        {/* Menu flutuante */}
+                        <div style={{ position: 'relative', flexShrink: 0 }}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuOpenId(menuOpenId === story.id ? null : story.id);
+                            }}
+                            style={{
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              color: T.cinza400, padding: 4, borderRadius: 4,
+                              display: 'flex', alignItems: 'center',
+                            }}
+                          >
+                            <MoreVertical size={15} />
+                          </button>
 
-                        {/* Deletar */}
-                        <button
-                          onClick={() => deleteStory(story.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.cinza400, padding: 4, borderRadius: 4, flexShrink: 0 }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                          {menuOpenId === story.id && (
+                            <>
+                              {/* Overlay para fechar */}
+                              <div
+                                onClick={() => setMenuOpenId(null)}
+                                style={{ position: 'fixed', inset: 0, zIndex: 49 }}
+                              />
+                              <div style={{
+                                position: 'absolute', right: 0, top: 28, zIndex: 50,
+                                background: T.card, border: `1px solid ${T.border}`,
+                                borderRadius: 10, boxShadow: T.elevMd,
+                                minWidth: 150, overflow: 'hidden',
+                              }}>
+                                <button
+                                  onClick={() => { togglePublished(story.id, false); setMenuOpenId(null); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '9px 14px',
+                                    background: !story.published ? T.pendingBg : 'transparent',
+                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                    color: !story.published ? T.primary : T.cardFg, textAlign: 'left',
+                                  }}
+                                >
+                                  <div style={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    background: T.cinza400, flexShrink: 0,
+                                  }} />
+                                  Backlog
+                                </button>
+                                <button
+                                  onClick={() => { togglePublished(story.id, true); setMenuOpenId(null); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '9px 14px',
+                                    background: story.published ? T.statusOkBg : 'transparent',
+                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                    color: story.published ? T.statusOkFg : T.cardFg, textAlign: 'left',
+                                  }}
+                                >
+                                  <div style={{
+                                    width: 8, height: 8, borderRadius: '50%',
+                                    background: T.statusOkFg, flexShrink: 0,
+                                  }} />
+                                  Publicado
+                                </button>
+                                <div style={{ height: 1, background: T.border }} />
+                                <button
+                                  onClick={() => { setEditingStory(story); setMenuOpenId(null); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '9px 14px', background: 'transparent',
+                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                    color: T.cardFg, textAlign: 'left',
+                                  }}
+                                >
+                                  <Pencil size={13} />
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => { deleteStory(story.id); setMenuOpenId(null); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '9px 14px', background: 'transparent',
+                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                    color: T.destructive, textAlign: 'left',
+                                  }}
+                                >
+                                  <Trash2 size={13} />
+                                  Excluir
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+
                       </div>
                     </div>
                   ))}
