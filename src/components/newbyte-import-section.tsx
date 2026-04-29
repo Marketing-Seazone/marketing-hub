@@ -104,6 +104,7 @@ export default function NewbyteImportSection({
           coupon: "",
           destination: i.city,
           propertyCode: i.propertyCode,
+          reservationCode: i.reserva, // salvar o código original
         }));
         const record: DailyRecord = {
           id: uid(),
