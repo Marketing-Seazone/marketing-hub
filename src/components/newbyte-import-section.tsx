@@ -111,6 +111,7 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
       }
       setSavingStatus("done");
       onSaved?.();
+      setTimeout(() => { setSavingStatus("idle"); setStatus("idle"); setResult(null); setPastedData(""); }, 1500);
     } catch {
       setSavingStatus("idle");
     }
