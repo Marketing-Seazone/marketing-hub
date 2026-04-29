@@ -29,52 +29,52 @@ const DATA_TABS = TABS.filter(t => t.id !== "geral")
 type ColDef = { key: string; label: string; width: number; type?: string }
 
 const BASE_COLS: ColDef[] = [
-  { key: "ano",                    label: "Ano",              width: 60  },
-  { key: "mes",                    label: "Mês",              width: 95  },
-  { key: "categoria",              label: "Categoria",        width: 90,  type: "categoria" },
-  { key: "perfil",                 label: "Perfil",           width: 160 },
-  { key: "link_perfil",            label: "Link",             width: 65,  type: "link" },
-  { key: "seguidores",             label: "Seguidores",       width: 85  },
-  { key: "contato",                label: "Contato",          width: 150 },
-  { key: "status_contrato",        label: "Status",           width: 135, type: "status" },
-  { key: "valor_trabalho",         label: "Vlr Trabalho",     width: 100 },
-  { key: "valor_hospedagem",       label: "Vlr Hosp.",        width: 90  },
-  { key: "data_visita_hospedagem", label: "Data Visita",      width: 100 },
-  { key: "cupom",                  label: "Cupom",            width: 85  },
-  { key: "data_validade_cupom",    label: "Val. Cupom",       width: 95  },
-  { key: "data_contratacao",       label: "Dt Contrat.",      width: 100 },
-  { key: "data_pagamento",         label: "Dt Pgto",          width: 95  },
-  { key: "data_hora_post",         label: "Data Post",        width: 100 },
-  { key: "link_publicacao",        label: "Link Post",        width: 65,  type: "link" },
-  { key: "conversoes",             label: "Conversões",       width: 90  },
-  { key: "valor_reservas",         label: "Vlr Reservas",     width: 100 },
-  { key: "conteudo_orcado",        label: "Conteúdo Orçado",  width: 180 },
-  { key: "observacoes",            label: "Observações",      width: 180 },
+  { key: "ano",                      label: "Ano",              width: 60  },
+  { key: "mes",                      label: "Mês",              width: 95  },
+  { key: "categoria",                label: "Categoria",        width: 90,  type: "categoria" },
+  { key: "perfil",                   label: "Perfil",           width: 160 },
+  { key: "link_perfil",              label: "Link",             width: 65,  type: "link" },
+  { key: "seguidores",               label: "Seguidores",       width: 85  },
+  { key: "contato",                  label: "Contato",          width: 150 },
+  { key: "status_contrato",          label: "Status",           width: 135, type: "status" },
+  { key: "valor_trabalho",           label: "Vlr Trabalho",     width: 100 },
+  { key: "valor_hospedagem",         label: "Vlr Hosp.",        width: 90  },
+  { key: "data_visita_hospedagem",   label: "Data Visita",      width: 100 },
+  { key: "cupom",                    label: "Cupom",            width: 85  },
+  { key: "data_validade_cupom",      label: "Val. Cupom",       width: 95  },
+  { key: "data_contratacao",         label: "Dt Contrat.",      width: 100 },
+  { key: "data_pagamento",           label: "Dt Pgto",          width: 95  },
+  { key: "data_hora_post",           label: "Data Post",        width: 100 },
+  { key: "link_publicacao",          label: "Link Post",        width: 65,  type: "link" },
+  { key: "quantidade_conversoes",    label: "Conversões",       width: 90  },
+  { key: "valor_total_reservas",     label: "Vlr Reservas",     width: 100 },
+  { key: "conteudo_orcado",          label: "Conteúdo Orçado",  width: 180 },
+  { key: "observacoes",              label: "Observações",      width: 180 },
 ]
 
 const SEAZONE_COLS: ColDef[] = [
-  { key: "ano",                    label: "Ano",              width: 60  },
-  { key: "cidade",                 label: "Cidade",           width: 110 },
-  { key: "mes",                    label: "Mês",              width: 95  },
-  { key: "categoria",              label: "Categoria",        width: 90,  type: "categoria" },
-  { key: "perfil",                 label: "Perfil",           width: 160 },
-  { key: "link_perfil",            label: "Link",             width: 65,  type: "link" },
-  { key: "seguidores",             label: "Seguidores",       width: 85  },
-  { key: "contato",                label: "Contato",          width: 150 },
-  { key: "status_contrato",        label: "Status",           width: 135, type: "status" },
-  { key: "valor_trabalho",         label: "Vlr Trabalho",     width: 100 },
-  { key: "valor_hospedagem",       label: "Vlr Hosp.",        width: 90  },
-  { key: "data_visita_hospedagem", label: "Data Visita",      width: 100 },
-  { key: "cupom",                  label: "Cupom",            width: 85  },
-  { key: "data_validade_cupom",    label: "Val. Cupom",       width: 95  },
-  { key: "data_contratacao",       label: "Dt Contrat.",      width: 100 },
-  { key: "data_pagamento",         label: "Dt Pgto",          width: 95  },
-  { key: "data_hora_post",         label: "Data Post",        width: 100 },
-  { key: "link_publicacao",        label: "Link Post",        width: 65,  type: "link" },
-  { key: "conversoes",             label: "Conversões",       width: 90  },
-  { key: "valor_reservas",         label: "Vlr Reservas",     width: 100 },
-  { key: "conteudo_orcado",        label: "Conteúdo Orçado",  width: 180 },
-  { key: "observacoes",            label: "Observações",      width: 180 },
+  { key: "ano",                      label: "Ano",              width: 60  },
+  { key: "cidade",                   label: "Cidade",           width: 110 },
+  { key: "mes",                      label: "Mês",              width: 95  },
+  { key: "categoria",                label: "Categoria",        width: 90,  type: "categoria" },
+  { key: "perfil",                   label: "Perfil",           width: 160 },
+  { key: "link_perfil",              label: "Link",             width: 65,  type: "link" },
+  { key: "seguidores",               label: "Seguidores",       width: 85  },
+  { key: "contato",                  label: "Contato",          width: 150 },
+  { key: "status_contrato",          label: "Status",           width: 135, type: "status" },
+  { key: "valor_trabalho",           label: "Vlr Trabalho",     width: 100 },
+  { key: "valor_hospedagem",         label: "Vlr Hosp.",        width: 90  },
+  { key: "data_visita_hospedagem",   label: "Data Visita",      width: 100 },
+  { key: "cupom",                    label: "Cupom",            width: 85  },
+  { key: "data_validade_cupom",      label: "Val. Cupom",       width: 95  },
+  { key: "data_contratacao",         label: "Dt Contrat.",      width: 100 },
+  { key: "data_pagamento",           label: "Dt Pgto",          width: 95  },
+  { key: "data_hora_post",           label: "Data Post",        width: 100 },
+  { key: "link_publicacao",          label: "Link Post",        width: 65,  type: "link" },
+  { key: "quantidade_conversoes",    label: "Conversões",       width: 90  },
+  { key: "valor_total_reservas",     label: "Vlr Reservas",     width: 100 },
+  { key: "conteudo_orcado",          label: "Conteúdo Orçado",  width: 180 },
+  { key: "observacoes",              label: "Observações",      width: 180 },
 ]
 
 const COLS_BY_TAB: Record<string, ColDef[]> = {
@@ -212,7 +212,6 @@ function GeralTab() {
     loadAll()
   }, [])
 
-  // Fix: aplica mês atual quando os dados chegam e o mês existe nas opções
   const todosMeses = Array.from(new Set(
     Object.values(allRows).flat()
       .filter(r => filterAno === "todos" || String(r.ano) === filterAno)
@@ -433,7 +432,7 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
 
   async function addRow() {
     const payload: Record<string, null> = {}; cols.forEach(c => { payload[c.key] = null })
-    const { data } = await getSupabase().from(tableName).insert(payload).select().single()
+    const { data, error } = await getSupabase().from(tableName).insert(payload).select().single()
     if (data) {
       const newRow: InfluRow = {}
       Object.entries(data).forEach(([k, v]) => { newRow[k] = v === null ? "" : String(v) })
@@ -539,7 +538,7 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                         <button
                           onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
                           style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : "none", border: "none", borderLeft: `1px solid ${GS.headerBorder}`, cursor: "pointer", color: isFiltered || isOpen ? COR : GS.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
-                          ▾
+                          ▼
                         </button>
                         {isOpen && (
                           <ColFilterPopup
@@ -643,7 +642,7 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
         </table>
       </div>
       <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
-        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▾ para filtrar · Shift+scroll horizontal
+        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar · Shift+scroll horizontal
       </p>
     </div>
   )

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Trash2, ExternalLink, X, Check, Pencil, GripVertical, MoreVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, ExternalLink, X, Check, Pencil, GripVertical, MoreVertical, Copy } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { useStories, type StoryLink, type Story } from '../_hooks/useStories';
 
@@ -169,7 +169,6 @@ export function StoriesView() {
   const [editingStory, setEditingStory] = useState<Story | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
-  // Drag state
   const [dragStoryId, setDragStoryId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
@@ -201,7 +200,10 @@ export function StoriesView() {
     await updateStory(editingStory.id, { name, links });
   };
 
-  // Drag handlers
+  const handleDuplicateStory = async (story: Story) => {
+    await createStory({ date: story.date, name: story.name, links: story.links });
+  };
+
   const handleDragStart = (e: React.DragEvent, storyId: string) => {
     setDragStoryId(storyId);
     e.dataTransfer.effectAllowed = 'move';
@@ -283,20 +285,14 @@ export function StoriesView() {
                   onDragLeave={() => setDragOverDate(null)}
                   onDrop={(e) => dateStr && handleDrop(e, dateStr)}
                   style={{
-                    minHeight: 72,
-                    borderRadius: 10,
-                    padding: '6px 8px',
-                    cursor: 'pointer',
+                    minHeight: 72, borderRadius: 10, padding: '6px 8px', cursor: 'pointer',
                     background: isDragOver ? T.pendingBg : isSelected ? T.pendingBg : 'transparent',
                     border: isDragOver
                       ? `2px dashed ${T.primary}`
-                      : isSelected
-                        ? `2px solid ${T.primary}`
-                        : isToday
-                          ? `2px solid ${T.primary}`
-                          : '1px solid transparent',
-                    transition: 'all 0.12s',
-                    position: 'relative',
+                      : isSelected ? `2px solid ${T.primary}`
+                      : isToday ? `2px solid ${T.primary}`
+                      : '1px solid transparent',
+                    transition: 'all 0.12s', position: 'relative',
                   }}
                 >
                   <div style={{
@@ -324,8 +320,7 @@ export function StoriesView() {
                             borderRadius: 4, padding: '1px 5px',
                             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                             display: 'flex', alignItems: 'center', gap: 3,
-                            cursor: 'grab',
-                            opacity: dragStoryId === s.id ? 0.4 : 1,
+                            cursor: 'grab', opacity: dragStoryId === s.id ? 0.4 : 1,
                           }}
                         >
                           <GripVertical size={7} style={{ flexShrink: 0 }} />
@@ -440,12 +435,10 @@ export function StoriesView() {
                       }}
                     >
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                        {/* Grip */}
                         <div style={{ color: T.cinza400, paddingTop: 2, flexShrink: 0 }}>
                           <GripVertical size={14} />
                         </div>
 
-                        {/* Checkbox */}
                         <button
                           onClick={() => togglePublished(story.id, !story.published)}
                           style={{
@@ -509,7 +502,6 @@ export function StoriesView() {
 
                           {menuOpenId === story.id && (
                             <>
-                              {/* Overlay para fechar */}
                               <div
                                 onClick={() => setMenuOpenId(null)}
                                 style={{ position: 'fixed', inset: 0, zIndex: 49 }}
@@ -530,10 +522,7 @@ export function StoriesView() {
                                     color: !story.published ? T.primary : T.cardFg, textAlign: 'left',
                                   }}
                                 >
-                                  <div style={{
-                                    width: 8, height: 8, borderRadius: '50%',
-                                    background: T.cinza400, flexShrink: 0,
-                                  }} />
+                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.cinza400, flexShrink: 0 }} />
                                   Backlog
                                 </button>
                                 <button
@@ -546,13 +535,22 @@ export function StoriesView() {
                                     color: story.published ? T.statusOkFg : T.cardFg, textAlign: 'left',
                                   }}
                                 >
-                                  <div style={{
-                                    width: 8, height: 8, borderRadius: '50%',
-                                    background: T.statusOkFg, flexShrink: 0,
-                                  }} />
+                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.statusOkFg, flexShrink: 0 }} />
                                   Publicado
                                 </button>
                                 <div style={{ height: 1, background: T.border }} />
+                                <button
+                                  onClick={() => { handleDuplicateStory(story); setMenuOpenId(null); }}
+                                  style={{
+                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: '9px 14px', background: 'transparent',
+                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                    color: T.cardFg, textAlign: 'left',
+                                  }}
+                                >
+                                  <Copy size={13} />
+                                  Duplicar
+                                </button>
                                 <button
                                   onClick={() => { setEditingStory(story); setMenuOpenId(null); }}
                                   style={{
@@ -592,7 +590,6 @@ export function StoriesView() {
         })()}
       </div>
 
-      {/* Modal adicionar */}
       {addingDate && (
         <StoryModal
           mode="add"
@@ -602,7 +599,6 @@ export function StoriesView() {
         />
       )}
 
-      {/* Modal editar */}
       {editingStory && (
         <StoryModal
           mode="edit"
