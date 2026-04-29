@@ -208,7 +208,7 @@ function MonthlyRoiTable({
     const daily = buildAnalysisData(records, spending, source, "", "", config);
     const map: Record<string, {
       month: string;
-      gastoTotal: number; gastoGoogle: number; gastoMeta: number;
+      gastoTotal: number;
       fatEffTotal: number; fatSzTotal: number; cleaningTotal: number;
       fatLiquido: number; reservasTotal: number;
     }> = {};
@@ -216,11 +216,9 @@ function MonthlyRoiTable({
     for (const d of daily) {
       const month = d.date.slice(0, 7);
       if (!map[month]) {
-        map[month] = { month, gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
+        map[month] = { month, gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 };
       }
       map[month].gastoTotal += d.gastoTotal;
-      map[month].gastoGoogle += d.gastoGoogle;
-      map[month].gastoMeta += d.gastoMeta;
       map[month].fatEffTotal += d.fatEffTotal;
       map[month].fatSzTotal += d.fatSzTotal;
       map[month].cleaningTotal += d.cleaningTotal;
@@ -230,7 +228,7 @@ function MonthlyRoiTable({
 
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map((m) => {
       const roiNum = config.roiNumerador === "fat-liquido" ? m.fatLiquido : config.roiNumerador === "fat-effective" ? m.fatEffTotal : m.fatSzTotal;
-      const roiDenom = config.roiDenominador === "gasto-google" ? m.gastoGoogle : config.roiDenominador === "gasto-meta" ? m.gastoMeta : m.gastoTotal;
+      const roiDenom = config.roiDenominador === "gasto-google" ? m.gastoTotal : config.roiDenominador === "gasto-meta" ? m.gastoTotal : m.gastoTotal;
       return { ...m, roi: roiDenom > 0 ? (roiNum - roiDenom) / roiDenom : 0 };
     });
   }, [records, spending, source, config]);
@@ -240,8 +238,6 @@ function MonthlyRoiTable({
   const totals = monthlyData.reduce(
     (acc, m) => {
       acc.gastoTotal += m.gastoTotal;
-      acc.gastoGoogle += m.gastoGoogle;
-      acc.gastoMeta += m.gastoMeta;
       acc.fatEffTotal += m.fatEffTotal;
       acc.fatSzTotal += m.fatSzTotal;
       acc.cleaningTotal += m.cleaningTotal;
@@ -249,10 +245,10 @@ function MonthlyRoiTable({
       acc.reservasTotal += m.reservasTotal;
       return acc;
     },
-    { gastoTotal: 0, gastoGoogle: 0, gastoMeta: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
+    { gastoTotal: 0, fatEffTotal: 0, fatSzTotal: 0, cleaningTotal: 0, fatLiquido: 0, reservasTotal: 0 }
   );
   const totalRoiNum = config.roiNumerador === "fat-liquido" ? totals.fatLiquido : config.roiNumerador === "fat-effective" ? totals.fatEffTotal : totals.fatSzTotal;
-  const totalRoiDenom = config.roiDenominador === "gasto-google" ? totals.gastoGoogle : config.roiDenominador === "gasto-meta" ? totals.gastoMeta : totals.gastoTotal;
+  const totalRoiDenom = totals.gastoTotal;
   const totalRoi = totalRoiDenom > 0 ? (totalRoiNum - totalRoiDenom) / totalRoiDenom : 0;
 
   const fmtMonth = (m: string) => {
@@ -268,7 +264,7 @@ function MonthlyRoiTable({
     <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, overflow: "hidden" }}>
       <div style={{ padding: "16px 20px", borderBottom: "1px solid #F0F3FA", display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 4, height: 18, borderRadius: 2, background: "#0055FF" }} />
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", margin: 0 }}>ROI Mensal — Visão Consolidada</p>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", margin: 0 }}>Visão Mensal</p>
       </div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -276,12 +272,11 @@ function MonthlyRoiTable({
             <tr>
               <th style={{ ...thS, textAlign: "left" }}>Mês</th>
               <th style={thS}>Gasto Total</th>
-              <th style={thS}>Fat. Effective</th>
               <th style={thS}>Fat. Seazone</th>
-              <th style={thS}>Tx. Limpeza</th>
-              <th style={thS}>Fat. Líquido</th>
+              <th style={thS}>Fat. Effective</th>
+              <th style={thS}>Limpeza</th>
               <th style={thS}>Reservas</th>
-              <th style={{ ...thS, color: "#0055FF" }}>ROI</th>
+              <th style={{ ...thS, color: "#10B981" }}>ROI</th>
             </tr>
           </thead>
           <tbody>
@@ -289,10 +284,9 @@ function MonthlyRoiTable({
               <tr key={m.month}>
                 <td style={{ ...tdS, textAlign: "left", fontWeight: 600, color: "#00143D" }}>{fmtMonth(m.month)}</td>
                 <td style={{ ...tdS, color: "#FC6058" }}>{fmtCurrency(m.gastoTotal)}</td>
-                <td style={tdS}>{fmtCurrency(m.fatEffTotal)}</td>
                 <td style={{ ...tdS, color: "#0055FF" }}>{fmtCurrency(m.fatSzTotal)}</td>
+                <td style={tdS}>{fmtCurrency(m.fatEffTotal)}</td>
                 <td style={{ ...tdS, color: "#94A3B8" }}>{fmtCurrency(m.cleaningTotal)}</td>
-                <td style={{ ...tdS, color: "#0EA5E9" }}>{fmtCurrency(m.fatLiquido)}</td>
                 <td style={tdS}>{m.reservasTotal > 0 ? m.reservasTotal.toFixed(0) : "—"}</td>
                 <td style={{ ...tdS, fontWeight: 700, color: m.roi >= 0 ? "#10B981" : "#FC6058" }}>
                   {m.gastoTotal > 0 ? `${(m.roi * 100).toFixed(1)}%` : "—"}
@@ -304,10 +298,9 @@ function MonthlyRoiTable({
             <tr style={{ background: "#F8FAFF" }}>
               <td style={{ ...tdS, textAlign: "left", fontWeight: 700, color: "#00143D", borderTop: "2px solid #E8EEF8" }}>Total</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#FC6058", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.gastoTotal)}</td>
-              <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatEffTotal)}</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#0055FF", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatSzTotal)}</td>
+              <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatEffTotal)}</td>
               <td style={{ ...tdS, fontWeight: 700, color: "#94A3B8", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.cleaningTotal)}</td>
-              <td style={{ ...tdS, fontWeight: 700, color: "#0EA5E9", borderTop: "2px solid #E8EEF8" }}>{fmtCurrency(totals.fatLiquido)}</td>
               <td style={{ ...tdS, fontWeight: 700, borderTop: "2px solid #E8EEF8" }}>{totals.reservasTotal > 0 ? totals.reservasTotal.toFixed(0) : "—"}</td>
               <td style={{ ...tdS, fontWeight: 700, color: totalRoi >= 0 ? "#10B981" : "#FC6058", borderTop: "2px solid #E8EEF8" }}>
                 {totals.gastoTotal > 0 ? `${(totalRoi * 100).toFixed(1)}%` : "—"}
@@ -332,7 +325,6 @@ function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFo
   const [source, setSource] = useState("all");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [metrics, setMetrics] = useState<string[]>(["fatSzTotal", "reservasTotal"]);
   const [fixing, setFixing] = useState(false);
   const [fixResult, setFixResult] = useState<{ updated: number } | null>(null);
   const [draftConfig, setDraftConfig] = useState<FormulaConfig>(formulaConfig);
@@ -375,18 +367,12 @@ function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFo
     return { totalGasto, totalFatSz, totalFatEff, totalCleaning, totalFatLiquido, totalReservas, roi, custoReserva };
   }, [data, formulaConfig]);
 
-  const ALL_METRICS = [
+  const chartMetrics = [
     { key: "fatSzTotal", label: "Fat. Seazone", color: "#0055FF" },
     { key: "fatEffTotal", label: "Fat. Effective", color: "#7C3AED" },
     { key: "gastoTotal", label: "Gasto Total", color: "#FC6058" },
     { key: "reservasTotal", label: "Reservas", color: "#10B981" },
-    { key: "gastoGoogle", label: "Gasto Google", color: "#0EA5E9" },
-    { key: "gastoMeta", label: "Gasto Meta", color: "#6366F1" },
-    { key: "gastoTiktok", label: "Gasto TikTok", color: "#EC4899" },
   ];
-
-  const toggleMetric = (key: string) =>
-    setMetrics((prev) => prev.includes(key) ? prev.filter((m) => m !== key) : [...prev, key]);
 
   const chartData = data.map((d) => ({ ...d, date: fmtDate(d.date) }));
   const hasData = data.length > 0;
@@ -434,16 +420,16 @@ function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFo
       {hasData && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
           {[
-            { label: `Fat. Seazone (${(formulaConfig.szTaxa * 100).toFixed(0)}%)`, value: fmtCurrency(summary.totalFatSz), color: "#0055FF", title: "" },
-            { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED", title: "" },
-            { label: "Tx. Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8", title: "" },
-            { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9", title: "Fat. Effective - Tx. Limpeza" },
-            { label: "Gasto Total", value: fmtCurrency(summary.totalGasto), color: "#FC6058", title: "" },
-            { label: "Reservas", value: summary.totalReservas.toFixed(0), color: "#10B981", title: "" },
-            { label: "ROI", value: `${(summary.roi * 100).toFixed(1)}%`, color: summary.roi >= 0 ? "#10B981" : "#FC6058", title: "(Fat. Seazone - Gasto) / Gasto" },
-            { label: "Custo/Reserva", value: fmtCurrency(summary.custoReserva), color: "#F59E0B", title: "" },
+            { label: `Fat. Seazone (${(formulaConfig.szTaxa * 100).toFixed(0)}%)`, value: fmtCurrency(summary.totalFatSz), color: "#0055FF" },
+            { label: "Fat. Effective", value: fmtCurrency(summary.totalFatEff), color: "#7C3AED" },
+            { label: "Limpeza", value: fmtCurrency(summary.totalCleaning), color: "#94A3B8" },
+            { label: "Gasto Total", value: fmtCurrency(summary.totalGasto), color: "#FC6058" },
+            { label: "Reservas", value: summary.totalReservas.toFixed(0), color: "#10B981" },
+            { label: "ROI", value: `${(summary.roi * 100).toFixed(1)}%`, color: summary.roi >= 0 ? "#10B981" : "#FC6058" },
+            { label: "Custo/Reserva", value: fmtCurrency(summary.custoReserva), color: "#F59E0B" },
+            { label: "Fat. Líquido", value: fmtCurrency(summary.totalFatLiquido), color: "#0EA5E9" },
           ].map((kpi) => (
-            <div key={kpi.label} title={kpi.title} style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16 }}>
+            <div key={kpi.label} style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16 }}>
               <p style={{ fontSize: 11, color: "#7C7C7C", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>{kpi.label}</p>
               <p style={{ fontSize: 20, fontWeight: 700, color: kpi.color }}>{kpi.value}</p>
             </div>
@@ -452,22 +438,6 @@ function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFo
       )}
 
       {hasData && (
-        <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 16 }}>
-          <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 10 }}>Selecionar métricas no gráfico</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {ALL_METRICS.map((m) => {
-              const active = metrics.includes(m.key);
-              return (
-                <button key={m.key} onClick={() => toggleMetric(m.key)} style={{ padding: "4px 12px", borderRadius: 20, border: `1.5px solid ${active ? m.color : "#E8EEF8"}`, background: active ? `${m.color}18` : "#fff", color: active ? m.color : "#7C7C7C", fontSize: 12, fontWeight: active ? 600 : 400, cursor: "pointer" }}>
-                  {m.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {hasData && metrics.length > 0 && (
         <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
           <ResponsiveContainer width="100%" height={280}>
             <ComposedChart data={chartData} margin={{ top: 4, right: 16, left: 0, bottom: 0 }}>
@@ -476,7 +446,7 @@ function ResultadosTab({ records, spending, onRecordsChange, formulaConfig, onFo
               <YAxis tick={{ fontSize: 11, fill: "#7C7C7C" }} width={60} />
               <Tooltip contentStyle={{ background: "#00143D", border: "none", borderRadius: 10, fontSize: 12, color: "#fff" }} labelStyle={{ color: "rgba(255,255,255,0.6)" }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              {ALL_METRICS.filter((m) => metrics.includes(m.key)).map((m) => (
+              {chartMetrics.map((m) => (
                 <Bar key={m.key} dataKey={m.key} name={m.label} fill={m.color} opacity={0.85} radius={[3, 3, 0, 0]} />
               ))}
             </ComposedChart>
@@ -987,7 +957,9 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
   const [filterTo, setFilterTo] = useState("");
 
   const paidRecords = useMemo(() => {
-    let filtered = records.filter((r) => r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento");
+    let filtered = records.filter((r) =>
+      r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento" || r.type === "relatorio-newbyte"
+    );
     if (filterFrom) filtered = filtered.filter((r) => r.date >= filterFrom);
     if (filterTo) filtered = filtered.filter((r) => r.date <= filterTo);
     return filtered;
@@ -996,6 +968,12 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
   const propMap: Record<string, { reservas: number; fatSz: number }> = {};
 
   for (const r of paidRecords) {
+    // Para Newbyte, usa conversoes como quantidade de reservas
+    const isNewbyte = r.type === "relatorio-newbyte";
+    const resCount = isNewbyte
+      ? (typeof r.data.conversoes === "number" ? r.data.conversoes : r.reservations.length)
+      : r.reservations.length;
+
     for (const res of r.reservations) {
       const dest = res.destination?.trim() || "Não informado";
       if (!cityMap[dest]) cityMap[dest] = { reservas: 0, fatSz: 0 };
@@ -1004,7 +982,13 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
       if (!propMap[prop]) propMap[prop] = { reservas: 0, fatSz: 0 };
       propMap[prop].reservas += 1;
     }
-    const fatSzPerRes = r.reservations.length > 0 ? parseMoneyValue(r.data.fatSeazone) / r.reservations.length : 0;
+    if (isNewbyte && resCount > 0 && r.reservations.length === 0) {
+      // Newbyte sem detalhes mas com cidade no data
+      const dest = (r.data as any).destination?.trim() || (r.data as any).city?.trim() || "Não informado";
+      if (!cityMap[dest]) cityMap[dest] = { reservas: 0, fatSz: 0 };
+      cityMap[dest].reservas += resCount;
+    }
+    const fatSzPerRes = resCount > 0 ? parseMoneyValue(r.data.fatSeazone) / resCount : 0;
     for (const res of r.reservations) {
       const dest = res.destination?.trim() || "Não informado";
       if (cityMap[dest]) cityMap[dest].fatSz += fatSzPerRes;
@@ -1054,18 +1038,23 @@ function DestinosTab({ records }: { records: DailyRecord[] }) {
 function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<{ synced: number; dateFrom: string; dateTo: string } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setStatus("loading"); setResult(null);
+    setStatus("loading"); setResult(null); setErrorMsg(null);
     try {
       const res = await fetch("/api/hospedes-analise/sync-nekt-spending", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setResult(data); setStatus("done");
       const fresh = await apiGetSpending();
       onSynced(fresh);
       setTimeout(() => setStatus("idle"), 6000);
-    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 5000); }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro desconhecido");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 8000);
+    }
   };
 
   const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#0055FF";
@@ -1075,9 +1064,10 @@ function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button onClick={handleSync} disabled={status === "loading"} style={{ padding: "8px 14px", borderRadius: 8, border: `1.5px solid ${border}`, background: bg, color, fontWeight: 600, fontSize: 12, cursor: status === "loading" ? "default" : "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Nekt"}
+        {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? `❌ Erro` : "🔄 Sync Nekt"}
       </button>
       {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.synced} dias · {result.dateFrom} → {result.dateTo}</span>}
+      {status === "error" && errorMsg && <span title={errorMsg} style={{ fontSize: 11, color: "#FC6058", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{errorMsg.slice(0, 60)}</span>}
     </div>
   );
 }
@@ -1087,18 +1077,23 @@ function SyncNektButton({ onSynced }: { onSynced: (s: DailySpending[]) => void }
 function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) => void }) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<{ synced: number; dates: number; breakdown: { semAtendimento: number; comAtendimento: number } } | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSync = async () => {
-    setStatus("loading"); setResult(null);
+    setStatus("loading"); setResult(null); setErrorMsg(null);
     try {
       const res = await fetch("/api/hospedes-analise/sync-metabase", { method: "POST" });
-      if (!res.ok) throw new Error();
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       setResult(data); setStatus("done");
       const fresh = await apiGetRecords();
       onSynced(fresh);
       setTimeout(() => setStatus("idle"), 4000);
-    } catch { setStatus("error"); setTimeout(() => setStatus("idle"), 3000); }
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Erro desconhecido");
+      setStatus("error");
+      setTimeout(() => setStatus("idle"), 8000);
+    }
   };
 
   const color = status === "done" ? "#10B981" : status === "error" ? "#FC6058" : "#7C3AED";
@@ -1111,6 +1106,7 @@ function SyncMetabaseButton({ onSynced }: { onSynced: (records: DailyRecord[]) =
         {status === "loading" ? "⏳ Sincronizando..." : status === "done" ? "✓ Sincronizado!" : status === "error" ? "❌ Erro" : "🔄 Sync Metabase"}
       </button>
       {status === "done" && result && <span style={{ fontSize: 11, color: "#10B981" }}>{result.dates} dias · {result.breakdown.semAtendimento}s/ + {result.breakdown.comAtendimento}c/</span>}
+      {status === "error" && errorMsg && <span title={errorMsg} style={{ fontSize: 11, color: "#FC6058", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{errorMsg.slice(0, 60)}</span>}
     </div>
   );
 }

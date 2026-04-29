@@ -43,16 +43,22 @@ async function apiSaveRecord(record: DailyRecord): Promise<void> {
   });
 }
 
+async function apiGetRecords(): Promise<DailyRecord[]> {
+  const r = await fetch("/api/hospedes-analise/records");
+  return r.json();
+}
+
 export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void }) {
   const [pastedData, setPastedData] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [savingStatus, setSavingStatus] = useState<"idle" | "loading" | "done">("idle");
+  const [existingWarning, setExistingWarning] = useState<string[]>([]);
 
   const handleImport = async () => {
     if (!pastedData.trim()) return;
-    setStatus("loading"); setErrorMsg(null); setResult(null);
+    setStatus("loading"); setErrorMsg(null); setResult(null); setExistingWarning([]);
     try {
       const res = await fetch("/api/hospedes-analise/import-newbyte", {
         method: "POST",
@@ -62,6 +68,18 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao importar");
       setResult(data); setStatus("done");
+
+      // Verificar duplicatas: datas que já têm Newbyte na base
+      const existingRecords = await apiGetRecords();
+      const existingNewbyteDates = new Set<string>(
+        existingRecords.filter((r) => r.type === "relatorio-newbyte").map((r) => r.date)
+      );
+      const matched: MatchedReservation[] = data.matched as MatchedReservation[];
+      const matchedDates: string[] = [...new Set(matched.map((m) => m.date))];
+      const overlapping = matchedDates.filter((d: string) => existingNewbyteDates.has(d));
+      if (overlapping.length > 0) {
+        setExistingWarning(overlapping);
+      }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : String(err));
       setStatus("error");
@@ -82,7 +100,15 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
     if (!result?.matched.length) return;
     setSavingStatus("loading");
     try {
+      const existingRecords = await apiGetRecords();
+      const existingNewbyteDates = new Set(
+        existingRecords.filter((r) => r.type === "relatorio-newbyte").map((r) => r.date)
+      );
+
       for (const [date, items] of byDate) {
+        // Pula datas que já existem na base
+        if (existingNewbyteDates.has(date)) continue;
+
         const totalEff = items.reduce((s, i) => s + i.effectivePrice, 0);
         const totalCleaning = items.reduce((s, i) => s + i.cleaningFee, 0);
         const totalFatSz = items.reduce((s, i) => s + i.fatSeazone, 0);
@@ -110,7 +136,17 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
         await apiSaveRecord(record);
       }
       setSavingStatus("done");
+      // Recarrega os dados localmente para refletir na UI
+      const fresh = await apiGetRecords();
       onSaved?.();
+      // Mostra que terminou
+      setTimeout(() => {
+        setSavingStatus("idle");
+        setStatus("idle");
+        setResult(null);
+        setPastedData("");
+        setExistingWarning([]);
+      }, 2000);
     } catch {
       setSavingStatus("idle");
     }
@@ -127,7 +163,7 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
       </p>
       <textarea
         value={pastedData}
-        onChange={(e) => { setPastedData(e.target.value); setStatus("idle"); setResult(null); setErrorMsg(null); }}
+        onChange={(e) => { setPastedData(e.target.value); setStatus("idle"); setResult(null); setErrorMsg(null); setExistingWarning([]); }}
         placeholder={"Cole aqui os dados do Sheets...\n\nExemplo:\n15/04\tCampanha VST\tAnitápolis - SC\tVST\tR$ 530,00\tS/ CUPOM\tJG212J\tPatrick Gabriel\tLaura"}
         rows={6}
         style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #E8EEF8", fontSize: 12, fontFamily: "monospace", resize: "vertical", boxSizing: "border-box", marginBottom: 10 }}
@@ -149,6 +185,20 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
         </div>
       )}
 
+      {existingWarning.length > 0 && status === "done" && (
+        <div style={{ marginTop: 10, padding: "10px 14px", background: "#FFFBEB", borderRadius: 8, border: "1px solid #F59E0B" }}>
+          <p style={{ fontSize: 12, fontWeight: 700, color: "#92400E", margin: "0 0 4px" }}>⚠️ Datas já existem na base</p>
+          <p style={{ fontSize: 12, color: "#92400E", margin: "0 0 6px" }}>
+            As seguintes datas já têm registro Newbyte e <strong>serão ignoradas</strong> para evitar duplicatas:
+          </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {existingWarning.map((d) => (
+              <span key={d} style={{ background: "#FEF3C7", border: "1px solid #F59E0B", borderRadius: 6, padding: "2px 8px", fontSize: 11, color: "#92400E", fontFamily: "monospace" }}>{fmtDate(d)}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {status === "done" && result && (
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
@@ -167,8 +217,8 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
           </div>
 
           {result.matchedCount > 0 && (
-            <button onClick={handleSaveAll} disabled={savingStatus === "loading"} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: savingStatus === "done" ? "#10B981" : "#7C3AED", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingStatus === "loading" ? "default" : "pointer" }}>
-              {savingStatus === "loading" ? "⏳ Salvando..." : savingStatus === "done" ? "✓ Salvo! Recarregando..." : `💾 Salvar ${result.matchedCount} reserva(s) como Newbyte`}
+            <button onClick={handleSaveAll} disabled={savingStatus === "loading" || savingStatus === "done"} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: savingStatus === "done" ? "#10B981" : "#7C3AED", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingStatus === "loading" || savingStatus === "done" ? "default" : "pointer" }}>
+              {savingStatus === "loading" ? "⏳ Salvando..." : savingStatus === "done" ? "✓ Salvo!" : `💾 Salvar ${result.matchedCount} reserva(s) como Newbyte`}
             </button>
           )}
 
