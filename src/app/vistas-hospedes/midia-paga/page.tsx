@@ -762,43 +762,38 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
       )}
 
       <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 16 }}>Gastos diários de mídia</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-          <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>Data</label><input type="date" value={spDate} onChange={(e) => setSpDate(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>Google Ads (R$)</label><input type="number" placeholder="0" value={spGoogle} onChange={(e) => setSpGoogle(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>Meta Ads (R$)</label><input type="number" placeholder="0" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>TikTok Ads (R$)</label><input type="number" placeholder="0" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={fieldStyle} /></div>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 12 }}>Gastos diários de mídia</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div><input type="date" value={spDate} onChange={(e) => setSpDate(e.target.value)} placeholder="Data" style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="Google" value={spGoogle} onChange={(e) => setSpGoogle(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="Meta" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="TikTok" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
         </div>
-        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
+        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
         {spending.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 8 }}>Registros de gastos</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", marginBottom: 6 }}>{spending.length} registro(s) · Total: Google {fmtCurrency(spending.reduce((a, s) => a + s.google, 0))} | Meta {fmtCurrency(spending.reduce((a, s) => a + s.meta, 0))} | TikTok {fmtCurrency(spending.reduce((a, s) => a + s.tiktok, 0))}</p>
+            <div style={{ maxHeight: 180, overflowY: "auto", borderRadius: 8, border: "1px solid #F0F3FA" }}>
               {[...spending].sort((a, b) => b.date.localeCompare(a.date)).map((s) => (
-                <div key={s.id} style={{ padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
+                <div key={s.id} style={{ padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #F0F3FA", fontSize: 12 }}>
                   {inlineEditId === s.id ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 70 }}>{fmtDate(s.date)}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Google</span>
-                        <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Meta</span>
-                        <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>TikTok</span>
-                        <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <button onClick={() => saveInlineEdit(s)} style={{ padding: "3px 12px", borderRadius: 6, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓</button>
-                        <button onClick={() => setInlineEditId(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1", background: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: "100%" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 60 }}>{fmtDate(s.date)}</span>
+                      <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <button onClick={() => saveInlineEdit(s)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>✓</button>
+                      <button onClick={() => setInlineEditId(null)} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #CBD5E1", background: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
-                      <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
+                    <>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 60 }}>{fmtDate(s.date)}</span>
+                      <span style={{ color: "#7C7C7C" }}>{fmtCurrency(s.google)} | {fmtCurrency(s.meta)} | {fmtCurrency(s.tiktok)}</span>
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
-                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 11, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
+                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               ))}
@@ -823,7 +818,10 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
       )}
 
       {/* ── Importar Newbyte via Sheets ───────────────────────────────── */}
-      <NewbyteImportSection onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }} />
+      <NewbyteImportSection
+        onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }}
+        existingReservationCodes={records.flatMap((r) => r.reservations.map((res) => res.id))}
+      />
     </div>
   );
 }

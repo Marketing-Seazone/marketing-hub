@@ -20,12 +20,20 @@ interface PastedRow {
   fatSeazone: number;
   city: string;
   propertyCode: string;
+  originalDate?: string;
+}
+
+interface DuplicateWarning {
+  reserva: string;
+  date: string;
+  metabaseDate: string;
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const pastedData: string = body.pastedData;
+    const existingReservationCodes: string[] = body.existingReservationCodes || [];
 
     if (!pastedData?.trim()) {
       return NextResponse.json({ error: "Nenhum dado colado" }, { status: 400 });
@@ -90,35 +98,81 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Resposta do Metabase não é JSON válido" }, { status: 502 });
     }
 
-    // Build lookup map
-    const lookup = new Map<string, MetabaseRow>();
+    // Build lookup map - key by reservation code only (for date verification)
+    const lookupByCode = new Map<string, MetabaseRow>();
+    // Also build lookup by code+date (for correlation)
+    const lookupByCodeAndDate = new Map<string, MetabaseRow>();
+
     for (const row of metabaseRows) {
       if (!row.reservation_code) continue;
-      const date = String(row.payment_date).slice(0, 10);
-      const key = `${row.reservation_code}::${date}`;
-      lookup.set(key, row);
+      const metabaseDate = String(row.payment_date).slice(0, 10);
+      const keyByCode = row.reservation_code;
+      const keyByDate = `${row.reservation_code}::${metabaseDate}`;
+
+      // Keep the most recent entry per code
+      if (!lookupByCode.has(keyByCode)) {
+        lookupByCode.set(keyByCode, row);
+      }
+
+      lookupByCodeAndDate.set(keyByDate, row);
     }
 
-    // Correlate
+    // Check for duplicates and date mismatches
+    const duplicateWarnings: DuplicateWarning[] = [];
+    const dateMismatches: DuplicateWarning[] = [];
+
+    for (const item of parsed) {
+      // Check if reservation code already exists
+      if (existingReservationCodes.includes(item.reserva)) {
+        duplicateWarnings.push({
+          reserva: item.reserva,
+          date: item.date,
+          metabaseDate: lookupByCode.get(item.reserva)?.payment_date?.slice(0, 10) || item.date,
+        });
+      }
+
+      // Check if date matches Metabase
+      const metabaseRow = lookupByCode.get(item.reserva);
+      if (metabaseRow) {
+        const metabaseDate = String(metabaseRow.payment_date).slice(0, 10);
+        if (metabaseDate !== item.date) {
+          dateMismatches.push({
+            reserva: item.reserva,
+            date: item.date,
+            metabaseDate: metabaseDate,
+          });
+        }
+      }
+    }
+
+    // Correlate - use exact match first, then fallback to any date for that reservation
     const matched: PastedRow[] = [];
     const notMatched: { date: string; reserva: string }[] = [];
 
     for (const item of parsed) {
-      const key = `${item.reserva}::${item.date}`;
-      const metabaseRow = lookup.get(key);
+      // First try exact match
+      const exactKey = `${item.reserva}::${item.date}`;
+      let metabaseRow = lookupByCodeAndDate.get(exactKey);
+
+      // Fallback: use any date for this reservation
+      if (!metabaseRow) {
+        metabaseRow = lookupByCode.get(item.reserva);
+      }
 
       if (metabaseRow) {
         const eff = metabaseRow.effective_price ?? 0;
         const cleaning = metabaseRow.cleaning_fee ?? 0;
         const fatSz = (eff - cleaning) * 0.24;
+        const metabaseDate = String(metabaseRow.payment_date).slice(0, 10);
         matched.push({
-          date: item.date,
+          date: metabaseDate, // Use Metabase date
           reserva: item.reserva,
           effectivePrice: eff,
           cleaningFee: cleaning,
           fatSeazone: Math.round(fatSz * 100) / 100,
           city: metabaseRow.reservation_city ?? "",
           propertyCode: metabaseRow.property_code ?? "",
+          originalDate: item.date, // Keep original date for reference
         });
       } else {
         notMatched.push({ date: item.date, reserva: item.reserva });
@@ -131,6 +185,8 @@ export async function POST(req: Request) {
       notMatched,
       matchedCount: matched.length,
       notMatchedCount: notMatched.length,
+      duplicateWarnings,
+      dateMismatches,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
