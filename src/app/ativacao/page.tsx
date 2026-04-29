@@ -9,6 +9,13 @@ const projects = [
     emoji: "🎪",
     status: "Ativo",
   },
+  {
+    title: "Agentes de PR",
+    description: "Agência de PR com IA. Gera releases, briefings, segmentação de veículos e emails de assessoria de imprensa automaticamente.",
+    url: "https://pr-director.seazone.properties",
+    emoji: "📰",
+    status: "Ativo",
+  },
 ]
 
 export default function Page() {
@@ -82,4 +89,4 @@ export default function Page() {
       </div>
     </TeamLayout>
   )
-                }
+                     }
