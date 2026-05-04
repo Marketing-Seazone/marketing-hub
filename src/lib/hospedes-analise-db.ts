@@ -6,6 +6,7 @@ export interface ReservationDetail {
   utm: string;
   coupon: string;
   destination: string;
+  reservationCode?: string; // código original da reserva (ex: KG329J)
 }
 
 export interface DailyRecord {

@@ -11,6 +11,7 @@ interface MatchedReservation {
   fatSeazone: number;
   city: string;
   propertyCode: string;
+  originalDate?: string;
 }
 
 interface ImportResult {
@@ -19,6 +20,8 @@ interface ImportResult {
   notMatched: { date: string; reserva: string }[];
   matchedCount: number;
   notMatchedCount: number;
+  duplicateWarnings: { reserva: string; date: string; metabaseDate: string }[];
+  dateMismatches: { reserva: string; date: string; metabaseDate: string }[];
 }
 
 function uid() {
@@ -31,8 +34,10 @@ function fmtCurrency(v: number) {
 }
 
 function fmtDate(d: string) {
-  const [, m, day] = d.split("-");
-  return `${day}/${m}`;
+  if (!d) return "—";
+  const parts = d.split("-");
+  if (parts.length !== 3) return d;
+  return `${parts[2]}/${parts[1]}`;
 }
 
 async function apiSaveRecord(record: DailyRecord): Promise<void> {
@@ -43,7 +48,13 @@ async function apiSaveRecord(record: DailyRecord): Promise<void> {
   });
 }
 
-export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void }) {
+export default function NewbyteImportSection({
+  onSaved,
+  existingReservationCodes = [],
+}: {
+  onSaved?: () => void;
+  existingReservationCodes?: string[];
+}) {
   const [pastedData, setPastedData] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [result, setResult] = useState<ImportResult | null>(null);
@@ -57,7 +68,7 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
       const res = await fetch("/api/hospedes-analise/import-newbyte", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pastedData }),
+        body: JSON.stringify({ pastedData, existingReservationCodes }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erro ao importar");
@@ -93,6 +104,7 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
           coupon: "",
           destination: i.city,
           propertyCode: i.propertyCode,
+          reservationCode: i.reserva, // salvar o código original
         }));
         const record: DailyRecord = {
           id: uid(),
@@ -111,6 +123,7 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
       }
       setSavingStatus("done");
       onSaved?.();
+      setTimeout(() => { setSavingStatus("idle"); setStatus("idle"); setResult(null); setPastedData(""); }, 1500);
     } catch {
       setSavingStatus("idle");
     }
@@ -151,6 +164,59 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
 
       {status === "done" && result && (
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Avisos de duplicata */}
+          {result.duplicateWarnings && result.duplicateWarnings.length > 0 && (
+            <div style={{ background: "#FEF3C7", borderRadius: 8, padding: 12, border: "1px solid #F59E0B" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#92400E", marginBottom: 8 }}>
+                ⚠️ {result.duplicateWarnings.length} reserva(s) já existente(s)
+              </p>
+              <p style={{ fontSize: 11, color: "#92400E", marginBottom: 8 }}>
+                Os códigos abaixo já foram importados anteriormente:
+              </p>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {result.duplicateWarnings.map((d, i) => (
+                  <span key={i} style={{ background: "#fff", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontFamily: "monospace", color: "#0055FF" }}>
+                    {d.reserva}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Avisos de data diferente */}
+          {result.dateMismatches && result.dateMismatches.length > 0 && (
+            <div style={{ background: "#DBEAFE", borderRadius: 8, padding: 12, border: "1px solid #3B82F6" }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#1E40AF", marginBottom: 8 }}>
+                ℹ️ {result.dateMismatches.length} data(s) diferente(s) no Metabase
+              </p>
+              <p style={{ fontSize: 11, color: "#1E40AF", marginBottom: 8 }}>
+                A data no Metabase será usada (não a fornecida no copy/paste):
+              </p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "3px 8px", textAlign: "left", color: "#1E40AF", fontWeight: 600 }}>Reserva</th>
+                      <th style={{ padding: "3px 8px", textAlign: "center", color: "#1E40AF", fontWeight: 600 }}>Sua data</th>
+                      <th style={{ padding: "3px 8px", textAlign: "center", color: "#1E40AF", fontWeight: 600 }}>→</th>
+                      <th style={{ padding: "3px 8px", textAlign: "left", color: "#1E40AF", fontWeight: 600 }}>Data Metabase</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.dateMismatches.map((d, i) => (
+                      <tr key={i}>
+                        <td style={{ padding: "3px 8px", fontFamily: "monospace", color: "#0055FF" }}>{d.reserva}</td>
+                        <td style={{ padding: "3px 8px", textAlign: "center", color: "#DC2626" }}>{fmtDate(d.date)}</td>
+                        <td style={{ padding: "3px 8px", textAlign: "center", color: "#7C7C7C" }}>→</td>
+                        <td style={{ padding: "3px 8px", color: "#10B981", fontWeight: 600 }}>{fmtDate(d.metabaseDate)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
             <div style={{ background: "#ECFDF5", borderRadius: 8, padding: 12, textAlign: "center" }}>
               <p style={{ fontSize: 20, fontWeight: 700, color: "#10B981", margin: 0 }}>{result.matchedCount}</p>

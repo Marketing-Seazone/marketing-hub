@@ -64,6 +64,10 @@ async function apiDeleteRecord(id: string): Promise<void> {
   await fetch(`/api/hospedes-analise/records/${id}`, { method: "DELETE" });
 }
 
+async function apiDeleteReservation(recordId: string, reservationId: string): Promise<void> {
+  await fetch(`/api/hospedes-analise/records/${recordId}/reservations/${reservationId}`, { method: "DELETE" });
+}
+
 async function apiGetSpending(): Promise<DailySpending[]> {
   const r = await fetch("/api/hospedes-analise/spending");
   return r.json();
@@ -758,43 +762,38 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
       )}
 
       <div style={{ background: "#fff", border: "1px solid #E8EEF8", borderRadius: 12, padding: 20 }}>
-        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 16 }}>Gastos diários de mídia</p>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
-          <div style={{ gridColumn: "1/-1" }}><label style={labelStyle}>Data</label><input type="date" value={spDate} onChange={(e) => setSpDate(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>Google Ads (R$)</label><input type="number" placeholder="0" value={spGoogle} onChange={(e) => setSpGoogle(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>Meta Ads (R$)</label><input type="number" placeholder="0" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={fieldStyle} /></div>
-          <div><label style={labelStyle}>TikTok Ads (R$)</label><input type="number" placeholder="0" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={fieldStyle} /></div>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#00143D", marginBottom: 12 }}>Gastos diários de mídia</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+          <div><input type="date" value={spDate} onChange={(e) => setSpDate(e.target.value)} placeholder="Data" style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="Google" value={spGoogle} onChange={(e) => setSpGoogle(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="Meta" value={spMeta} onChange={(e) => setSpMeta(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
+          <div><input type="number" placeholder="TikTok" value={spTiktok} onChange={(e) => setSpTiktok(e.target.value)} style={{ ...fieldStyle, fontSize: 12, padding: "6px 8px" }} /></div>
         </div>
-        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
+        <button onClick={handleSaveSpending} disabled={spSaved} style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: spSaved ? "#10B981" : "#F59E0B", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>{spSaved ? "✓ Salvo!" : "Salvar gastos"}</button>
         {spending.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 8 }}>Registros de gastos</p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ marginTop: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: "#7C7C7C", marginBottom: 6 }}>{spending.length} registro(s) · Total: Google {fmtCurrency(spending.reduce((a, s) => a + s.google, 0))} | Meta {fmtCurrency(spending.reduce((a, s) => a + s.meta, 0))} | TikTok {fmtCurrency(spending.reduce((a, s) => a + s.tiktok, 0))}</p>
+            <div style={{ maxHeight: 180, overflowY: "auto", borderRadius: 8, border: "1px solid #F0F3FA" }}>
               {[...spending].sort((a, b) => b.date.localeCompare(a.date)).map((s) => (
-                <div key={s.id} style={{ padding: "8px 12px", background: "#F8FAFF", borderRadius: 8, fontSize: 13 }}>
+                <div key={s.id} style={{ padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid #F0F3FA", fontSize: 12 }}>
                   {inlineEditId === s.id ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 70 }}>{fmtDate(s.date)}</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Google</span>
-                        <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>Meta</span>
-                        <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <span style={{ fontSize: 11, color: "#7C7C7C" }}>TikTok</span>
-                        <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 76, padding: "3px 7px", borderRadius: 6, border: "1px solid #CBD5E1", fontSize: 12 }} />
-                        <button onClick={() => saveInlineEdit(s)} style={{ padding: "3px 12px", borderRadius: 6, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>✓</button>
-                        <button onClick={() => setInlineEditId(null)} style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1", background: "#fff", fontSize: 12, cursor: "pointer" }}>✕</button>
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: "100%" }}>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 60 }}>{fmtDate(s.date)}</span>
+                      <input type="number" value={inlineGoogle} onChange={(e) => setInlineGoogle(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <input type="number" value={inlineMeta} onChange={(e) => setInlineMeta(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <input type="number" value={inlineTiktok} onChange={(e) => setInlineTiktok(e.target.value)} style={{ width: 60, padding: "2px 5px", borderRadius: 4, border: "1px solid #CBD5E1", fontSize: 11 }} />
+                      <button onClick={() => saveInlineEdit(s)} style={{ padding: "2px 8px", borderRadius: 4, border: "none", background: "#10B981", color: "#fff", fontWeight: 700, fontSize: 11, cursor: "pointer" }}>✓</button>
+                      <button onClick={() => setInlineEditId(null)} style={{ padding: "2px 6px", borderRadius: 4, border: "1px solid #CBD5E1", background: "#fff", fontSize: 11, cursor: "pointer" }}>✕</button>
                     </div>
                   ) : (
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <span style={{ fontWeight: 600, color: "#00143D" }}>{fmtDate(s.date)}</span>
-                      <span style={{ color: "#7C7C7C" }}>Google: {fmtCurrency(s.google)} | Meta: {fmtCurrency(s.meta)} | TikTok: {fmtCurrency(s.tiktok)}</span>
+                    <>
+                      <span style={{ fontWeight: 600, color: "#00143D", minWidth: 60 }}>{fmtDate(s.date)}</span>
+                      <span style={{ color: "#7C7C7C" }}>{fmtCurrency(s.google)} | {fmtCurrency(s.meta)} | {fmtCurrency(s.tiktok)}</span>
                       <div style={{ display: "flex", gap: 4 }}>
-                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 12, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
-                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 12, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                        <button onClick={() => startInlineEdit(s)} style={{ fontSize: 11, color: "#0055FF", background: "none", border: "none", cursor: "pointer" }}>✏</button>
+                        <button onClick={() => handleDeleteSpending(s.id)} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               ))}
@@ -819,7 +818,10 @@ function PreenchimentoTab({ records, spending, onRecordsChange, onSpendingChange
       )}
 
       {/* ── Importar Newbyte via Sheets ───────────────────────────────── */}
-      <NewbyteImportSection onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }} />
+      <NewbyteImportSection
+        onSaved={async () => { const r = await apiGetRecords(); onRecordsChange(r); }}
+        existingReservationCodes={records.filter((r) => r.type === "relatorio-newbyte").flatMap((r) => r.reservations.map((res) => res.reservationCode || res.id).filter(Boolean))}
+      />
     </div>
   );
 }
@@ -847,12 +849,76 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
     a.click();
   };
 
-  type DateColumn = { date: string; sem?: DailyRecord; com?: DailyRecord; nb?: DailyRecord; spending?: { google: number; meta: number; tiktok: number; total: number }; reservations: ReservationDetail[] };
+  type ReservationItem = { res: ReservationDetail; recordId: string; type: "sem" | "com" | "nb"; reservationCode?: string };
+  type DateColumn = {
+    date: string;
+    sem?: DailyRecord;
+    com?: DailyRecord;
+    nb?: DailyRecord;
+    spending?: { google: number; meta: number; tiktok: number; total: number };
+    reservations: ReservationItem[];
+    totalReservas: number; // soma de sem + com + conversoes NB
+  };
+
+  const handleDeleteReservation = async (recordId: string, reservationId: string, type: "sem" | "com" | "nb") => {
+    if (!confirm("Excluir esta reserva?")) return;
+    if (type === "nb") {
+      // Para newbyte, precisamos decrementar as conversoes no registro
+      const nbRecord = records.find((r) => r.id === recordId);
+      if (nbRecord) {
+        const currentConversoes = Number(nbRecord.data.conversoes) || 0;
+        const updatedRecord = {
+          ...nbRecord,
+          data: { ...nbRecord.data, conversoes: Math.max(0, currentConversoes - 1) }
+        };
+        await apiSaveRecord(updatedRecord);
+        const fresh = await apiGetRecords();
+        onRecordsChange(fresh);
+      }
+    } else {
+      // Para sem/com atendimento, exclui a reserva individual
+      await apiDeleteReservation(recordId, reservationId);
+      const fresh = await apiGetRecords();
+      onRecordsChange(fresh);
+    }
+  };
 
   const columns = useMemo(() => {
     const map: Record<string, DateColumn> = {};
-    records.forEach((r) => { if (!map[r.date]) map[r.date] = { date: r.date, reservations: [] }; if (r.type === "midia-sem-atendimento") map[r.date].sem = r; else if (r.type === "midia-com-atendimento") map[r.date].com = r; else if (r.type === "relatorio-newbyte") map[r.date].nb = r; map[r.date].reservations.push(...r.reservations); });
-    spending.forEach((s) => { if (!map[s.date]) map[s.date] = { date: s.date, reservations: [] }; const ex = map[s.date].spending || { google: 0, meta: 0, tiktok: 0, total: 0 }; ex.google += s.google; ex.meta += s.meta; ex.tiktok += s.tiktok; ex.total += s.google + s.meta + s.tiktok; map[s.date].spending = ex; });
+    records.forEach((r) => {
+      if (!map[r.date]) map[r.date] = { date: r.date, reservations: [], totalReservas: 0 };
+      if (r.type === "midia-sem-atendimento") map[r.date].sem = r;
+      else if (r.type === "midia-com-atendimento") map[r.date].com = r;
+      else if (r.type === "relatorio-newbyte") map[r.date].nb = r;
+
+      if (r.type === "midia-sem-atendimento" || r.type === "midia-com-atendimento") {
+        map[r.date].reservations.push(...r.reservations.map((res) => ({
+          res,
+          recordId: r.id,
+          type: r.type === "midia-sem-atendimento" ? "sem" as const : "com" as const,
+          reservationCode: (res as any).propertyCode || res.id,
+        })));
+        map[r.date].totalReservas += r.reservations.length;
+      } else if (r.type === "relatorio-newbyte") {
+        // Newbyte: adicionar uma entrada virtual para cada conversao
+        const conversoes = Number(r.data.conversoes) || 0;
+        for (let i = 0; i < conversoes; i++) {
+          map[r.date].reservations.push({
+            res: { id: `nb-${r.id}-${i}`, source: "Newbyte", utm: "", coupon: "", destination: String(r.data.canal || "Newbyte") },
+            recordId: r.id,
+            type: "nb" as const,
+            reservationCode: `Conversão ${i + 1}`,
+          });
+        }
+        map[r.date].totalReservas += conversoes;
+      }
+    });
+    spending.forEach((s) => {
+      if (!map[s.date]) map[s.date] = { date: s.date, reservations: [], totalReservas: 0 };
+      const ex = map[s.date].spending || { google: 0, meta: 0, tiktok: 0, total: 0 };
+      ex.google += s.google; ex.meta += s.meta; ex.tiktok += s.tiktok; ex.total += s.google + s.meta + s.tiktok;
+      map[s.date].spending = ex;
+    });
     let cols = Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
     if (filterFrom) cols = cols.filter((c) => c.date >= filterFrom);
     if (filterTo) cols = cols.filter((c) => c.date <= filterTo);
@@ -927,11 +993,11 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                   <td style={tdCom}>{fmtVal(getVal(col.com, "reservas"), "number")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatEffective"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "cleaningFee"), "currency")}</td><td style={tdCom}>{fmtVal(getVal(col.com, "fatSeazone"), "currency")}</td>
                   <td style={tdNB}>{fmtVal(getVal(col.nb, "tickets"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "conversoes"), "number")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatEffective"), "currency")}</td><td style={tdNB}>{fmtVal(getVal(col.nb, "fatSeazone"), "currency")}</td>
                   <td style={tdSpend}>{fmtVal(col.spending?.google, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.meta, "currency")}</td><td style={tdSpend}>{fmtVal(col.spending?.tiktok, "currency")}</td><td style={{ ...tdSpend, fontWeight: 600 }}>{fmtVal(col.spending?.total, "currency")}</td>
-                  <td style={tdStyle}>{col.reservations.length > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.reservations.length} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
+                  <td style={tdStyle}>{col.totalReservas > 0 ? <button onClick={() => setExpandedDate(expandedDate === col.date ? null : col.date)} style={{ fontSize: 11, color: "#0055FF", background: "#EBF2FF", padding: "2px 8px", borderRadius: 4, border: "none", cursor: "pointer", fontWeight: 600 }}>{col.totalReservas} {expandedDate === col.date ? "▲" : "▼"}</button> : <span style={{ color: "#ccc" }}>—</span>}</td>
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
                 {expandedDate === col.date && col.reservations.length > 0 && (
-                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
+                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["Tipo","utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel",""].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((item, i) => { const res = item.res; const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; const typeLabel = item.type === "sem" ? "S/ atend." : item.type === "com" ? "C/ atend." : "Newbyte"; const typeColor = item.type === "sem" ? "#3B82F6" : item.type === "com" ? "#10B981" : "#7C3AED"; const typeBg = item.type === "sem" ? "#EBF2FF" : item.type === "com" ? "#ECFDF5" : "#F5F3FF"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px" }}><span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: typeBg, color: typeColor, fontWeight: 600 }}>{typeLabel}</span></td><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td><td style={{ padding: "5px 10px" }}><button onClick={() => handleDeleteReservation(item.recordId, res.id, item.type)} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}>✕</button></td></tr>); })}</tbody></table></div></td></tr>
                 )}
                 </React.Fragment>
               ))}
