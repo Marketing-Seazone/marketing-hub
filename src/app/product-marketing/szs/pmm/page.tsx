@@ -6,7 +6,7 @@ function SzsInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const subPath = searchParams.get("path") || "";
-  const iframeSrc = `https://pmm-servicos-src.vercel.app${subPath}`;
+  const iframeSrc = `https://seazone-pmm-servicos.vercel.app${subPath}`;
 
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
