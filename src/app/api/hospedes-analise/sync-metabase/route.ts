@@ -24,6 +24,7 @@ interface MetabaseRow {
   utm_campaign: string | null;
   utm_medium: string | null;
   reservation_city: string | null;
+  reservation_code: string | null;
   property_code: string | null;
   payment_method: string | null;
   days_between_payment_and_checkin: number | null;
@@ -113,14 +114,20 @@ export async function POST() {
     g.fatEffective += eff;
     g.fatSeazone += (eff - cleaning) * 0.24;
     g.cleaningFee += cleaning;
-    const reservation: ReservationDetail & { propertyCode?: string } = {
-      id: `mb-${row.property_code ?? ""}-${row.payment_date}`,
+    // ID estável: reservation_code quando disponível (único no Metabase). Fallback inclui o índice
+    // do grupo para evitar colapso de reservas distintas no mesmo property/payment_date.
+    const stableId = row.reservation_code
+      ? `mb-${row.reservation_code}`
+      : `mb-${row.property_code ?? "x"}-${row.payment_date}-${g.reservations.length}`;
+    const reservation: ReservationDetail = {
+      id: stableId,
       source: row.utm_source ?? "",
       utm: buildUtm(row),
       coupon: row.promo_code ?? "",
       destination: row.reservation_city ?? "",
+      reservationCode: row.reservation_code ?? undefined,
+      propertyCode: row.property_code ?? undefined,
     };
-    if (row.property_code) (reservation as any).propertyCode = row.property_code;
     g.reservations.push(reservation);
   }
 

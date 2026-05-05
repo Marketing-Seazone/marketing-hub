@@ -87,11 +87,12 @@ export default function NewbyteImportSection({ onSaved }: { onSaved?: () => void
         const totalCleaning = items.reduce((s, i) => s + i.cleaningFee, 0);
         const totalFatSz = items.reduce((s, i) => s + i.fatSeazone, 0);
         const reservations = items.map((i) => ({
-          id: uid(),
+          id: i.reserva ? `nb-${i.reserva}` : uid(),
           source: "newbyte",
           utm: "",
           coupon: "",
           destination: i.city,
+          reservationCode: i.reserva || undefined,
           propertyCode: i.propertyCode,
         }));
         const record: DailyRecord = {
