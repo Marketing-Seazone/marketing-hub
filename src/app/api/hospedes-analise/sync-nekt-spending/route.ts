@@ -46,13 +46,15 @@ async function runSync(dateFrom: string, dateTo: string) {
 
   const { rows } = nektResult;
 
+  // Busca entradas existentes ANTES de montar os novos registros (precisa preservar tiktok manual)
+  const existing = await getSpending();
+
   const synced: DailySpending[] = rows
     .filter((r) => r.date)
     .map((r) => {
       const date = String(r.date).slice(0, 10);
       const google = Number(r.google ?? 0);
       const meta = Number(r.meta ?? 0);
-      // Preserva o tiktok existente (manual ou não) para não apagar
       const existingEntry = existing.find((e) => e.id === `nekt-sync-${date}`);
       const tiktok = existingEntry?.tiktok ?? 0;
       return {
@@ -66,9 +68,6 @@ async function runSync(dateFrom: string, dateTo: string) {
       };
     });
 
-  // Sempre preserva entradas MANUAIS (que não são nekt-sync)
-  // Nekt sincroniza só as suas próprias entradas
-  const existing = await getSpending();
   const manualEntries = existing.filter((s) => !s.id.startsWith("nekt-sync-"));
   const otherNektEntries = existing.filter((s) => s.id.startsWith("nekt-sync-") && !synced.find((n) => n.id === s.id));
 

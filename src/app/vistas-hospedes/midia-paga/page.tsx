@@ -851,8 +851,26 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
 
   const columns = useMemo(() => {
     const map: Record<string, DateColumn> = {};
-    records.forEach((r) => { if (!map[r.date]) map[r.date] = { date: r.date, reservations: [] }; if (r.type === "midia-sem-atendimento") map[r.date].sem = r; else if (r.type === "midia-com-atendimento") map[r.date].com = r; else if (r.type === "relatorio-newbyte") map[r.date].nb = r; map[r.date].reservations.push(...r.reservations); });
+    records.forEach((r) => {
+      if (!map[r.date]) map[r.date] = { date: r.date, reservations: [] };
+      if (r.type === "midia-sem-atendimento") map[r.date].sem = r;
+      else if (r.type === "midia-com-atendimento") map[r.date].com = r;
+      else if (r.type === "relatorio-newbyte") map[r.date].nb = r;
+      map[r.date].reservations.push(...r.reservations);
+    });
     spending.forEach((s) => { if (!map[s.date]) map[s.date] = { date: s.date, reservations: [] }; const ex = map[s.date].spending || { google: 0, meta: 0, tiktok: 0, total: 0 }; ex.google += s.google; ex.meta += s.meta; ex.tiktok += s.tiktok; ex.total += s.google + s.meta + s.tiktok; map[s.date].spending = ex; });
+    // Dedupe reservations por reservationCode (mesma reserva pode vir de sem/com via Metabase
+    // E também do import-newbyte → contava 2x na coluna Det.)
+    Object.values(map).forEach((col) => {
+      const seen = new Set<string>();
+      col.reservations = col.reservations.filter((r) => {
+        const key = r.reservationCode || r.id;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    });
     let cols = Object.values(map).sort((a, b) => b.date.localeCompare(a.date));
     if (filterFrom) cols = cols.filter((c) => c.date >= filterFrom);
     if (filterTo) cols = cols.filter((c) => c.date <= filterTo);
@@ -931,7 +949,7 @@ function TabelaTab({ records, spending, onRecordsChange, onSpendingChange }: { r
                   <td style={tdStyle}><button onClick={() => { if (confirm(`Deletar todos os registros de ${fmtDate(col.date)}?`)) handleDeleteDate(col.date); }} style={{ fontSize: 11, color: "#FC6058", background: "none", border: "none", cursor: "pointer" }}>✕</button></td>
                 </tr>
                 {expandedDate === col.date && col.reservations.length > 0 && (
-                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
+                  <tr><td colSpan={19} style={{ padding: "0 0 8px 0", background: "#F8FAFF" }}><div style={{ padding: "12px 16px" }}><p style={{ fontSize: 11, fontWeight: 700, color: "#7C7C7C", textTransform: "uppercase", marginBottom: 8 }}>Reservas de {fmtDate(col.date)} ({col.reservations.length})</p><table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}><thead><tr>{["Reserva","utm_source","utm_campaign","utm_medium","promo_code","Destino","Imóvel"].map((h) => <th key={h} style={{ padding: "4px 10px", textAlign: "left", color: "#7C7C7C", fontWeight: 600, borderBottom: "1px solid #E8EEF8", whiteSpace: "nowrap" }}>{h}</th>)}</tr></thead><tbody>{col.reservations.map((res, i) => { const utmParams = Object.fromEntries((res.utm || "").split("&").filter(Boolean).map((p) => p.split("=") as [string, string])); const src = res.source || utmParams["utm_source"] || "—"; const campaign = utmParams["utm_campaign"] || "—"; const medium = utmParams["utm_medium"] || "—"; const promo = res.coupon || "—"; const dest = res.destination || "—"; const prop = (res as any).propertyCode || "—"; const resCode = res.reservationCode || "—"; return (<tr key={res.id || i} style={{ borderBottom: "1px solid #F0F3FA" }}><td style={{ padding: "5px 10px", color: "#7C3AED", fontFamily: "monospace", fontWeight: 600 }}>{resCode}</td><td style={{ padding: "5px 10px", color: "#0055FF", fontWeight: 500 }}>{src}</td><td style={{ padding: "5px 10px", color: "#00143D", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={campaign}>{campaign}</td><td style={{ padding: "5px 10px", color: "#7C7C7C" }}>{medium}</td><td style={{ padding: "5px 10px", color: "#7C3AED", fontWeight: promo !== "—" ? 600 : 400 }}>{promo}</td><td style={{ padding: "5px 10px", color: "#00143D" }}>{dest}</td><td style={{ padding: "5px 10px", color: "#7C7C7C", fontFamily: "monospace" }}>{prop}</td></tr>); })}</tbody></table></div></td></tr>
                 )}
                 </React.Fragment>
               ))}

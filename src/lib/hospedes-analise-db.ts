@@ -6,6 +6,8 @@ export interface ReservationDetail {
   utm: string;
   coupon: string;
   destination: string;
+  reservationCode?: string;
+  propertyCode?: string;
 }
 
 export interface DailyRecord {
