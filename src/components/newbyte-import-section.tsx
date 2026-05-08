@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+
+interface MatchedReservation {
 import type { DailyRecord } from "@/lib/hospedes-analise-db";
 
 interface MatchedReservation {
@@ -63,7 +65,7 @@ export default function NewbyteImportSection({
 
   const handleImport = async () => {
     if (!pastedData.trim()) return;
-    setStatus("loading"); setErrorMsg(null); setResult(null);
+    setStatus("loading"); setErrorMsg(null); setResult(null); setConfirmDuplicates(false);
     try {
       const res = await fetch("/api/hospedes-analise/import-newbyte", {
         method: "POST",
@@ -89,8 +91,16 @@ export default function NewbyteImportSection({
     return map;
   }, [result]);
 
+  const [confirmDuplicates, setConfirmDuplicates] = useState(false);
+
+  const hasDuplicates = result?.duplicateWarnings && result.duplicateWarnings.length > 0;
+
   const handleSaveAll = async () => {
     if (!result?.matched.length) return;
+    if (hasDuplicates && !confirmDuplicates) {
+      setConfirmDuplicates(true);
+      return;
+    }
     setSavingStatus("loading");
     try {
       for (const [date, items] of byDate) {
@@ -104,7 +114,7 @@ export default function NewbyteImportSection({
           coupon: "",
           destination: i.city,
           propertyCode: i.propertyCode,
-          reservationCode: i.reserva, // salvar o código original
+          reservationCode: i.reserva,
         }));
         const record: DailyRecord = {
           id: uid(),
@@ -123,7 +133,12 @@ export default function NewbyteImportSection({
       }
       setSavingStatus("done");
       onSaved?.();
-      setTimeout(() => { setSavingStatus("idle"); setStatus("idle"); setResult(null); setPastedData(""); }, 1500);
+      setTimeout(() => {
+        setSavingStatus("idle");
+        setStatus("idle");
+        setResult(null);
+        setPastedData("");
+      }, 2000);
     } catch {
       setSavingStatus("idle");
     }
@@ -233,9 +248,28 @@ export default function NewbyteImportSection({
           </div>
 
           {result.matchedCount > 0 && (
-            <button onClick={handleSaveAll} disabled={savingStatus === "loading"} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: savingStatus === "done" ? "#10B981" : "#7C3AED", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingStatus === "loading" ? "default" : "pointer" }}>
-              {savingStatus === "loading" ? "⏳ Salvando..." : savingStatus === "done" ? "✓ Salvo! Recarregando..." : `💾 Salvar ${result.matchedCount} reserva(s) como Newbyte`}
-            </button>
+            <div>
+              {hasDuplicates && !confirmDuplicates && (
+                <div style={{ background: "#FEF3C7", border: "1px solid #F59E0B", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <p style={{ fontSize: 12, color: "#92400E", marginBottom: 8, fontWeight: 600 }}>
+                    ⚠️ Essa linha que você tentou importar já foi importada anteriormente, deseja prosseguir?
+                  </p>
+                  <p style={{ fontSize: 11, color: "#92400E", marginBottom: 8 }}>
+                    {result.duplicateWarnings.length} reserva(s) duplicada(s) detectada(s):
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                    {result.duplicateWarnings.map((d, i) => (
+                      <span key={i} style={{ background: "#fff", padding: "3px 8px", borderRadius: 4, fontSize: 11, fontFamily: "monospace", color: "#0055FF" }}>
+                        {d.reserva}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <button onClick={handleSaveAll} disabled={savingStatus === "loading"} style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: savingStatus === "done" ? "#10B981" : "#7C3AED", color: "#fff", fontWeight: 700, fontSize: 13, cursor: savingStatus === "loading" ? "default" : "pointer" }}>
+                {savingStatus === "loading" ? "⏳ Salvando..." : savingStatus === "done" ? "✓ Salvo! Pronto para novo registro" : confirmDuplicates && hasDuplicates ? `💾 Prosseguir e salvar ${result.matchedCount} reserva(s)` : `💾 Salvar ${result.matchedCount} reserva(s) como Newbyte`}
+              </button>
+            </div>
           )}
 
           {result.matched.length > 0 && (
@@ -274,6 +308,9 @@ export default function NewbyteImportSection({
             <div>
               <p style={{ fontSize: 12, fontWeight: 600, color: "#7C7C7C", marginBottom: 6 }}>Não encontrados ({result.notMatched.length})</p>
               <div style={{ background: "#FFFBEB", borderRadius: 8, padding: "8px 12px" }}>
+                <p style={{ fontSize: 11, color: "#92400E", marginBottom: 8, fontWeight: 500 }}>
+                  💡 Confira no Metabase a data do pagamento da reserva. Pode ser que ela tenha sido feita um dia depois da data que o time de atendimento registrou.
+                </p>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                   <tbody>
                     {result.notMatched.map((n, i) => (
