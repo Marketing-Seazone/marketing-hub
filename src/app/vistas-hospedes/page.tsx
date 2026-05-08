@@ -1133,11 +1133,18 @@ export default function VistasHospedesPage() {
   const [days, setDays] = useState<DayData[]>([])
   const [loadingRes, setLoadingRes] = useState(true)
   const [errorRes, setErrorRes] = useState("")
+  const [dateFrom, setDateFrom] = useState<string>("")
+  const [dateTo, setDateTo] = useState<string>("")
 
-  const fetchReservas = useCallback(async () => {
+  const fetchReservas = useCallback(async (from?: string, to?: string) => {
     setLoadingRes(true); setErrorRes("")
     try {
-      const res = await fetch("/api/vistas-reservas", { cache: "no-store" })
+      const params = new URLSearchParams()
+      if (from) params.set("from", from)
+      if (to) params.set("to", to)
+      const qs = params.toString()
+      const url = `/api/vistas-reservas${qs ? `?${qs}` : ""}`
+      const res = await fetch(url, { cache: "no-store" })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Erro")
       setDays(data.days || [])
@@ -1145,6 +1152,16 @@ export default function VistasHospedesPage() {
   }, [])
 
   useEffect(() => { fetchReservas() }, [fetchReservas])
+
+  function handleApplyFilter() {
+    fetchReservas(dateFrom || undefined, dateTo || undefined)
+  }
+
+  function handleResetFilter() {
+    setDateFrom("")
+    setDateTo("")
+    fetchReservas()
+  }
 
   const today = days[days.length - 1]?.count ?? 0
   const avg30 = days.length > 0 ? (days.reduce((s, d) => s + d.count, 0) / days.length) : 0
@@ -1161,14 +1178,27 @@ export default function VistasHospedesPage() {
       </header>
       <main style={{ padding: "24px 24px 64px", maxWidth: 1100, margin: "0 auto" }}>
         <section style={{ marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 16, flexWrap: "wrap" }}>
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Metabase · Reservas Pagas</p>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: T.cardFg, margin: 0 }}>Meta de Reservas — Anitápolis</h2>
             </div>
-            <button onClick={fetchReservas} disabled={loadingRes} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 12, color: T.mutedFg, cursor: "pointer", fontFamily: T.font }}>
-              {loadingRes ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : "↻"} Atualizar
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* Filtro de período */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 11, color: T.mutedFg, fontWeight: 600 }}>De</span>
+                <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ padding: "4px 8px", fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 6, outline: "none", background: T.card, color: T.cardFg }} />
+                <span style={{ fontSize: 11, color: T.mutedFg }}>até</span>
+                <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ padding: "4px 8px", fontSize: 12, border: `1px solid ${T.border}`, borderRadius: 6, outline: "none", background: T.card, color: T.cardFg }} />
+                <button onClick={handleApplyFilter} disabled={loadingRes} style={{ padding: "4px 10px", fontSize: 12, fontWeight: 600, background: COR, color: "#fff", border: "none", borderRadius: 6, cursor: "pointer" }}>Filtrar</button>
+                {(dateFrom || dateTo) && (
+                  <button onClick={handleResetFilter} style={{ padding: "4px 10px", fontSize: 12, background: "transparent", color: T.mutedFg, border: `1px solid ${T.border}`, borderRadius: 6, cursor: "pointer" }}>Limpar</button>
+                )}
+              </div>
+              <button onClick={() => fetchReservas(dateFrom || undefined, dateTo || undefined)} disabled={loadingRes} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 12, color: T.mutedFg, cursor: "pointer", fontFamily: T.font }}>
+                {loadingRes ? <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> : <RefreshCw size={12} />} Atualizar
+              </button>
+            </div>
           </div>
           {errorRes ? (
             <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10 }}>
