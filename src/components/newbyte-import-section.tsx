@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-
-interface MatchedReservation {
 import type { DailyRecord } from "@/lib/hospedes-analise-db";
 
 interface MatchedReservation {
