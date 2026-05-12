@@ -13,14 +13,14 @@ const supabase = createClient(
 const METRIC_TOTAL = { id: '371e93e0-f0a9-403d-8ada-0da32d72b917', reference_key: 'ig:followers_count', component: 'number_v1', metrics: ['followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: [] };
 const METRIC_NEW = { id: '5d397be5-60ef-42d1-973e-919998ffb96d', reference_key: 'ig:new_followers_count', component: 'number_v1', metrics: ['new_followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: 'new_followers' };
 
-async function fetchReportei(start: string, end: string, metricId: string) {
+async function fetchReportei(start: string, end: string) {
   const resp = await fetch(`${BASE}/metrics/get-data`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ start, end, integration_id: INTEGRATION_ID, metrics: [METRIC_NEW] }),
   });
   const data = await resp.json();
-  return data?.data?.[metricId]?.values ?? null;
+  return data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
 }
 
 export async function GET() {
@@ -39,7 +39,7 @@ export async function GET() {
     const total_seguidores = dataHoje?.data?.['371e93e0-f0a9-403d-8ada-0da32d72b917']?.values ?? null;
     const ganho_hoje = dataHoje?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
 
-    // Ganho acumulado do mês
+    // Ganho acumulado do mês atual
     const respMes = await fetch(`${BASE}/metrics/get-data`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
@@ -56,16 +56,16 @@ export async function GET() {
       );
     }
 
-    // Preenche dias faltando nos últimos 30 dias
-    const data30 = new Date(); data30.setDate(data30.getDate() - 30);
-    const inicioJanela = data30.toISOString().split('T')[0];
+    // Preenche dias faltando nos últimos 90 dias
+    const data90 = new Date(); data90.setDate(data90.getDate() - 90);
+    const inicioJanela = data90.toISOString().split('T')[0];
 
     const { data: existentes } = await supabase
       .from('seguidores_historico').select('data').gte('data', inicioJanela);
 
     const datasExistentes = new Set((existentes || []).map((r: any) => r.data));
     const diasFaltando: string[] = [];
-    for (let i = 29; i >= 1; i--) {
+    for (let i = 89; i >= 1; i--) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const iso = d.toISOString().split('T')[0];
       if (!datasExistentes.has(iso)) diasFaltando.push(iso);
@@ -73,7 +73,7 @@ export async function GET() {
 
     for (const dia of diasFaltando) {
       try {
-        const ganho = await fetchReportei(dia, dia, '5d397be5-60ef-42d1-973e-919998ffb96d');
+        const ganho = await fetchReportei(dia, dia);
         if (ganho !== null) {
           await supabase.from('seguidores_historico').upsert(
             { data: dia, ganho_dia: ganho }, { onConflict: 'data' }
@@ -82,7 +82,7 @@ export async function GET() {
       } catch {}
     }
 
-    // Retorna histórico dos últimos 30 dias
+    // Retorna histórico dos últimos 90 dias
     const { data: historico } = await supabase
       .from('seguidores_historico').select('data, total_seguidores, ganho_dia')
       .gte('data', inicioJanela).order('data', { ascending: true });

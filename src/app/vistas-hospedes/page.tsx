@@ -1,5 +1,5 @@
 "use client"
-
+import { CalendarioConteudoVistas } from './_components/CalendarioConteudoVistas';
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react"
@@ -21,16 +21,6 @@ function statusColor(v: number, meta: number) {
   if (v >= meta) return "#10b981"
   if (v >= meta * 0.7) return T.statusWarn ?? "#f59e0b"
   return T.destructive ?? "#ef4444"
-}
-function getPeriodoLabel(periodo: 7 | 14 | 30 | 'mes'): string {
-  const hoje = new Date()
-  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
-  if (periodo === 'mes') {
-    const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
-    return `${fmt(ini)} – ${fmt(hoje)}`
-  }
-  const ini = new Date(); ini.setDate(hoje.getDate() - (periodo as number))
-  return `${fmt(ini)} – ${fmt(hoje)}`
 }
 
 function TextWithLinks({ text, style }: { text: string; style?: React.CSSProperties }) {
@@ -476,14 +466,9 @@ function parseValor(v: string): number {
   return isNaN(n) ? 0 : n
 }
 
-// ── Popup de filtro estilo Google Sheets ──
 function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
-  colKey: keyof InfluRow
-  label: string
-  allRows: InfluRow[]
-  active: string[]
-  onApply: (vals: string[]) => void
-  onClose: () => void
+  colKey: keyof InfluRow; label: string; allRows: InfluRow[]
+  active: string[]; onApply: (vals: string[]) => void; onClose: () => void
 }) {
   const allOpts = Array.from(new Set(allRows.map(r => r[colKey] || ''))).filter(Boolean)
   const [sortAZ, setSortAZ] = useState(true)
@@ -504,12 +489,10 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
   return (
     <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: `1px solid ${GS.border}`, borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', minWidth: 240, overflow: 'hidden' }}
       onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-      {/* Cabeçalho */}
       <div style={{ padding: '8px 12px', background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: GS.text }}>Filtrar: {label}</span>
         <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GS.textMuted, fontSize: 16, lineHeight: 1, padding: '0 2px' }}>✕</button>
       </div>
-      {/* Ordenação */}
       <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}`, display: 'flex', gap: 4 }}>
         <button onMouseDown={e => { e.preventDefault(); setSortAZ(true) }}
           style={{ flex: 1, padding: '5px 6px', fontSize: 11, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 4, background: sortAZ ? `${COR}15` : '#fff', color: sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontWeight: sortAZ ? 700 : 400 }}>
@@ -520,12 +503,10 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
           <ChevronDown size={11} /> Z → A
         </button>
       </div>
-      {/* Busca */}
       <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}` }}>
         <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder="🔍 Buscar..."
           style={{ width: '100%', padding: '5px 8px', fontSize: 11, border: `1px solid ${GS.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' as const }} />
       </div>
-      {/* Selecionar tudo */}
       <div style={{ padding: '5px 12px', borderBottom: `1px solid ${GS.border}`, background: '#fafafa' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: GS.text, fontWeight: 600 }}>
           <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }}
@@ -534,10 +515,9 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
           Selecionar tudo ({allOpts.length})
         </label>
       </div>
-      {/* Lista */}
       <div style={{ maxHeight: 180, overflowY: 'auto' }}>
         {visible.map(o => (
-          <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12, color: GS.text, transition: 'background 0.05s' }}
+          <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12, color: GS.text }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f0f4ff'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
             <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)}
@@ -547,7 +527,6 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
         ))}
         {visible.length === 0 && <p style={{ padding: '10px 12px', fontSize: 11, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
       </div>
-      {/* Footer */}
       <div style={{ padding: '8px 12px', borderTop: `1px solid ${GS.border}`, display: 'flex', gap: 6, justifyContent: 'flex-end', background: '#fafafa' }}>
         <button onMouseDown={e => { e.preventDefault(); onClose() }}
           style={{ padding: '5px 14px', fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: GS.text }}>
@@ -684,21 +663,11 @@ function InfluenciadoresSection() {
     text: '#202124', textMuted: '#5f6368', inputBorder: '#4285f4',
   }
 
-  // Altura dinâmica: mínimo 28px, ajusta ao conteúdo, máximo 80px
   const cellBase: React.CSSProperties = {
-    padding: '4px 6px',
-    minHeight: 28,
-    maxHeight: 80,
-    borderRight: `1px solid ${GS.cellBorder}`,
-    borderBottom: `1px solid ${GS.cellBorder}`,
-    fontSize: 12,
-    color: GS.text,
-    overflow: 'hidden',
-    verticalAlign: 'top',
-    cursor: 'cell',
-    wordBreak: 'break-word',
-    whiteSpace: 'pre-wrap',
-    lineHeight: '18px',
+    padding: '4px 6px', minHeight: 28, maxHeight: 80,
+    borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`,
+    fontSize: 12, color: GS.text, overflow: 'hidden', verticalAlign: 'top',
+    cursor: 'cell', wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: '18px',
   }
 
   const activeFiltersCount = Object.values(colFilters).filter(v => v && v.length > 0).length
@@ -707,7 +676,6 @@ function InfluenciadoresSection() {
 
   return (
     <div>
-      {/* Filtro período */}
       <div style={{ background: `${COR}08`, border: `1px solid ${COR}25`, borderRadius: 8, padding: '10px 14px', marginBottom: 12 }}>
         <p style={{ margin: '0 0 6px', fontSize: 10, fontWeight: 700, color: COR, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Filtrar por período</p>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -730,7 +698,6 @@ function InfluenciadoresSection() {
         </div>
       </div>
 
-      {/* KPIs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
         {[
           { label: 'Total', value: String(totalPeriodo), color: GS.text },
@@ -779,7 +746,6 @@ function InfluenciadoresSection() {
         </div>
       </div>
 
-      {/* Toolbar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: GS.headerBg, border: `1px solid ${GS.headerBorder}`, borderBottom: 'none', borderRadius: '6px 6px 0 0', flexWrap: 'wrap' }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar perfil, cupom..."
           style={{ padding: '4px 8px', fontSize: 12, border: `1px solid ${GS.headerBorder}`, borderRadius: 4, outline: 'none', background: '#fff', color: GS.text, width: 200 }} />
@@ -811,7 +777,6 @@ function InfluenciadoresSection() {
         </button>
       </div>
 
-      {/* Tabela */}
       <div ref={tableRef} style={{ overflowX: 'auto', border: `1px solid ${GS.headerBorder}`, borderRadius: '0 0 6px 6px', maxHeight: 560, overflowY: 'auto' }}>
         <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: '100%', tableLayout: 'fixed' }}>
           <colgroup>
@@ -834,21 +799,16 @@ function InfluenciadoresSection() {
                         {isFiltered && <span style={{ fontSize: 9, background: COR, color: '#fff', borderRadius: 10, padding: '1px 4px', flexShrink: 0 }}>●</span>}
                         {isSorted ? (sortDir === 'asc' ? <ChevronUp size={10} color={COR} /> : <ChevronDown size={10} color={COR} />) : <ArrowUpDown size={9} style={{ opacity: 0.25, flexShrink: 0 }} />}
                       </button>
-                      {/* Botão filtro */}
                       <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <button
-                          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
+                        <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
                           style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : 'none', border: 'none', borderLeft: `1px solid ${GS.headerBorder}`, cursor: 'pointer', color: isFiltered || isOpen ? COR : GS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-                          ▾
+                          ▼
                         </button>
                         {isOpen && (
-                          <ColFilterPopup
-                            colKey={c.key} label={c.label}
-                            allRows={rowsPeriodo}
+                          <ColFilterPopup colKey={c.key} label={c.label} allRows={rowsPeriodo}
                             active={colFilters[c.key] || []}
                             onApply={vals => setColFilters(prev => vals.length ? { ...prev, [c.key]: vals } : (({ [c.key]: _, ...rest }) => rest)(prev))}
-                            onClose={() => setOpenFilterCol(null)}
-                          />
+                            onClose={() => setOpenFilterCol(null)} />
                         )}
                       </div>
                     </div>
@@ -863,23 +823,18 @@ function InfluenciadoresSection() {
               const isAlt = i % 2 === 1
               const bg = isSelected ? GS.rowSelected : isAlt ? GS.rowAlt : '#fff'
               return (
-                <tr key={row.id}
-                  onClick={() => setSelectedRow(isSelected ? null : row.id)}
+                <tr key={row.id} onClick={() => setSelectedRow(isSelected ? null : row.id)}
                   style={{ background: bg, transition: 'background 0.05s' }}
                   onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover }}
                   onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = bg }}
                 >
-                  <td style={{ ...cellBase, width: 36, textAlign: 'center', color: GS.textMuted, fontSize: 11, cursor: 'default', whiteSpace: 'nowrap', background: bg, padding: '6px 4px' }}>
-                    {i + 1}
-                  </td>
+                  <td style={{ ...cellBase, width: 36, textAlign: 'center', color: GS.textMuted, fontSize: 11, cursor: 'default', whiteSpace: 'nowrap', background: bg, padding: '6px 4px' }}>{i + 1}</td>
                   {INFLU_COLS.map(col => {
                     const val = row[col.key] || ''
                     const isEditing = editCell?.id === row.id && editCell?.key === col.key
-
                     if (isEditing) return (
                       <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: 'top' }}>
-                        <textarea autoFocus value={editVal}
-                          onChange={e => setEditVal(e.target.value)}
+                        <textarea autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
                           onBlur={() => setTimeout(() => commitEdit(row.id, col.key, editVal), 100)}
                           onKeyDown={e => {
                             if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
@@ -889,7 +844,6 @@ function InfluenciadoresSection() {
                           style={{ width: '100%', minHeight: 28, maxHeight: 120, padding: '4px 6px', fontSize: 12, border: `2px solid ${GS.inputBorder}`, outline: 'none', background: '#fff', color: GS.text, boxSizing: 'border-box', resize: 'vertical', lineHeight: '18px', fontFamily: 'inherit' }} />
                       </td>
                     )
-
                     if (col.key === 'status') return (
                       <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
@@ -902,7 +856,6 @@ function InfluenciadoresSection() {
                         </select>
                       </td>
                     )
-
                     if (col.key === 'categoria') return (
                       <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
@@ -914,7 +867,6 @@ function InfluenciadoresSection() {
                         </select>
                       </td>
                     )
-
                     if (col.type === 'link' && val?.startsWith('http')) return (
                       <td key={col.key} style={{ ...cellBase, background: bg, textAlign: 'center', whiteSpace: 'nowrap' }}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
@@ -924,13 +876,10 @@ function InfluenciadoresSection() {
                         </a>
                       </td>
                     )
-
                     return (
                       <td key={col.key} style={{ ...cellBase, background: bg }} title={val}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
-                        {val
-                          ? <TextWithLinks text={val} style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} />
-                          : <span style={{ color: '#ccc', fontSize: 11 }}>—</span>}
+                        {val ? <TextWithLinks text={val} style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} /> : <span style={{ color: '#ccc', fontSize: 11 }}>—</span>}
                       </td>
                     )
                   })}
@@ -939,15 +888,13 @@ function InfluenciadoresSection() {
             })}
             <tr style={{ background: '#fafafa' }} onClick={addRow}>
               <td style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: 'center', color: '#ccc', cursor: 'pointer', fontSize: 16 }}>+</td>
-              {INFLU_COLS.map(c => (
-                <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: 'pointer' }} />
-              ))}
+              {INFLU_COLS.map(c => <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: 'pointer' }} />)}
             </tr>
           </tbody>
         </table>
       </div>
       <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
-        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▾ para filtrar
+        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar
       </p>
     </div>
   )
@@ -960,18 +907,47 @@ function SocialMediaSection() {
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState<7 | 14 | 30 | 'mes'>('mes')
+  const [filterMes, setFilterMes] = useState<string | null>(null)
+  const [ganhoPeriodoReportei, setGanhoPeriodoReportei] = useState<number | null>(null)
+  const [loadingGanho, setLoadingGanho] = useState(false)
   const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null)
 
   useEffect(() => {
     fetch("/api/seguidores-vistas").then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
+  // Busca ganho direto do Reportei sempre que período ou mês mudar (exceto "mês atual" que já vem da rota principal)
+  useEffect(() => {
+    if (periodo === 'mes' && !filterMes) {
+      setGanhoPeriodoReportei(null)
+      return
+    }
+    setLoadingGanho(true)
+    setGanhoPeriodoReportei(null)
+
+    let url: string
+    if (filterMes) {
+      url = `/api/seguidores-vistas-mensal?mes=${filterMes}`
+    } else {
+      const fim = new Date().toISOString().split('T')[0]
+      const ini = new Date(); ini.setDate(ini.getDate() - (periodo as number))
+      url = `/api/seguidores-vistas-mensal?start=${ini.toISOString().split('T')[0]}&end=${fim}`
+    }
+
+    fetch(url)
+      .then(r => r.json())
+      .then(d => setGanhoPeriodoReportei(d.ganho ?? null))
+      .catch(() => setGanhoPeriodoReportei(null))
+      .finally(() => setLoadingGanho(false))
+  }, [periodo, filterMes])
+
   const total = data?.total_seguidores ?? null
-  const ganhoHoje = data?.ganho_hoje ?? null
   const ganhoMes = data?.ganho_mes ?? null
+  const ganhoHoje = data?.ganho_hoje ?? null
   const historicoCompleto = data?.historico ?? []
 
   const historicoFiltrado = (() => {
+    if (filterMes) return historicoCompleto.filter(d => d.data.slice(0, 7) === filterMes)
     if (periodo === 'mes') {
       const inicioMes = new Date().toISOString().slice(0, 7) + '-01'
       return historicoCompleto.filter(d => d.data >= inicioMes)
@@ -980,14 +956,24 @@ function SocialMediaSection() {
     return historicoCompleto.filter(d => d.data >= corte.toISOString().split('T')[0])
   })()
 
+  // Ganho: sempre do Reportei — para mês atual usa ganho_mes da rota principal
   const ganhoPeriodo = (() => {
-    if (periodo === 'mes' && ganhoMes !== null) return ganhoMes
-    return historicoFiltrado.reduce((s, d) => s + (d.ganho_dia || 0), 0)
+    if (!filterMes && periodo === 'mes') return ganhoMes
+    return ganhoPeriodoReportei
+  })()
+
+  const totalSeguidoresPeriodo = (() => {
+    const ultimo = historicoFiltrado[historicoFiltrado.length - 1]
+    if (ultimo?.total_seguidores) return ultimo.total_seguidores
+    if (total === null || !ultimo?.data) return null
+    const ganhoApos = historicoCompleto
+      .filter(d => d.data > ultimo.data)
+      .reduce((s, d) => s + (d.ganho_dia || 0), 0)
+    return total - ganhoApos
   })()
 
   const faltaMeta = Math.max(0, META_MENSAL - (ganhoMes ?? 0))
   const progressoMeta = Math.min(100, ((ganhoMes ?? 0) / META_MENSAL) * 100)
-  const periodoDateRange = getPeriodoLabel(periodo)
 
   const maxGanho = Math.max(...historicoFiltrado.map(d => d.ganho_dia || 0), 1)
   const W = 680, H = 140, PL = 36, PB = 28, PT = 8, PR = 8
@@ -1001,6 +987,28 @@ function SocialMediaSection() {
     { label: 'Mês atual', val: 'mes' }, { label: '7 dias', val: 7 }, { label: '14 dias', val: 14 }, { label: '30 dias', val: 30 },
   ]
 
+  const MESES_PT: Record<string, string> = {
+    '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+    '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+    '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez',
+  }
+
+  const mesesDisponiveis = Array.from(new Set(historicoCompleto.map(d => d.data.slice(0, 7)))).sort()
+
+  const periodoLabel = (() => {
+    if (filterMes) return `${MESES_PT[filterMes.slice(5)]}/${filterMes.slice(2, 4)}`
+    if (periodo === 'mes') {
+      const hoje = new Date()
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+      const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+      return `${fmt(ini)} — ${fmt(hoje)}`
+    }
+    const hoje = new Date()
+    const ini = new Date(); ini.setDate(hoje.getDate() - (periodo as number))
+    const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
+    return `${fmt(ini)} — ${fmt(hoje)}`
+  })()
+
   return (
     <div>
       <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: "0 0 12px", borderBottom: `1px solid ${T.border}`, paddingBottom: 8 }}>Seguidores</p>
@@ -1010,7 +1018,7 @@ function SocialMediaSection() {
           { label: "Ganho Hoje", value: loading ? "—" : ganhoHoje != null ? `+${ganhoHoje.toLocaleString("pt-BR")}` : "—", color: "#10b981" },
           { label: "Meta Mensal", value: `+${META_MENSAL.toLocaleString("pt-BR")}`, color: "#f59e0b" },
           { label: "Ganho no Mês", value: loading ? "—" : ganhoMes != null ? `+${ganhoMes.toLocaleString("pt-BR")}` : "—", color: COR },
-          { label: "Falta para Meta", value: loading ? "—" : faltaMeta > 0 ? faltaMeta.toLocaleString("pt-BR") : "✔ Meta batida!", color: faltaMeta > 0 ? "#ef4444" : "#10b981" },
+          { label: "Falta para Meta", value: loading ? "—" : faltaMeta > 0 ? faltaMeta.toLocaleString("pt-BR") : "✅ Meta batida!", color: faltaMeta > 0 ? "#ef4444" : "#10b981" },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px" }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
@@ -1034,23 +1042,60 @@ function SocialMediaSection() {
       )}
 
       <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "14px 16px", marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: 0, textTransform: "uppercase", letterSpacing: "0.04em" }}>Ganho diário</p>
             {!loading && (
-              <div style={{ background: `${COR}12`, border: `1px solid ${COR}30`, borderRadius: 8, padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 11, color: T.mutedFg }}>{periodoDateRange}:</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>+{ganhoPeriodo.toLocaleString("pt-BR")}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" as const }}>
+                <div style={{ background: `${COR}12`, border: `1px solid ${COR}30`, borderRadius: 8, padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, color: T.mutedFg }}>{periodoLabel}:</span>
+                  {loadingGanho
+                    ? <Loader2 size={13} color={COR} style={{ animation: "spin 1s linear infinite" }} />
+                    : <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>
+                        {ganhoPeriodo != null ? `+${ganhoPeriodo.toLocaleString("pt-BR")}` : "—"}
+                      </span>
+                  }
+                </div>
+                {totalSeguidoresPeriodo !== null && (
+                  <div style={{ background: `${COR}08`, border: `1px solid ${COR}20`, borderRadius: 8, padding: "4px 12px", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: T.mutedFg }}>Total no período:</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>{totalSeguidoresPeriodo.toLocaleString("pt-BR")}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {periodos.map(p => (
-              <button key={String(p.val)} onClick={() => { setPeriodo(p.val); setTooltip(null) }}
-                style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: "pointer", fontFamily: T.font, border: `1px solid ${periodo === p.val ? COR : T.border}`, background: periodo === p.val ? COR : "transparent", color: periodo === p.val ? "#fff" : T.mutedFg }}>
-                {p.label}
-              </button>
-            ))}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+            {mesesDisponiveis.length > 1 && (
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {mesesDisponiveis.map(m => {
+                  const [ano, mes] = m.split('-')
+                  const label = `${MESES_PT[mes]}/${ano.slice(2)}`
+                  const ativo = filterMes === m
+                  return (
+                    <button key={m} onClick={() => { setFilterMes(ativo ? null : m); setTooltip(null) }}
+                      style={{ padding: "3px 9px", fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: "pointer", fontFamily: T.font, border: `1px solid ${ativo ? COR : T.border}`, background: ativo ? COR : "transparent", color: ativo ? "#fff" : T.mutedFg, transition: "all 0.12s" }}>
+                      {label}
+                    </button>
+                  )
+                })}
+                {filterMes && (
+                  <button onClick={() => { setFilterMes(null); setTooltip(null) }}
+                    style={{ padding: "3px 7px", fontSize: 11, borderRadius: 6, cursor: "pointer", border: `1px solid ${T.border}`, background: "transparent", color: T.mutedFg, fontFamily: T.font }}>
+                    ✕
+                  </button>
+                )}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              {periodos.map(p => (
+                <button key={String(p.val)} onClick={() => { setPeriodo(p.val); setFilterMes(null); setTooltip(null) }}
+                  style={{ padding: "4px 10px", fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: "pointer", fontFamily: T.font, border: `1px solid ${!filterMes && periodo === p.val ? COR : T.border}`, background: !filterMes && periodo === p.val ? COR : "transparent", color: !filterMes && periodo === p.val ? "#fff" : T.mutedFg }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -1088,13 +1133,9 @@ function SocialMediaSection() {
                 })}
               </g>
               {tooltip && <line x1={xs(tooltip.idx)} x2={xs(tooltip.idx)} y1={PT} y2={H - PB} stroke={COR} strokeWidth={1} strokeDasharray="3 2" opacity={0.5} />}
-              {/* Labels dos dias — sempre visíveis */}
               {historicoFiltrado.length <= 20
                 ? historicoFiltrado.map((d, i) => (
-                  <text key={d.data} x={xs(i)} y={H - 6} fontSize={9}
-                    fill={tooltip?.idx === i ? COR : T.mutedFg ?? "#888"}
-                    fontWeight={tooltip?.idx === i ? 700 : 400}
-                    textAnchor="middle">{d.data.slice(8)}</text>
+                  <text key={d.data} x={xs(i)} y={H - 6} fontSize={9} fill={tooltip?.idx === i ? COR : T.mutedFg ?? "#888"} fontWeight={tooltip?.idx === i ? 700 : 400} textAnchor="middle">{d.data.slice(8)}</text>
                 ))
                 : [0, Math.floor(n / 4), Math.floor(n / 2), Math.floor(3 * n / 4), n - 1].map(i => (
                   <text key={i} x={xs(i)} y={H - 6} fontSize={9} fill={T.mutedFg ?? "#888"} textAnchor="middle">
@@ -1103,7 +1144,6 @@ function SocialMediaSection() {
                 ))
               }
             </svg>
-
             {tooltip && (() => {
               const d = historicoFiltrado[tooltip.idx]
               const ganho = d?.ganho_dia || 0
@@ -1123,8 +1163,16 @@ function SocialMediaSection() {
           </div>
         )}
       </div>
-
-      <div style={{ marginTop: 8 }}><InfluenciadoresSection /></div>
+      <div style={{ marginTop: 28 }}>
+  <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: "0 0 12px", borderBottom: `1px solid ${T.border}`, paddingBottom: 8 }}>Influenciadores</p>
+  <InfluenciadoresSection />
+</div>
+<div style={{ marginTop: 32 }}>
+  <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: "0 0 16px", borderBottom: `1px solid ${T.border}`, paddingBottom: 8 }}>
+    Calendário de Conteúdo
+  </p>
+  <CalendarioConteudoVistas />
+</div>
     </div>
   )
 }
@@ -1172,7 +1220,7 @@ export default function VistasHospedesPage() {
           </div>
           {errorRes ? (
             <div style={{ display: "flex", gap: 8, padding: "12px 16px", background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10 }}>
-              <span style={{ fontSize: 13, color: T.mutedFg }}>⚙️ Dados de reservas não disponíveis no ambiente local.</span>
+              <span style={{ fontSize: 13, color: T.mutedFg }}>⚠️ Dados de reservas não disponíveis no ambiente local.</span>
             </div>
           ) : (
             <>
@@ -1181,7 +1229,7 @@ export default function VistasHospedesPage() {
                   { label: "Hoje", value: loadingRes ? "—" : String(today), color: statusColor(today, META_DIA) },
                   { label: "Média 30 dias", value: loadingRes ? "—" : fmt2(avg30r), color: statusColor(avg30r, META_DIA) },
                   { label: "Meta diária", value: String(META_DIA), color: "#10b981" },
-                  { label: "Status", value: loadingRes ? "—" : avg30r >= META_DIA ? "✓ Acima da meta" : "Abaixo da meta", color: statusColor(avg30r, META_DIA) },
+                  { label: "Status", value: loadingRes ? "—" : avg30r >= META_DIA ? "✔ Acima da meta" : "Abaixo da meta", color: statusColor(avg30r, META_DIA) },
                 ].map(kpi => (
                   <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", boxShadow: T.elevSm }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
