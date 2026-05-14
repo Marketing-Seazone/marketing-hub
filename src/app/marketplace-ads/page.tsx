@@ -59,7 +59,7 @@ export default function MarketplaceAdsPage() {
     setLoading(true)
     setError("")
     try {
-      const sql = `SELECT ad_name, ad_id, campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(clicks) AS cliques, SUM(lead) AS leads, SUM(mql) AS mql FROM nekt_silver.ads_unificado WHERE vertical = 'Marketplace' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY ad_name, ad_id, campaign_name ORDER BY investimento DESC`
+      const sql = `SELECT ad_name, ad_id, campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(clicks) AS cliques, SUM(lead) AS leads, SUM(mql) AS mql FROM nekt_operacional_silver.ads_unificado WHERE vertical = 'Marketplace' AND date >= '${dataInicio}' AND date <= '${dataFim}' GROUP BY ad_name, ad_id, campaign_name ORDER BY investimento DESC`
       const res = await fetch("/api/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

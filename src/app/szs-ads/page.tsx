@@ -82,10 +82,10 @@ export default function SzsAdsPage() {
     // vertical IN ('Serviços', 'Servicos', 'SZS') — cobre variantes do valor na Nekt
     // somenteAtivos: filtra por ad_id/campaign_name que tiveram spend nos últimos 7 dias
     const ativoAdFilter = somenteAtivos
-      ? `AND ad_id IN (SELECT DISTINCT ad_id FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
+      ? `AND ad_id IN (SELECT DISTINCT ad_id FROM nekt_operacional_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
       : ""
     const ativoCampFilter = somenteAtivos
-      ? `AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
+      ? `AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_operacional_silver.ads_unificado WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= CURRENT_DATE - INTERVAL '7' DAY AND spend > 0)`
       : ""
 
     async function fetchData() {
@@ -97,14 +97,14 @@ export default function SzsAdsPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado_historico WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoAdFilter} GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
+              sql: `SELECT ad_name, ad_id, campaign_name, adset_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_operacional_silver.ads_unificado_historico WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoAdFilter} GROUP BY ad_name, ad_id, campaign_name, adset_name ORDER BY investimento DESC`,
             }),
           }),
           fetch("/api/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_silver.ads_unificado_historico WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoCampFilter} GROUP BY campaign_name ORDER BY investimento DESC`,
+              sql: `SELECT campaign_name, SUM(spend) AS investimento, SUM(impressions) AS impressoes, SUM(lead) AS leads, SUM(mql) AS mql, SUM(won) AS won FROM nekt_operacional_silver.ads_unificado_historico WHERE vertical IN ('Serviços', 'Servicos', 'SZS') AND date >= DATE '${dataInicio}' AND date <= DATE '${dataFim}' ${ativoCampFilter} GROUP BY campaign_name ORDER BY investimento DESC`,
             }),
           }),
         ])

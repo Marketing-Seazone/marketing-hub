@@ -305,7 +305,7 @@ async function fetchBenchmarks(): Promise<Benchmarks> {
       ROUND(SUM(spend) / NULLIF(SUM(won), 0), 2) AS cac_medio,
       ROUND(CAST(SUM(mql) AS DOUBLE) / NULLIF(SUM(lead), 0) * 100, 1) AS tx_mql,
       COUNT(DISTINCT ad_id) AS total_criativos
-    FROM nekt_silver.ads_unificado_historico
+    FROM nekt_operacional_silver.ads_unificado_historico
     WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
       AND date >= CURRENT_DATE - INTERVAL '180' DAY
   `)
@@ -330,7 +330,7 @@ async function fetchTrends(topAdIds: string[]): Promise<TrendRow[]> {
       DATE_TRUNC('week', date) AS semana,
       SUM(spend) AS spend,
       SUM(lead) AS leads
-    FROM nekt_silver.ads_unificado_historico
+    FROM nekt_operacional_silver.ads_unificado_historico
     WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
       AND ad_id IN (${idsStr})
       AND date >= CURRENT_DATE - INTERVAL '56' DAY

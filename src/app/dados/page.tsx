@@ -9,7 +9,7 @@ import { T } from "@/lib/constants"
 
 const TABLES = [
   {
-    name: "nekt_silver.ads_unificado",
+    name: "nekt_operacional_silver.ads_unificado",
     label: "Ads Unificado",
     description: "Dados diários de performance de anúncios (Meta). Uma linha por anúncio por dia.",
     color: T.primary,
@@ -41,7 +41,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.deals_pipedrive_join_marketing",
+    name: "nekt_operacional_silver.deals_pipedrive_join_marketing",
     label: "Deals Pipedrive × Marketing",
     description: "Deals do Pipedrive com atribuição de campanha de marketing. Fonte principal para funil e WON.",
     color: T.verde600,
@@ -61,7 +61,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.ads_unificado_historico",
+    name: "nekt_operacional_silver.ads_unificado_historico",
     label: "Ads Unificado — Histórico completo",
     description: "Igual ao Ads Unificado, mas sem limite de janela de datas. Usar quando precisar de análises além de 90 dias.",
     color: T.indigo600,
@@ -93,7 +93,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.pipedrive_deals_readable",
+    name: "nekt_operacional_silver.pipedrive_deals_readable",
     label: "Pipedrive Deals — Fonte principal",
     description: "Deals do Pipedrive com atribuição correta via rd_campanha. Preferir esta sobre deals_pipedrive_join_marketing — sem duplicatas, pipelines separados por vertical.",
     color: T.teal600,
@@ -112,7 +112,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",
+    name: "nekt_operacional_silver.funil_szi_pago_mql_sql_opp_won_lovable",
     label: "Funil SZI (Investimentos)",
     description: "Funil pré-agregado de mídia paga para o vertical de Investimentos (Seazone Investimentos).",
     color: T.laranja500,
@@ -125,7 +125,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable",
+    name: "nekt_operacional_silver.funil_mktp_pago_mql_sql_opp_won_lovable",
     label: "Funil Marketplace",
     description: "Funil pré-agregado de mídia paga para o vertical de Marketplace.",
     color: T.teal600,
@@ -138,7 +138,7 @@ const TABLES = [
     ],
   },
   {
-    name: "nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable",
+    name: "nekt_operacional_silver.funil_szs_pago_mql_sql_opp_won_lovable",
     label: "Funil SZS (Serviços)",
     description: "Funil pré-agregado de mídia paga para o vertical de Serviços (Seazone Serviços).",
     color: T.roxo600,
@@ -156,7 +156,7 @@ const EXAMPLE_QUERIES = [
   {
     label: "Top campanhas por spend (últimos 30 dias)",
     sql: `SELECT campaign_name, SUM(spend) AS spend, SUM(lead) AS leads, SUM(mql) AS mql
-FROM nekt_silver.ads_unificado
+FROM nekt_operacional_silver.ads_unificado
 WHERE date >= CURRENT_DATE - INTERVAL '30' DAY
 GROUP BY 1
 ORDER BY spend DESC
@@ -168,7 +168,7 @@ LIMIT 20`,
   SELECT
     SPLIT_PART(rd_campanha, '_', 1) AS ad_id,
     COUNT(*)                         AS won
-  FROM nekt_silver.pipedrive_deals_readable
+  FROM nekt_operacional_silver.pipedrive_deals_readable
   WHERE pipeline_id = 14
     AND status = 'won'
     AND rd_campanha IS NOT NULL AND rd_campanha != ''
@@ -180,7 +180,7 @@ meta AS (
     MAX(ad_name)       AS ad_name,
     MAX(campaign_name) AS campaign_name,
     SUM(spend)         AS spend
-  FROM nekt_silver.ads_unificado_historico
+  FROM nekt_operacional_silver.ads_unificado_historico
   WHERE vertical IN ('Serviços', 'Servicos', 'SZS')
   GROUP BY 1
 )
@@ -196,7 +196,7 @@ LIMIT 50`,
   {
     label: "Deals WON com campanha (últimos 90 dias)",
     sql: `SELECT rd_campanha, COUNT(DISTINCT id) AS won, SUM(value) AS receita
-FROM nekt_silver.deals_pipedrive_join_marketing
+FROM nekt_operacional_silver.deals_pipedrive_join_marketing
 WHERE status = 'won'
   AND DATE(ganho_em) >= CURRENT_DATE - INTERVAL '90' DAY
 GROUP BY 1
@@ -205,7 +205,7 @@ ORDER BY won DESC`,
   {
     label: "Funil SZI — últimos 30 dias",
     sql: `SELECT data, mql_szi, sql_szi, opp_szi, won_szi
-FROM nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable
+FROM nekt_operacional_silver.funil_szi_pago_mql_sql_opp_won_lovable
 WHERE data >= CURRENT_DATE - INTERVAL '30' DAY
 ORDER BY data DESC`,
   },
@@ -584,7 +584,7 @@ export default function DadosPage() {
   body: JSON.stringify({
     sql: \`
       SELECT campaign_name, SUM(spend) AS spend, SUM(mql) AS mql
-      FROM nekt_silver.ads_unificado
+      FROM nekt_operacional_silver.ads_unificado
       WHERE date >= CURRENT_DATE - INTERVAL '7' DAY
       GROUP BY 1
       ORDER BY spend DESC
@@ -604,7 +604,7 @@ const { columns, rows } = await res.json()
                   <div style={{ background: T.cinza800, color: "#e2e8f0", borderRadius: 8, padding: "12px 16px", fontFamily: "monospace", fontSize: 12, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>{`"Cria um dashboard de campanhas no time de Growth.
 Quero uma tabela com MQL e gasto por campanha dos últimos 7 dias.
 Use a rota /api/query do Marketing Hub para buscar os dados
-da tabela nekt_silver.ads_unificado."`}</div>
+da tabela nekt_operacional_silver.ads_unificado."`}</div>
                   <p style={{ fontSize: 12, color: T.mutedFg, margin: 0, lineHeight: 1.6 }}>
                     Com isso o Claude já sabe qual rota usar, qual tabela consultar e como montar o SQL — sem precisar configurar nada.
                     Use o <strong style={{ color: T.cardFg }}>Dicionário</strong> para escolher as colunas certas antes de dar o comando.
@@ -620,13 +620,13 @@ da tabela nekt_silver.ads_unificado."`}</div>
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  { name: "nekt_silver.ads_unificado",                              color: T.primary,    label: "Ads Unificado",              use: "Performance de anúncios Meta — spend, impressões, MQL, WON por anúncio/dia (últimos ~90 dias)" },
-                  { name: "nekt_silver.ads_unificado_historico",                    color: T.indigo600,  label: "Ads Unificado Histórico",    use: "Igual ao Ads Unificado, mas sem limite de data — usar para análises de longo prazo" },
-                  { name: "nekt_silver.pipedrive_deals_readable",                   color: T.teal600,    label: "Pipedrive Deals (preferido)", use: "Deals com atribuição correta via rd_campanha — fonte principal para WON por anúncio" },
-                  { name: "nekt_silver.deals_pipedrive_join_marketing",             color: T.verde600,   label: "Deals Pipedrive × Marketing", use: "Deals com atribuição de campanha — funil completo e status WON (legado)" },
-                  { name: "nekt_silver.funil_szi_pago_mql_sql_opp_won_lovable",    color: T.laranja500, label: "Funil SZI",                  use: "Funil pré-agregado de Investimentos (SZI) por dia" },
-                  { name: "nekt_silver.funil_mktp_pago_mql_sql_opp_won_lovable",   color: T.teal600,    label: "Funil Marketplace",          use: "Funil pré-agregado de Marketplace por dia" },
-                  { name: "nekt_silver.funil_szs_pago_mql_sql_opp_won_lovable",    color: T.roxo600,    label: "Funil SZS",                  use: "Funil pré-agregado de Serviços (SZS) por dia" },
+                  { name: "nekt_operacional_silver.ads_unificado",                              color: T.primary,    label: "Ads Unificado",              use: "Performance de anúncios Meta — spend, impressões, MQL, WON por anúncio/dia (últimos ~90 dias)" },
+                  { name: "nekt_operacional_silver.ads_unificado_historico",                    color: T.indigo600,  label: "Ads Unificado Histórico",    use: "Igual ao Ads Unificado, mas sem limite de data — usar para análises de longo prazo" },
+                  { name: "nekt_operacional_silver.pipedrive_deals_readable",                   color: T.teal600,    label: "Pipedrive Deals (preferido)", use: "Deals com atribuição correta via rd_campanha — fonte principal para WON por anúncio" },
+                  { name: "nekt_operacional_silver.deals_pipedrive_join_marketing",             color: T.verde600,   label: "Deals Pipedrive × Marketing", use: "Deals com atribuição de campanha — funil completo e status WON (legado)" },
+                  { name: "nekt_operacional_silver.funil_szi_pago_mql_sql_opp_won_lovable",    color: T.laranja500, label: "Funil SZI",                  use: "Funil pré-agregado de Investimentos (SZI) por dia" },
+                  { name: "nekt_operacional_silver.funil_mktp_pago_mql_sql_opp_won_lovable",   color: T.teal600,    label: "Funil Marketplace",          use: "Funil pré-agregado de Marketplace por dia" },
+                  { name: "nekt_operacional_silver.funil_szs_pago_mql_sql_opp_won_lovable",    color: T.roxo600,    label: "Funil SZS",                  use: "Funil pré-agregado de Serviços (SZS) por dia" },
                 ].map(t => (
                   <div key={t.name} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: t.color, flexShrink: 0, marginTop: 5 }} />
