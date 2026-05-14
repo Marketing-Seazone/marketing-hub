@@ -15,7 +15,7 @@ FROM (
     AND CAST(date AS DATE) BETWEEN DATE :date_from AND DATE :date_to
   UNION ALL
   SELECT date, 0.0 AS google_spend, spend AS meta_spend
-  FROM nekt_silver.ads_unificado_historico
+  FROM nekt_operacional_silver.ads_unificado_historico
   WHERE LOWER(campaign_name) LIKE '%vista%'
     AND LOWER(campaign_name) LIKE '%[sh]%'
     AND date BETWEEN DATE :date_from AND DATE :date_to

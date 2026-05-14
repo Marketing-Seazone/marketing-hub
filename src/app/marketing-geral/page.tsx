@@ -69,12 +69,12 @@ function MetasAbril({ only }: { only?: number } = {}) {
         sziPago, szsPago, mktpPago,
         sziNP,   szsNP,   mktpNP,
       ] = await Promise.all([
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
-        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND rd_campanha ILIKE '%paga%' AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id IN (7, 28) AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 14 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
+        queryNektNum(`SELECT COUNT(DISTINCT id) AS valor FROM nekt_operacional_silver.deals_pipedrive_join_marketing WHERE status = 'won' AND pipeline_id = 37 AND (rd_campanha NOT ILIKE '%paga%' OR rd_campanha IS NULL) AND DATE(ganho_em) >= DATE_TRUNC('month', CURRENT_DATE) AND DATE(ganho_em) < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'`),
       ])
       setDados([
         { pago: sziPago,  naoPago: sziNP  },
@@ -987,12 +987,12 @@ export default function MarketingGeral() {
       const [cacSzi, cacSzs] = await Promise.all([
         safe("cacSzi", `
           SELECT
-            (SELECT SUM(spend) FROM nekt_silver.ads_unificado
+            (SELECT SUM(spend) FROM nekt_operacional_silver.ads_unificado
              WHERE vertical = 'Investimentos'
                AND date >= CURRENT_DATE - INTERVAL '30' DAY)
             /
             NULLIF(
-              (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
+              (SELECT COUNT(DISTINCT id) FROM nekt_operacional_silver.deals_pipedrive_join_marketing
                WHERE status = 'won'
                  AND rd_campanha LIKE '%[SI]%'
                  AND ganho_em >= CURRENT_DATE - INTERVAL '30' DAY),
@@ -1000,12 +1000,12 @@ export default function MarketingGeral() {
         `),
         safe("cacSzs", `
           SELECT
-            (SELECT SUM(spend) FROM nekt_silver.ads_unificado
+            (SELECT SUM(spend) FROM nekt_operacional_silver.ads_unificado
              WHERE vertical ILIKE '%serv%'
                AND date >= CURRENT_DATE - INTERVAL '30' DAY)
             /
             NULLIF(
-              (SELECT COUNT(DISTINCT id) FROM nekt_silver.deals_pipedrive_join_marketing
+              (SELECT COUNT(DISTINCT id) FROM nekt_operacional_silver.deals_pipedrive_join_marketing
                WHERE status = 'won'
                  AND rd_campanha LIKE '%[SS]%'
                  AND ganho_em >= CURRENT_DATE - INTERVAL '30' DAY),

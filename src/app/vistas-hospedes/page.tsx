@@ -300,10 +300,10 @@ function CriativosSection() {
         SUM(CASE WHEN date = CURRENT_DATE - INTERVAL '1' DAY THEN spend ELSE 0 END) AS gasto_ontem,
         SUM(CASE WHEN date = CURRENT_DATE THEN impressions ELSE 0 END) AS imp_hoje,
         SUM(CASE WHEN date = CURRENT_DATE - INTERVAL '1' DAY THEN impressions ELSE 0 END) AS imp_ontem
-        FROM nekt_silver.ads_unificado_historico
+        FROM nekt_operacional_silver.ads_unificado_historico
         WHERE REGEXP_LIKE(campaign_name, '^\\[SH\\]')
           AND (LOWER(campaign_name) LIKE '%vistas%' OR LOWER(campaign_name) LIKE '%anit%' OR LOWER(campaign_name) LIKE '%vista%' OR LOWER(campaign_name) LIKE '%serra%')
-          AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_silver.ads_unificado_historico WHERE spend > 0 AND date >= CURRENT_DATE - INTERVAL '7' DAY)
+          AND campaign_name IN (SELECT DISTINCT campaign_name FROM nekt_operacional_silver.ads_unificado_historico WHERE spend > 0 AND date >= CURRENT_DATE - INTERVAL '7' DAY)
         GROUP BY campaign_name, ad_name, ad_id ORDER BY investimento DESC`
       const res = await fetch("/api/query", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sql }) })
       const data = await res.json()
