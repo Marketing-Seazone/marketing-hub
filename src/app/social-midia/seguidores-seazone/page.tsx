@@ -3,22 +3,10 @@
 import { useEffect, useState } from 'react';
 import { TeamLayout } from '@/components/team-layout';
 import { T } from '@/lib/constants';
-import { Pencil, Check } from 'lucide-react';
+import { Pencil, Check, Loader2 } from 'lucide-react';
 
 const COR = '#7C3AED';
 const META_DEFAULT = 15000;
-
-function getPeriodoLabel(periodo: 7 | 14 | 30 | 'mes'): string {
-  const hoje = new Date();
-  const fmt = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-  if (periodo === 'mes') {
-    const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-    return `${fmt(ini)} - ${fmt(hoje)}`;
-  }
-  const ini = new Date();
-  ini.setDate(hoje.getDate() - (periodo as number));
-  return `${fmt(ini)} - ${fmt(hoje)}`;
-}
 
 function fmt(n: number | null | undefined) {
   if (n === null || n === undefined) return '—';
@@ -27,20 +15,30 @@ function fmt(n: number | null | undefined) {
 
 type Periodo = 7 | 14 | 30;
 
+const MESES_PT: Record<string, string> = {
+  '01': 'Jan', '02': 'Fev', '03': 'Mar', '04': 'Abr',
+  '05': 'Mai', '06': 'Jun', '07': 'Jul', '08': 'Ago',
+  '09': 'Set', '10': 'Out', '11': 'Nov', '12': 'Dez',
+};
+
 export default function Page() {
   const [total, setTotal] = useState<number | null>(null);
   const [ganhoHoje, setGanhoHoje] = useState<number | null>(null);
   const [ganhoMes, setGanhoMes] = useState<number | null>(null);
-  const [historico, setHistorico] = useState<{ data: string; total_seguidores: number; ganho_dia: number }[]>([]);
+  const [historico, setHistorico] = useState<{ data: string; ganho_dia: number }[]>([]);
   const [loadingSeguidores, setLoadingSeguidores] = useState(true);
   const [erroSeguidores, setErroSeguidores] = useState<string | null>(null);
+
   const [periodoGrafico, setPeriodoGrafico] = useState<7 | 14 | 30 | 'mes'>('mes');
+  const [filterMes, setFilterMes] = useState<string | null>(null);
+  const [ganhoPeriodoReportei, setGanhoPeriodoReportei] = useState<number | null>(null);
+  const [loadingGanho, setLoadingGanho] = useState(false);
   const [tooltip, setTooltip] = useState<{ idx: number; x: number } | null>(null);
+
   const [periodo, setPeriodo] = useState<Periodo>(7);
   const [metricas, setMetricas] = useState<any>(null);
   const [loadingMetricas, setLoadingMetricas] = useState(false);
 
-  // Meta mensal editável
   const [metaMes, setMetaMes] = useState<number>(META_DEFAULT);
   const [editandoMeta, setEditandoMeta] = useState(false);
   const [metaInput, setMetaInput] = useState('');
@@ -61,10 +59,10 @@ export default function Page() {
     setEditandoMeta(false);
   }
 
-  // Cálculo correto: falta = meta - ganho no mês
   const faltam = ganhoMes !== null ? Math.max(0, metaMes - ganhoMes) : null;
   const progresso = ganhoMes !== null ? Math.min(100, (ganhoMes / metaMes) * 100) : 0;
 
+  // Busca dados principais do Reportei
   useEffect(() => {
     fetch('/api/seguidores-seazone')
       .then(r => r.json())
@@ -79,6 +77,33 @@ export default function Page() {
       .finally(() => setLoadingSeguidores(false));
   }, []);
 
+  // Busca ganho do Reportei para períodos/meses alternativos
+  useEffect(() => {
+    if (periodoGrafico === 'mes' && !filterMes) {
+      setGanhoPeriodoReportei(null);
+      return;
+    }
+    setLoadingGanho(true);
+    setGanhoPeriodoReportei(null);
+
+    let url: string;
+    if (filterMes) {
+      url = `/api/seguidores-seazone-mensal?mes=${filterMes}`;
+    } else {
+      const fim = new Date().toISOString().split('T')[0];
+      const ini = new Date();
+      ini.setDate(ini.getDate() - (periodoGrafico as number));
+      url = `/api/seguidores-seazone-mensal?start=${ini.toISOString().split('T')[0]}&end=${fim}`;
+    }
+
+    fetch(url)
+      .then(r => r.json())
+      .then(d => setGanhoPeriodoReportei(d.ganho ?? null))
+      .catch(() => setGanhoPeriodoReportei(null))
+      .finally(() => setLoadingGanho(false));
+  }, [periodoGrafico, filterMes]);
+
+  // Métricas do período
   useEffect(() => {
     setLoadingMetricas(true);
     fetch(`/api/metricas-seazone?dias=${periodo}`)
@@ -88,7 +113,12 @@ export default function Page() {
       .finally(() => setLoadingMetricas(false));
   }, [periodo]);
 
+  // Ganho exibido: mês atual usa ganhoMes da rota principal, demais usam Reportei
+  const ganhoPeriodo = (!filterMes && periodoGrafico === 'mes') ? ganhoMes : ganhoPeriodoReportei;
+
+  // Filtra histórico conforme período/mês selecionado
   const historicoFiltrado = (() => {
+    if (filterMes) return historico.filter(d => d.data.slice(0, 7) === filterMes);
     if (periodoGrafico === 'mes') {
       const inicioMes = new Date().toISOString().slice(0, 7) + '-01';
       return historico.filter(d => d.data >= inicioMes);
@@ -98,9 +128,20 @@ export default function Page() {
     return historico.filter(d => d.data >= corte.toISOString().split('T')[0]);
   })();
 
-  const ganhoPeriodo = (() => {
-    if (periodoGrafico === 'mes' && ganhoMes !== null) return ganhoMes;
-    return historicoFiltrado.reduce((s, d) => s + (d.ganho_dia || 0), 0);
+  // Meses disponíveis no histórico
+  const mesesDisponiveis = Array.from(new Set(historico.map(d => d.data.slice(0, 7)))).sort();
+
+  const periodoLabel = (() => {
+    if (filterMes) return `${MESES_PT[filterMes.slice(5)]}/${filterMes.slice(2, 4)}`;
+    const hoje = new Date();
+    const fmt2 = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (periodoGrafico === 'mes') {
+      const ini = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      return `${fmt2(ini)} — ${fmt2(hoje)}`;
+    }
+    const ini = new Date();
+    ini.setDate(hoje.getDate() - (periodoGrafico as number));
+    return `${fmt2(ini)} — ${fmt2(hoje)}`;
   })();
 
   const W = 680, H = 140, PL = 36, PB = 28, PT = 8, PR = 8;
@@ -109,10 +150,10 @@ export default function Page() {
   const n = historicoFiltrado.length;
   const barW = n > 1 ? Math.max(6, (cW / n) - 3) : 20;
   const xs = (i: number) => n > 1 ? PL + (i / (n - 1)) * cW : PL + cW / 2;
-  const ys = (v: number) => PT + cH - (v / maxGanho) * cH;
+  const ys = (val: number) => PT + cH - (val / maxGanho) * cH;
 
   const periodosGrafico: { label: string; val: 7 | 14 | 30 | 'mes' }[] = [
-    { label: 'Mes atual', val: 'mes' },
+    { label: 'Mês atual', val: 'mes' },
     { label: '7 dias', val: 7 },
     { label: '14 dias', val: 14 },
     { label: '30 dias', val: 30 },
@@ -145,26 +186,24 @@ export default function Page() {
         {/* Seguidores */}
         <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: '20px 24px', boxShadow: T.elevSm }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: '0 0 16px' }}>Seguidores</p>
-          {loadingSeguidores && <p style={{ color: T.mutedFg, fontSize: 13 }}>Carregando...</p>}
+          {loadingSeguidores && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: T.mutedFg, fontSize: 13 }}>
+              <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Carregando dados do Reportei...
+            </div>
+          )}
           {erroSeguidores && <p style={{ color: '#EF4444', fontSize: 13 }}>Erro: {erroSeguidores}</p>}
           {!loadingSeguidores && !erroSeguidores && (
             <div>
               {/* KPIs */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 10, marginBottom: 16 }}>
-
-                {/* Total */}
                 <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Total de Seguidores</p>
                   <p style={{ fontSize: 20, fontWeight: 800, color: COR, margin: 0 }}>{fmt(total)}</p>
                 </div>
-
-                {/* Ganho hoje */}
                 <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Ganho Hoje</p>
                   <p style={{ fontSize: 20, fontWeight: 800, color: '#16A34A', margin: 0 }}>{ganhoHoje != null ? `+${fmt(ganhoHoje)}` : '—'}</p>
                 </div>
-
-                {/* Meta Mensal — editável */}
                 <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
                     <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: 0, textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Meta Mensal</p>
@@ -188,21 +227,16 @@ export default function Page() {
                     <p style={{ fontSize: 20, fontWeight: 800, color: '#D97706', margin: 0 }}>+{fmt(metaMes)}</p>
                   )}
                 </div>
-
-                {/* Ganho no mês */}
                 <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Ganho no Mês</p>
                   <p style={{ fontSize: 20, fontWeight: 800, color: COR, margin: 0 }}>{ganhoMes != null ? `+${fmt(ganhoMes)}` : '—'}</p>
                 </div>
-
-                {/* Falta para meta = meta - ganho no mês */}
                 <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '12px 16px' }}>
                   <p style={{ fontSize: 10, fontWeight: 600, color: T.mutedFg, margin: '0 0 6px', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>Falta para Meta</p>
                   <p style={{ fontSize: 20, fontWeight: 800, color: faltam === 0 ? '#16A34A' : '#DC2626', margin: 0 }}>
                     {faltam != null ? (faltam === 0 ? '✔ Batida!' : fmt(faltam)) : '—'}
                   </p>
                 </div>
-
               </div>
 
               {/* Barra de progresso */}
@@ -218,26 +252,55 @@ export default function Page() {
 
               {/* Gráfico */}
               <div style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap' as const, gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap' as const, gap: 8 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' as const }}>
                     <p style={{ fontSize: 12, fontWeight: 700, color: T.mutedFg, margin: 0, textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Ganho diário</p>
                     <div style={{ background: `${COR}12`, border: `1px solid ${COR}30`, borderRadius: 8, padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ fontSize: 11, color: T.mutedFg }}>{getPeriodoLabel(periodoGrafico)}:</span>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>+{ganhoPeriodo.toLocaleString('pt-BR')}</span>
+                      <span style={{ fontSize: 11, color: T.mutedFg }}>{periodoLabel}:</span>
+                      {loadingGanho
+                        ? <Loader2 size={13} color={COR} style={{ animation: 'spin 1s linear infinite' }} />
+                        : <span style={{ fontSize: 14, fontWeight: 800, color: COR }}>{ganhoPeriodo != null ? `+${fmt(ganhoPeriodo)}` : '—'}</span>
+                      }
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    {periodosGrafico.map(p => (
-                      <button key={String(p.val)} onClick={() => { setPeriodoGrafico(p.val); setTooltip(null); }}
-                        style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer', border: `1px solid ${periodoGrafico === p.val ? COR : T.border}`, background: periodoGrafico === p.val ? COR : 'transparent', color: periodoGrafico === p.val ? '#fff' : T.mutedFg }}>
-                        {p.label}
-                      </button>
-                    ))}
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                    {/* Filtro por mês */}
+                    {mesesDisponiveis.length > 1 && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' as const, justifyContent: 'flex-end' }}>
+                        {mesesDisponiveis.map(m => {
+                          const [ano, mes] = m.split('-');
+                          const label = `${MESES_PT[mes]}/${ano.slice(2)}`;
+                          const ativo = filterMes === m;
+                          return (
+                            <button key={m} onClick={() => { setFilterMes(ativo ? null : m); setTooltip(null); }}
+                              style={{ padding: '3px 9px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer', border: `1px solid ${ativo ? COR : T.border}`, background: ativo ? COR : 'transparent', color: ativo ? '#fff' : T.mutedFg, transition: 'all 0.12s' }}>
+                              {label}
+                            </button>
+                          );
+                        })}
+                        {filterMes && (
+                          <button onClick={() => { setFilterMes(null); setTooltip(null); }}
+                            style={{ padding: '3px 7px', fontSize: 11, borderRadius: 6, cursor: 'pointer', border: `1px solid ${T.border}`, background: 'transparent', color: T.mutedFg }}>
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {/* Filtro por período */}
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {periodosGrafico.map(p => (
+                        <button key={String(p.val)} onClick={() => { setPeriodoGrafico(p.val); setFilterMes(null); setTooltip(null); }}
+                          style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, cursor: 'pointer', border: `1px solid ${!filterMes && periodoGrafico === p.val ? COR : T.border}`, background: !filterMes && periodoGrafico === p.val ? COR : 'transparent', color: !filterMes && periodoGrafico === p.val ? '#fff' : T.mutedFg }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 {historicoFiltrado.length === 0
-                  ? <p style={{ fontSize: 12, color: T.mutedFg, fontStyle: 'italic', textAlign: 'center' as const, padding: '16px 0' }}>Sem dados. O histórico é preenchido automaticamente ao abrir a página.</p>
+                  ? <p style={{ fontSize: 12, color: T.mutedFg, fontStyle: 'italic', textAlign: 'center' as const, padding: '16px 0' }}>Sem dados para o período.</p>
                   : (
                     <div style={{ overflow: 'hidden', position: 'relative' }} onMouseLeave={() => setTooltip(null)}>
                       <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}
@@ -250,10 +313,10 @@ export default function Page() {
                           else setTooltip(null);
                         }}>
                         <defs><clipPath id="seazone-clip"><rect x={PL} y={PT} width={cW} height={cH} /></clipPath></defs>
-                        {[0, Math.round(maxGanho / 2), maxGanho].map(v => (
-                          <g key={v}>
-                            <line x1={PL} x2={W - PR} y1={ys(v)} y2={ys(v)} stroke={T.border} strokeWidth={0.5} />
-                            <text x={PL - 4} y={ys(v) + 4} fontSize={9} fill={T.mutedFg ?? '#888'} textAnchor="end">{v}</text>
+                        {[0, Math.round(maxGanho / 2), maxGanho].map(val => (
+                          <g key={val}>
+                            <line x1={PL} x2={W - PR} y1={ys(val)} y2={ys(val)} stroke={T.border} strokeWidth={0.5} />
+                            <text x={PL - 4} y={ys(val) + 4} fontSize={9} fill={T.mutedFg ?? '#888'} textAnchor="end">{val}</text>
                           </g>
                         ))}
                         <g clipPath="url(#seazone-clip)">
@@ -326,6 +389,7 @@ export default function Page() {
           </div>
         </div>
 
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
       </div>
     </TeamLayout>
   );
