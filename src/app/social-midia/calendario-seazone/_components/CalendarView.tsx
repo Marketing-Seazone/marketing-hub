@@ -78,10 +78,13 @@ function DayModal({ date, items, onClose, onSelectItem, onStatusChange, onDuplic
   );
 }
 
+type ChannelFilter = '' | 'instagram' | 'tiktok';
+
 export function CalendarView() {
   const { items, loading, updateItem, deleteItem, fetchItems, createItem } = useContent();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterEditorial, setFilterEditorial] = useState<EditorialSlug | ''>('');
+  const [filterChannel, setFilterChannel] = useState<ChannelFilter>('');
   const [selectedItem, setSelectedItem] = useState<Post | null>(null);
   const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -106,9 +109,15 @@ export function CalendarView() {
     return items.filter((item) => {
       if (!item.scheduled_at) return false;
       if (filterEditorial && item.editoria !== filterEditorial) return false;
+      if (filterChannel) {
+        const canal = (item.canal ?? '').toLowerCase();
+        const formato = (item.formato ?? '').toLowerCase();
+        if (filterChannel === 'tiktok' && !canal.includes('tiktok') && formato !== 'tiktok') return false;
+        if (filterChannel === 'instagram' && !canal.includes('instagram')) return false;
+      }
       return true;
     });
-  }, [items, filterEditorial]);
+  }, [items, filterEditorial, filterChannel]);
 
   const handleStatusChange = async (id: string, status: ContentStatus) => {
     try {
@@ -194,16 +203,27 @@ export function CalendarView() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 4px' }}>Calendario</h2>
           <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Visualize e gerencie seus conteudos agendados — arraste para reagendar</p>
         </div>
-        <select
-          value={filterEditorial}
-          onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
-          style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
-        >
-          <option value="">Todas editorias</option>
-          {EDITORIALS.map((e) => (
-            <option key={e.slug} value={e.slug}>{e.name}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={filterEditorial}
+            onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+          >
+            <option value="">Todas editorias</option>
+            {EDITORIALS.map((e) => (
+              <option key={e.slug} value={e.slug}>{e.name}</option>
+            ))}
+          </select>
+          <select
+            value={filterChannel}
+            onChange={(e) => setFilterChannel(e.target.value as ChannelFilter)}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+          >
+            <option value="">Todos canais</option>
+            <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+        </div>
       </div>
 
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
@@ -238,7 +258,7 @@ export function CalendarView() {
             Carregando...
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '130px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gridAutoRows: '170px' }}>
             {days.map((day, i) => {
               const dayItems = getItemsForDay(day);
               const isCurrentMonth = isSameMonth(day, currentMonth);
@@ -257,7 +277,7 @@ export function CalendarView() {
                   onDragLeave={handleDragLeave}
                   onDrop={(e) => handleDrop(e, dateStr)}
                   style={{
-                    height: 130, overflow: 'hidden',
+                    height: 170, overflow: 'hidden',
                     borderBottom: `1px solid ${T.cinza50}`,
                     borderRight: `1px solid ${T.cinza50}`,
                     padding: 8,

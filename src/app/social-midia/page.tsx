@@ -17,7 +17,7 @@ export default function Page() {
           boxShadow: T.elevSm,
         }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
-            Calendário de Conteúdo — Seazone
+            Calendário
           </p>
           <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
             Planejamento e geração de conteúdo para redes sociais com IA.

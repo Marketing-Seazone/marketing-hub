@@ -45,7 +45,7 @@ export default function Page() {
           Social Midia
         </Link>
         <span style={{ color: T.border }}>|</span>
-        <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Calendario de Conteudo</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: T.cardFg }}>Calendário</span>
         <nav style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
           {TABS.map(({ id, icon: Icon, label }) => (
             <button

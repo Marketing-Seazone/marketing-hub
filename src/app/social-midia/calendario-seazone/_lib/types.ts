@@ -5,7 +5,10 @@ export type EditorialSlug =
   | 'resultados_reais'
   | 'destinos_seazone'
   | 'autoridade_seazone'
-  | 'por_dentro_airbnb';
+  | 'por_dentro_airbnb'
+  | 'experiencia_hospedagem'
+  | 'tendencias_entretenimento'
+  | 'dicas_destinos';
 
 export type ContentFormat = 'carrossel' | 'reels' | 'feed' | 'stories' | 'tiktok';
 

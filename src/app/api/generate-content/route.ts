@@ -1,28 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
+import { SEAZONE_REDACAO_SKILL, SEAZONE_TIKTOK_SKILL, isTikTok } from '@/lib/skills';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  baseURL: process.env.ANTHROPIC_BASE_URL,
+});
 
-const IDEATION_SYSTEM_PROMPT = `Voce e um estrategista de conteudo e social media especialista em marketing digital, turismo, hospitalidade e investimento imobiliario.
+const INSTAGRAM_IDEATION_PROMPT = `${SEAZONE_REDACAO_SKILL}
 
-Sua funcao e planejar conteudo estrategico para o Instagram e TikTok da Seazone — empresa especializada em gestao de aluguel por temporada e estruturacao de empreendimentos para Airbnb.
+---
 
-A Seazone atende tres publicos principais:
-- INVESTIDORES: oportunidades, rentabilidade, tendencias do mercado imobiliario
-- PROPRIETARIOS: gestao profissional, aumento de rentabilidade, facilidade de administracao
-- HOSPEDES: destinos, experiencias de viagem, diferenciais das hospedagens
+## Contexto desta rota
 
-Pilares de conteudo: Educacao de Mercado, Oportunidades de Investimento, Experiencias de Viagem, Gestao de Imoveis, Autoridade da Marca.
+Você é um estrategista de conteúdo planejando posts de Instagram da Seazone. Atende três públicos: investidores, proprietários e hóspedes.
 
-Reels devem ter hooks fortes nos primeiros 3 segundos. Carrosseis devem ser educativos e estrategicos. O conteudo deve equilibrar: educacao, autoridade, inspiracao, prova social e conteudo comercial.
+Pilares de conteúdo: Educação de Mercado, Oportunidades de Investimento, Experiências de Viagem, Gestão de Imóveis, Autoridade da Marca.
 
-Responda SOMENTE com JSON valido, sem texto antes ou depois, sem backticks, sem markdown.
+Reels: hooks fortes nos primeiros 3 segundos. Carrosséis: educativos e estratégicos. Equilibre educação, autoridade, inspiração, prova social e conteúdo comercial.
+
+REGRA ABSOLUTA: Responda SOMENTE com JSON válido, sem texto antes ou depois, sem backticks, sem markdown.
+
 Formato exato:
-{"titulo": "titulo do post em ate 10 palavras", "descricao": "descricao estrategica do conteudo em 2-3 frases explicando o tema, o publico-alvo e o objetivo do post"}`;
+{"titulo": "título do post em até 10 palavras", "descricao": "descrição estratégica do conteúdo em 2–3 frases explicando o tema, o público-alvo e o objetivo do post"}`;
+
+const TIKTOK_IDEATION_PROMPT = `${SEAZONE_TIKTOK_SKILL}
+
+---
+
+## Contexto desta rota
+
+Você é um estrategista de conteúdo planejando posts de TikTok da Seazone para o público de hóspedes/viajantes. Use o conhecimento da skill (formatos, hooks, tom) para sugerir temas que tenham potencial real de retenção e compartilhamento na plataforma.
+
+Pense em: ângulos virais ("quanto custa", "vale a pena", série de roteiro, B-roll inspiracional), destinos onde a Seazone atua, ganchos que pessoas querem mandar pra amigos.
+
+REGRA ABSOLUTA: Responda SOMENTE com JSON válido, sem texto antes ou depois, sem backticks, sem markdown.
+
+Formato exato:
+{"titulo": "título curto e direto do tema do TikTok (até 10 palavras)", "descricao": "descrição em 2–3 frases incluindo: formato do TikTok sugerido (B-roll, quanto custa, série), 1 sugestão de hook e a promessa principal do vídeo"}`;
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { editorial, format, channel, topic, researchContext } = body;
+
+  const isTk = isTikTok({ channel, format });
+  const systemPrompt = isTk ? TIKTOK_IDEATION_PROMPT : INSTAGRAM_IDEATION_PROMPT;
 
   let userPrompt = `Editoria: ${editorial}\nFormato: ${format}`;
   if (channel) userPrompt += `\nCanal: ${channel}`;
@@ -36,13 +58,13 @@ export async function POST(request: NextRequest) {
     userPrompt += `\n\nCONTEXTO DE PESQUISA (use para embasar o post):\n${researchContext}`;
   }
 
-  userPrompt += `\n\nSugira um titulo e descricao para o post.`;
+  userPrompt += `\n\nSugira um título e descrição para o post.`;
 
   try {
-    const response = await client.beta.messages.create({
+    const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
-      system: IDEATION_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     });
 

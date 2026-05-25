@@ -5,7 +5,7 @@ import { Trash2, ChevronUp, ChevronDown, Check, X } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { useContent } from '../_hooks/useContent';
 import { EDITORIALS, getEditorial } from '../_lib/calendar-constants';
-import { getStatusTag } from './ContentCard';
+import { getStatusTag, getChannelTag } from './ContentCard';
 import type { EditorialSlug, ContentFormat } from '../_lib/types';
 
 const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
@@ -15,9 +15,12 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'stories', label: 'Story' },
 ];
 
+type ChannelFilter = '' | 'instagram' | 'tiktok';
+
 export function BacklogView() {
   const { items, loading, updateItem, deleteItem } = useContent();
   const [filterEditorial, setFilterEditorial] = useState<EditorialSlug | ''>('');
+  const [filterChannel, setFilterChannel] = useState<ChannelFilter>('');
   const [approveId, setApproveId] = useState<string | null>(null);
   const [approveDate, setApproveDate] = useState('');
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -28,8 +31,17 @@ export function BacklogView() {
     if (filterEditorial) {
       filtered = filtered.filter((item) => item.editoria === filterEditorial);
     }
+    if (filterChannel) {
+      filtered = filtered.filter((item) => {
+        const canal = (item.canal ?? '').toLowerCase();
+        const formato = (item.formato ?? '').toLowerCase();
+        if (filterChannel === 'tiktok') return canal.includes('tiktok') || formato === 'tiktok';
+        if (filterChannel === 'instagram') return canal.includes('instagram');
+        return true;
+      });
+    }
     return filtered;
-  }, [items, filterEditorial]);
+  }, [items, filterEditorial, filterChannel]);
 
   const handleApprove = async () => {
     if (!approveId || !approveDate) return;
@@ -45,16 +57,27 @@ export function BacklogView() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 4px' }}>Backlog</h2>
           <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Posts em aprovacao — priorize e aprove para agendar</p>
         </div>
-        <select
-          value={filterEditorial}
-          onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
-          style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
-        >
-          <option value="">Todas editorias</option>
-          {EDITORIALS.map((e) => (
-            <option key={e.slug} value={e.slug}>{e.name}</option>
-          ))}
-        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select
+            value={filterEditorial}
+            onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+          >
+            <option value="">Todas editorias</option>
+            {EDITORIALS.map((e) => (
+              <option key={e.slug} value={e.slug}>{e.name}</option>
+            ))}
+          </select>
+          <select
+            value={filterChannel}
+            onChange={(e) => setFilterChannel(e.target.value as ChannelFilter)}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+          >
+            <option value="">Todos canais</option>
+            <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -69,6 +92,7 @@ export function BacklogView() {
             const editorial = getEditorial(item.editoria);
             const formatLabel = FORMAT_OPTIONS.find((f) => f.value === item.formato)?.label ?? item.formato;
             const tag = getStatusTag(item.status);
+            const channelTag = getChannelTag(item.canal, item.formato);
             return (
               <div
                 key={item.id}
@@ -106,6 +130,11 @@ export function BacklogView() {
                       <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>
                         {tag.label}
                       </span>
+                      {channelTag && (
+                        <span style={{ background: channelTag.bg, color: channelTag.fg, borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>
+                          {channelTag.label}
+                        </span>
+                      )}
                     </div>
                     {editingField === `title-${item.id}` ? (
                       <input
