@@ -31,6 +31,15 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'stories',   label: 'Story' },
 ];
 
+export function getChannelTag(canal?: string | null, formato?: string | null): { label: string; bg: string; fg: string } | null {
+  const c = (canal ?? '').toLowerCase();
+  const f = (formato ?? '').toLowerCase();
+  if (c.includes('tiktok') || f === 'tiktok') return { label: 'TikTok', bg: '#000000', fg: '#FFFFFF' };
+  if (c.includes('instagram')) return { label: 'Instagram', bg: '#E1306C', fg: '#FFFFFF' };
+  if (c.includes('linkedin')) return { label: 'LinkedIn', bg: '#0A66C2', fg: '#FFFFFF' };
+  return null;
+}
+
 interface ContentCardProps {
   item: Post;
   compact?: boolean;
@@ -45,6 +54,7 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
   const editorial = getEditorial(item.editoria);
   const formatLabel = FORMAT_OPTIONS.find((f) => f.value === item.formato)?.label ?? item.formato;
   const tag = getStatusTag(item.status);
+  const channelTag = getChannelTag(item.canal, item.formato);
   const [editingField, setEditingField] = useState<'title' | 'notas' | null>(null);
   const [hovered, setHovered] = useState(false);
 
@@ -95,7 +105,7 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
         </button>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'nowrap', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4, flexWrap: 'wrap', rowGap: 4 }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: editorial?.color, flexShrink: 0 }} />
         {!compact && (
           <span style={{ fontSize: 12, fontWeight: 500, color: T.mutedFg, whiteSpace: 'nowrap' }}>{editorial?.name}</span>
@@ -119,6 +129,11 @@ export function ContentCard({ item, compact, onClick, draggable, onStatusChange,
         ) : (
           <span style={{ background: tag.bg, color: tag.fg, borderRadius: 6, padding: '1px 4px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
             {tag.label}
+          </span>
+        )}
+        {channelTag && (
+          <span style={{ background: channelTag.bg, color: channelTag.fg, borderRadius: 6, padding: '1px 5px', fontSize: 10, fontWeight: 600, flexShrink: 0 }}>
+            {channelTag.label}
           </span>
         )}
       </div>

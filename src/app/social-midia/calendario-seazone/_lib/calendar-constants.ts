@@ -51,6 +51,27 @@ export const EDITORIALS: Editorial[] = [
     audience: 'Proprietarios e Hospedes',
     description: 'Algoritmo Airbnb: como aparecer no topo, como hospede escolhe, avaliacoes',
   },
+  {
+    slug: 'experiencia_hospedagem',
+    name: 'Experiência de Hospedagem',
+    color: T.verde600,
+    audience: 'Hospedes',
+    description: 'Vídeos imersivos dos imóveis: ambientes, vista, decoração, diferenciais. Hook emocional.',
+  },
+  {
+    slug: 'tendencias_entretenimento',
+    name: 'Tendências & Entretenimento',
+    color: T.statusWarnFg,
+    audience: 'Hospedes + Alcance',
+    description: 'Participação em trends do TikTok adaptadas ao universo de viagem. Aumenta alcance orgânico.',
+  },
+  {
+    slug: 'dicas_destinos',
+    name: 'Dicas & Destinos',
+    color: T.pendingFg,
+    audience: 'Hospedes',
+    description: 'Melhores praias, roteiros de fim de semana. Posiciona a Seazone como autoridade de viagem.',
+  },
 ];
 
 export const FORMATS: { value: ContentFormat; label: string }[] = [
