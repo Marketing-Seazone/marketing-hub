@@ -3,7 +3,20 @@
 import { useState, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Trash2, ExternalLink, X, Check, Pencil, GripVertical, MoreVertical, Copy } from 'lucide-react';
 import { T } from '@/lib/constants';
-import { useStories, type StoryLink, type Story } from '../_hooks/useStories';
+import { useStories, type StoryLink, type Story, type StoryStatus } from '../_hooks/useStories';
+
+const STORY_STATUS_OPTIONS: { value: StoryStatus; label: string; bg: string; fg: string }[] = [
+  { value: 'backlog',      label: 'Backlog',       bg: T.cinza50,            fg: T.cinza600 },
+  { value: 'em_aprovacao', label: 'Em aprovação',  bg: T.statusWarnBg,       fg: T.statusWarnDark },
+  { value: 'em_producao',  label: 'Em produção',   bg: `${T.laranja500}18`,  fg: T.laranja500 },
+  { value: 'aprovado',     label: 'Aprovado',      bg: `${T.roxo600}18`,     fg: T.roxo600 },
+  { value: 'agendado',     label: 'Agendado',      bg: T.pendingBg,          fg: T.pendingFg },
+  { value: 'publicado',    label: 'Publicado',     bg: T.statusOkBg,         fg: T.statusOkFg },
+];
+
+function getStoryStatusTag(status: StoryStatus) {
+  return STORY_STATUS_OPTIONS.find((o) => o.value === status) ?? STORY_STATUS_OPTIONS[0];
+}
 
 const MONTHS_PT = [
   'Janeiro', 'Fevereiro', 'Marco', 'Abril', 'Maio', 'Junho',
@@ -172,7 +185,7 @@ export function StoriesView() {
   const [dragStoryId, setDragStoryId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
 
-  const { stories, loading, createStory, togglePublished, deleteStory, updateStory } = useStories(year, month);
+  const { stories, loading, createStory, setStatus, deleteStory, updateStory } = useStories(year, month);
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
@@ -307,27 +320,30 @@ export function StoriesView() {
 
                   {dayStories.length > 0 && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {dayStories.slice(0, 3).map((s) => (
-                        <div
-                          key={s.id}
-                          draggable
-                          onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, s.id); }}
-                          onClick={(e) => e.stopPropagation()}
-                          style={{
-                            fontSize: 10, fontWeight: 500,
-                            color: s.published ? T.statusOkFg : T.cinza700,
-                            background: s.published ? T.statusOkBg : T.cinza50,
-                            borderRadius: 4, padding: '1px 5px',
-                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                            display: 'flex', alignItems: 'center', gap: 3,
-                            cursor: 'grab', opacity: dragStoryId === s.id ? 0.4 : 1,
-                          }}
-                        >
-                          <GripVertical size={7} style={{ flexShrink: 0 }} />
-                          {s.published && <Check size={8} />}
-                          {s.name}
-                        </div>
-                      ))}
+                      {dayStories.slice(0, 3).map((s) => {
+                        const tag = getStoryStatusTag(s.status);
+                        return (
+                          <div
+                            key={s.id}
+                            draggable
+                            onDragStart={(e) => { e.stopPropagation(); handleDragStart(e, s.id); }}
+                            onClick={(e) => e.stopPropagation()}
+                            title={`${s.name} · ${tag.label}`}
+                            style={{
+                              fontSize: 10, fontWeight: 500,
+                              color: tag.fg, background: tag.bg,
+                              borderRadius: 4, padding: '1px 5px',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              display: 'flex', alignItems: 'center', gap: 3,
+                              cursor: 'grab', opacity: dragStoryId === s.id ? 0.4 : 1,
+                            }}
+                          >
+                            <GripVertical size={7} style={{ flexShrink: 0 }} />
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tag.fg, flexShrink: 0 }} />
+                            {s.name}
+                          </div>
+                        );
+                      })}
                       {dayStories.length > 3 && (
                         <div style={{ fontSize: 10, color: T.mutedFg }}>+{dayStories.length - 3} mais</div>
                       )}
@@ -361,7 +377,7 @@ export function StoriesView() {
         {/* Painel lateral */}
         {selectedDate && (() => {
           const total = selectedStories.length;
-          const done = selectedStories.filter((s) => s.published).length;
+          const done = selectedStories.filter((s) => s.status === 'publicado').length;
 
           return (
             <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 16, padding: 20 }}>
@@ -420,15 +436,18 @@ export function StoriesView() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {selectedStories.map((story) => (
+                  {selectedStories.map((story) => {
+                    const tag = getStoryStatusTag(story.status);
+                    const isDone = story.status === 'publicado';
+                    return (
                     <div
                       key={story.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, story.id)}
                       style={{
-                        background: story.published ? T.statusOkBg : T.muted,
+                        background: isDone ? T.statusOkBg : T.muted,
                         borderRadius: 12, padding: '12px 14px',
-                        border: `1px solid ${story.published ? T.statusOkFg + '40' : T.border}`,
+                        border: `1px solid ${isDone ? T.statusOkFg + '40' : T.border}`,
                         transition: 'all 0.15s',
                         opacity: dragStoryId === story.id ? 0.4 : 1,
                         cursor: 'grab',
@@ -439,27 +458,23 @@ export function StoriesView() {
                           <GripVertical size={14} />
                         </div>
 
-                        <button
-                          onClick={() => togglePublished(story.id, !story.published)}
-                          style={{
-                            width: 20, height: 20, borderRadius: 6, flexShrink: 0, marginTop: 1,
-                            border: `2px solid ${story.published ? T.statusOkFg : T.border}`,
-                            background: story.published ? T.statusOkFg : 'transparent',
-                            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            transition: 'all 0.15s',
-                          }}
-                        >
-                          {story.published && <Check size={12} color="white" strokeWidth={3} />}
-                        </button>
-
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{
                             fontSize: 13, fontWeight: 600, margin: '0 0 6px',
-                            color: story.published ? T.statusOkFg : T.cardFg,
-                            textDecoration: story.published ? 'line-through' : 'none',
+                            color: isDone ? T.statusOkFg : T.cardFg,
+                            textDecoration: isDone ? 'line-through' : 'none',
                           }}>
                             {story.name}
                           </p>
+
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
+                            fontSize: 10, fontWeight: 600, color: tag.fg, background: tag.bg,
+                            borderRadius: 6, padding: '2px 8px', marginBottom: 6,
+                          }}>
+                            <span style={{ width: 6, height: 6, borderRadius: '50%', background: tag.fg, flexShrink: 0 }} />
+                            {tag.label}
+                          </span>
 
                           {story.links && story.links.length > 0 && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -510,34 +525,24 @@ export function StoriesView() {
                                 position: 'absolute', right: 0, top: 28, zIndex: 50,
                                 background: T.card, border: `1px solid ${T.border}`,
                                 borderRadius: 10, boxShadow: T.elevMd,
-                                minWidth: 150, overflow: 'hidden',
+                                minWidth: 170, overflow: 'hidden',
                               }}>
-                                <button
-                                  onClick={() => { togglePublished(story.id, false); setMenuOpenId(null); }}
-                                  style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: '9px 14px',
-                                    background: !story.published ? T.pendingBg : 'transparent',
-                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                                    color: !story.published ? T.primary : T.cardFg, textAlign: 'left',
-                                  }}
-                                >
-                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.cinza400, flexShrink: 0 }} />
-                                  Backlog
-                                </button>
-                                <button
-                                  onClick={() => { togglePublished(story.id, true); setMenuOpenId(null); }}
-                                  style={{
-                                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: '9px 14px',
-                                    background: story.published ? T.statusOkBg : 'transparent',
-                                    border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
-                                    color: story.published ? T.statusOkFg : T.cardFg, textAlign: 'left',
-                                  }}
-                                >
-                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: T.statusOkFg, flexShrink: 0 }} />
-                                  Publicado
-                                </button>
+                                {STORY_STATUS_OPTIONS.map((opt) => (
+                                  <button
+                                    key={opt.value}
+                                    onClick={() => { setStatus(story.id, opt.value); setMenuOpenId(null); }}
+                                    style={{
+                                      width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                                      padding: '9px 14px',
+                                      background: story.status === opt.value ? opt.bg : 'transparent',
+                                      border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 500,
+                                      color: story.status === opt.value ? opt.fg : T.cardFg, textAlign: 'left',
+                                    }}
+                                  >
+                                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: opt.fg, flexShrink: 0 }} />
+                                    {opt.label}
+                                  </button>
+                                ))}
                                 <div style={{ height: 1, background: T.border }} />
                                 <button
                                   onClick={() => { handleDuplicateStory(story); setMenuOpenId(null); }}
@@ -582,7 +587,8 @@ export function StoriesView() {
 
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
