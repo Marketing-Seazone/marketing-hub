@@ -36,6 +36,9 @@ function TextWithLinks({ text, style }: { text: string; style?: React.CSSPropert
   )
 }
 
+const TOTAL_LINE = "#f59e0b" // laranja — média móvel total
+const WEB_LINE = "#06b6d4"   // ciano — média móvel website
+
 function ReservasChart({ days }: { days: DayData[] }) {
   const W = 680, H = 130, PL = 28, PB = 22, PT = 8, PR = 8
   const cW = W - PL - PR, cH = H - PT - PB
@@ -44,25 +47,39 @@ function ReservasChart({ days }: { days: DayData[] }) {
   const ys = (v: number) => PT + cH - (v / maxV) * cH
   const metaY = ys(META_DIA)
   const barW = Math.max(2, (cW / days.length) - 2)
-  const avgPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvg)}`).join(" ")
+  const totalPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvg)}`).join(" ")
+  const webPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvgWebsite)}`).join(" ")
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}>
       {[0, META_DIA / 2, META_DIA, META_DIA * 1.5].map(v => (
         <line key={v} x1={PL} x2={W - PR} y1={ys(v)} y2={ys(v)} stroke={T.border} strokeWidth={0.5} />
       ))}
+      {/* Barras totais (cinza) ao fundo */}
       {days.map((d, i) => {
-        const bh = Math.max(2, (d.count / maxV) * cH)
-        const fill = d.count >= META_DIA ? "#10b98133" : `${T.destructive}22`
-        const stroke = d.count >= META_DIA ? "#10b981" : T.destructive
+        const bhT = Math.max(2, (d.count / maxV) * cH)
         return (
-          <rect key={i} x={xs(i) - barW / 2} y={ys(d.count)} width={barW} height={bh} fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
-            <title>{fmtDate(d.date)}: {d.count} reserva{d.count !== 1 ? "s" : ""}</title>
+          <rect key={`t-${i}`} x={xs(i) - barW / 2} y={ys(d.count)} width={barW} height={bhT} fill="#9ca3af33" stroke="#9ca3af" strokeWidth={0.5} rx={1}>
+            <title>{fmtDate(d.date)}: {d.count} reserva{d.count !== 1 ? "s" : ""} (total)</title>
+          </rect>
+        )
+      })}
+      {/* Barras website (verde se ≥ meta, vermelho se abaixo) à frente */}
+      {days.map((d, i) => {
+        if (d.countWebsite === 0) return null
+        const bhW = Math.max(2, (d.countWebsite / maxV) * cH)
+        const ok = d.countWebsite >= META_DIA
+        const fill = ok ? "#10b98155" : `${T.destructive}44`
+        const stroke = ok ? "#10b981" : T.destructive
+        return (
+          <rect key={`w-${i}`} x={xs(i) - barW / 2} y={ys(d.countWebsite)} width={barW} height={bhW} fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
+            <title>{fmtDate(d.date)}: {d.countWebsite} via website / {d.count} total</title>
           </rect>
         )
       })}
       <line x1={PL} x2={W - PR} y1={metaY} y2={metaY} stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 3" />
       <text x={W - PR + 3} y={metaY + 4} fontSize={9} fill="#10b981" fontWeight={700}>7</text>
-      <path d={avgPath} fill="none" stroke={COR} strokeWidth={2} strokeLinejoin="round" />
+      <path d={totalPath} fill="none" stroke={TOTAL_LINE} strokeWidth={2} strokeLinejoin="round" />
+      <path d={webPath} fill="none" stroke={WEB_LINE} strokeWidth={2} strokeLinejoin="round" />
       {[0, 7, 14, 21, 29].map(i => (
         <text key={i} x={xs(i)} y={H - 4} fontSize={8} fill={T.mutedFg ?? "#888"} textAnchor="middle">{fmtDate(days[i]?.date ?? "")}</text>
       ))}
@@ -1211,6 +1228,9 @@ export default function VistasHospedesPage() {
   const today = days[days.length - 1]?.count ?? 0
   const avg30 = days.length > 0 ? (days.reduce((s, d) => s + d.count, 0) / days.length) : 0
   const avg30r = Math.round(avg30 * 10) / 10
+  const avg30Web = days.length > 0 ? (days.reduce((s, d) => s + d.countWebsite, 0) / days.length) : 0
+  const avg30WebR = Math.round(avg30Web * 10) / 10
+  const daysAboveMeta = days.filter(d => d.countWebsite >= META_DIA).length
 
   return (
     <div style={{ minHeight: "100vh", background: T.muted, fontFamily: T.font }}>
@@ -1240,10 +1260,10 @@ export default function VistasHospedesPage() {
             <>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 16 }}>
                 {[
-                  { label: "Hoje", value: loadingRes ? "—" : String(today), color: statusColor(today, META_DIA) },
-                  { label: "Média 30 dias", value: loadingRes ? "—" : fmt2(avg30r), color: statusColor(avg30r, META_DIA) },
-                  { label: "Meta diária", value: String(META_DIA), color: "#10b981" },
-                  { label: "Status", value: loadingRes ? "—" : avg30r >= META_DIA ? "✔ Acima da meta" : "Abaixo da meta", color: statusColor(avg30r, META_DIA) },
+                  { label: "Média 30d total", value: loadingRes ? "—" : fmt2(avg30r), color: "#f59e0b" },
+                  { label: "Média 30d website", value: loadingRes ? "—" : fmt2(avg30WebR), color: statusColor(avg30WebR, META_DIA) },
+                  { label: "Meta diária website", value: String(META_DIA), color: "#10b981" },
+                  { label: "Dias acima da meta", value: loadingRes ? "—" : `${daysAboveMeta}/${days.length}`, color: statusColor(daysAboveMeta, days.length / 2) },
                 ].map(kpi => (
                   <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", boxShadow: T.elevSm }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
@@ -1253,9 +1273,12 @@ export default function VistasHospedesPage() {
               </div>
               {!loadingRes && days.length > 0 && (
                 <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: "16px 20px", boxShadow: T.elevSm }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10, fontSize: 11, color: T.mutedFg }}>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: `${COR}88`, borderRadius: 2, display: "inline-block" }} /> Reservas/dia</span>
-                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 14, height: 2, background: COR, display: "inline-block" }} /> Média móvel 30d</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 10, fontSize: 11, color: T.mutedFg, flexWrap: "wrap" }}>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#9ca3af55", borderRadius: 2, display: "inline-block" }} /> Total/dia</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: "#10b98155", borderRadius: 2, display: "inline-block" }} /> Website (≥ meta)</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 10, height: 10, background: `${T.destructive}44`, borderRadius: 2, display: "inline-block" }} /> Website (&lt; meta)</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 14, height: 2, background: "#f59e0b", display: "inline-block" }} /> Média 30d total</span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 14, height: 2, background: "#06b6d4", display: "inline-block" }} /> Média 30d website</span>
                     <span style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ width: 14, height: 2, background: "#10b981", borderTop: "2px dashed #10b981", display: "inline-block" }} /> Meta (7/dia)</span>
                   </div>
                   <ReservasChart days={days} />
