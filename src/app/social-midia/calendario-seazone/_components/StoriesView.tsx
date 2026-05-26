@@ -184,8 +184,23 @@ export function StoriesView() {
 
   const [dragStoryId, setDragStoryId] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   const { stories, loading, createStory, setStatus, deleteStory, updateStory } = useStories(year, month);
+
+  const handleSetStatus = async (id: string, status: StoryStatus) => {
+    setStatusError(null);
+    try {
+      await setStatus(id, status);
+    } catch (err: any) {
+      const msg = err?.message ?? String(err);
+      setStatusError(
+        /column .* status/i.test(msg)
+          ? 'A coluna "status" ainda não existe no Supabase. Rode a migração SQL antes (veja o PR).'
+          : `Erro ao atualizar status: ${msg}`
+      );
+    }
+  };
 
   const prevMonth = () => {
     if (month === 0) { setYear(y => y - 1); setMonth(11); }
@@ -250,6 +265,20 @@ export function StoriesView() {
           Planeje e acompanhe os stories — clique em um dia para ver o checklist, arraste para mover
         </p>
       </div>
+
+      {statusError && (
+        <div style={{
+          marginBottom: 16, padding: '10px 14px',
+          background: `${T.destructive}11`, border: `1px solid ${T.destructive}55`,
+          borderRadius: 10, fontSize: 13, color: T.destructive,
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12,
+        }}>
+          <span>{statusError}</span>
+          <button onClick={() => setStatusError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: T.destructive, padding: 0 }}>
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: selectedDate ? '1fr 360px' : '1fr', gap: 20, alignItems: 'start' }}>
         {/* Calendario */}
@@ -530,7 +559,7 @@ export function StoriesView() {
                                 {STORY_STATUS_OPTIONS.map((opt) => (
                                   <button
                                     key={opt.value}
-                                    onClick={() => { setStatus(story.id, opt.value); setMenuOpenId(null); }}
+                                    onClick={() => { handleSetStatus(story.id, opt.value); setMenuOpenId(null); }}
                                     style={{
                                       width: '100%', display: 'flex', alignItems: 'center', gap: 8,
                                       padding: '9px 14px',
