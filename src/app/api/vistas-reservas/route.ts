@@ -1,63 +1,70 @@
 import { NextResponse } from "next/server"
+import { queryNekt } from "@/lib/nekt"
 
 export const maxDuration = 30
 
-interface MetabaseRow {
-  payment_date: string
-  reservation_city: string
-  [key: string]: unknown
+export interface DayData {
+  date: string             // YYYY-MM-DD
+  count: number            // total de reservas válidas
+  countWebsite: number     // reservas via website (partnername = 'External API')
+  movingAvg: number        // média móvel 30 dias — total
+  movingAvgWebsite: number // média móvel 30 dias — website
 }
 
-export interface DayData {
-  date: string        // YYYY-MM-DD
-  count: number
-  movingAvg: number   // média móvel 30 dias
-}
+const SQL = `
+  SELECT CAST(creationdate AS DATE) AS dia,
+         COUNT(*) AS reservas,
+         COUNT_IF(partnername = 'External API') AS reservas_website
+  FROM "nekt_operacional_bronze"."stays_reservations_export"
+  WHERE listing.internalname LIKE 'VST%'
+    AND type <> 'canceled'
+    AND CAST(creationdate AS DATE) >= date_add('day', -60, current_date)
+    AND CAST(creationdate AS DATE) < current_date
+  GROUP BY CAST(creationdate AS DATE)
+  ORDER BY dia
+`
 
 export async function GET() {
-  const apiKey = process.env.METABASE_API_KEY
-  if (!apiKey) return NextResponse.json({ error: "METABASE_API_KEY não configurada" }, { status: 503 })
-
   try {
-    const res = await fetch("https://metabase.seazone.com.br/api/card/3350/query/json", {
-      method: "POST",
-      headers: { "x-api-key": apiKey, "Content-Type": "application/json" },
-      cache: "no-store",
-    })
-    if (!res.ok) throw new Error(`Metabase error ${res.status}`)
+    const { rows } = await queryNekt(SQL)
 
-    const rows: MetabaseRow[] = await res.json()
-
-    // Filtra Anitápolis
-    const anita = rows.filter(r => r.reservation_city === "Anitápolis")
-
-    // Agrega por data (últimos 60 dias para ter janela de 30d para a média)
-    const byDate: Record<string, number> = {}
-    for (const row of anita) {
-      const date = String(row.payment_date).slice(0, 10)
-      byDate[date] = (byDate[date] || 0) + 1
+    const totalByDate: Record<string, number> = {}
+    const webByDate: Record<string, number> = {}
+    for (const row of rows) {
+      const date = String(row.dia).slice(0, 10)
+      if (!date) continue
+      const total = Number(row.reservas)
+      const web = Number(row.reservas_website)
+      totalByDate[date] = (totalByDate[date] || 0) + (Number.isFinite(total) ? total : 0)
+      webByDate[date] = (webByDate[date] || 0) + (Number.isFinite(web) ? web : 0)
     }
 
-    // Monta array de 60 dias
+    // Série dos últimos 60 dias, excluindo dia corrente
     const all: DayData[] = []
-    for (let i = 59; i >= 0; i--) {
+    for (let i = 60; i >= 1; i--) {
       const d = new Date()
       d.setDate(d.getDate() - i)
       const date = d.toISOString().slice(0, 10)
-      all.push({ date, count: byDate[date] || 0, movingAvg: 0 })
+      all.push({
+        date,
+        count: totalByDate[date] || 0,
+        countWebsite: webByDate[date] || 0,
+        movingAvg: 0,
+        movingAvgWebsite: 0,
+      })
     }
 
-    // Calcula média móvel 30 dias
+    // Média móvel 30 dias (total e website)
     for (let i = 0; i < all.length; i++) {
       const start = Math.max(0, i - 29)
       const window = all.slice(start, i + 1)
-      const sum = window.reduce((s, d) => s + d.count, 0)
-      all[i].movingAvg = Math.round((sum / window.length) * 10) / 10
+      const sumT = window.reduce((s, d) => s + d.count, 0)
+      const sumW = window.reduce((s, d) => s + d.countWebsite, 0)
+      all[i].movingAvg = Math.round((sumT / window.length) * 10) / 10
+      all[i].movingAvgWebsite = Math.round((sumW / window.length) * 10) / 10
     }
 
-    // Retorna últimos 30 dias
     const days = all.slice(-30)
-
     return NextResponse.json({ days })
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
