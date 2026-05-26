@@ -8,14 +8,29 @@ export interface StoryLink {
   url: string;
 }
 
+export type StoryStatus =
+  | 'backlog'
+  | 'em_aprovacao'
+  | 'em_producao'
+  | 'aprovado'
+  | 'agendado'
+  | 'publicado';
+
 export interface Story {
   id: string;
   date: string;
   name: string;
   links: StoryLink[];
-  published: boolean;
+  status: StoryStatus;
+  published: boolean; // legado — mantido até a migração ser aplicada em todos os ambientes
   created_at: string;
   updated_at: string;
+}
+
+// Fallback caso o registro do banco ainda não tenha a coluna `status` populada
+function normalizeStatus(row: { status?: StoryStatus | null; published?: boolean | null }): StoryStatus {
+  if (row.status) return row.status;
+  return row.published ? 'publicado' : 'backlog';
 }
 
 export function useStories(year: number, month: number) {
@@ -38,7 +53,7 @@ export function useStories(year: number, month: number) {
     if (error) {
       console.error('Error fetching stories:', error);
     } else {
-      setStories((data as Story[]) ?? []);
+      setStories(((data ?? []) as Story[]).map((s) => ({ ...s, status: normalizeStatus(s) })));
     }
     setLoading(false);
   }, [startDate, endDate]);
@@ -50,23 +65,25 @@ export function useStories(year: number, month: number) {
   const createStory = async (story: { date: string; name: string; links?: StoryLink[] }) => {
     const { data, error } = await getSupabase()
       .from('stories')
-      .insert({ date: story.date, name: story.name, links: story.links ?? [], published: false })
+      .insert({ date: story.date, name: story.name, links: story.links ?? [], status: 'backlog', published: false })
       .select()
       .single();
     if (error) throw error;
-    setStories((prev) => [...prev, data as Story]);
-    return data as Story;
+    const created = { ...(data as Story), status: normalizeStatus(data as Story) };
+    setStories((prev) => [...prev, created]);
+    return created;
   };
 
-  const togglePublished = async (id: string, published: boolean) => {
+  const setStatus = async (id: string, status: StoryStatus) => {
     const { data, error } = await getSupabase()
       .from('stories')
-      .update({ published, updated_at: new Date().toISOString() })
+      .update({ status, published: status === 'publicado', updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single();
     if (error) throw error;
-    setStories((prev) => prev.map((s) => (s.id === id ? (data as Story) : s)));
+    const updated = { ...(data as Story), status: normalizeStatus(data as Story) };
+    setStories((prev) => prev.map((s) => (s.id === id ? updated : s)));
   };
 
   const deleteStory = async (id: string) => {
@@ -83,8 +100,7 @@ export function useStories(year: number, month: number) {
       .select()
       .single();
     if (error) throw error;
-    // se mudou a data para fora do mes atual, remove da lista; senao atualiza
-    const updated = data as Story;
+    const updated = { ...(data as Story), status: normalizeStatus(data as Story) };
     if (updated.date < startDate || updated.date > endDate) {
       setStories((prev) => prev.filter((s) => s.id !== id));
     } else {
@@ -92,5 +108,5 @@ export function useStories(year: number, month: number) {
     }
   };
 
-  return { stories, loading, fetchStories, createStory, togglePublished, deleteStory, updateStory };
+  return { stories, loading, fetchStories, createStory, setStatus, deleteStory, updateStory };
 }
