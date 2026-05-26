@@ -1264,6 +1264,7 @@ export default function VistasHospedesPage() {
                   { label: "Média 30d website", value: loadingRes ? "—" : fmt2(avg30WebR), color: statusColor(avg30WebR, META_DIA) },
                   { label: "Meta diária website", value: String(META_DIA), color: "#10b981" },
                   { label: "Dias acima da meta", value: loadingRes ? "—" : `${daysAboveMeta}/${days.length}`, color: statusColor(daysAboveMeta, days.length / 2) },
+                  { label: "Status média website", value: loadingRes ? "—" : avg30WebR >= META_DIA ? "✔ Acima da meta" : "Abaixo da meta", color: statusColor(avg30WebR, META_DIA) },
                 ].map(kpi => (
                   <div key={kpi.label} style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px", boxShadow: T.elevSm }}>
                     <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
