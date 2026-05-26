@@ -6,6 +6,11 @@ const INTEGRATION_ID = 3573142;
 
 const METRIC_NEW = { id: '5d397be5-60ef-42d1-973e-919998ffb96d', reference_key: 'ig:new_followers_count', component: 'number_v1', metrics: ['new_followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: 'new_followers' };
 
+const v = (x: any) =>
+  typeof x?.values === 'number' ? x.values
+  : Array.isArray(x?.values) ? x.values[0]
+  : null;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -40,7 +45,13 @@ export async function GET(request: Request) {
     });
 
     const data = await resp.json();
-    const ganho = data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
+    if (data?.data?.exception || data?.code === 'integration_expired') {
+      return NextResponse.json({
+        error: data?.data?.exception?.message ?? 'Integração do Instagram (Vistas) expirou no Reportei. Reautorize em app.reportei.com.',
+        code: data?.code ?? 'reportei_error',
+      }, { status: 502 });
+    }
+    const ganho = v(data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']);
 
     return NextResponse.json({ ganho, inicio, fim });
   } catch (err: any) {
