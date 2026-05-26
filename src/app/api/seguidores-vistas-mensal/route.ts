@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 const TOKEN = process.env.REPORTEI_TOKEN;
 const BASE = 'https://app.reportei.com/api/v2';
-const INTEGRATION_ID = 3313610;
+const INTEGRATION_ID = 3573142;
 
 const METRIC_NEW = { id: '5d397be5-60ef-42d1-973e-919998ffb96d', reference_key: 'ig:new_followers_count', component: 'number_v1', metrics: ['new_followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: 'new_followers' };
 

@@ -905,6 +905,7 @@ function SocialMediaSection() {
     total_seguidores: number | null; ganho_hoje: number | null; ganho_mes: number | null
     historico: { data: string; total_seguidores: number; ganho_dia: number }[]
   } | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [periodo, setPeriodo] = useState<7 | 14 | 30 | 'mes'>('mes')
   const [filterMes, setFilterMes] = useState<string | null>(null)
@@ -913,7 +914,14 @@ function SocialMediaSection() {
   const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null)
 
   useEffect(() => {
-    fetch("/api/seguidores-vistas").then(r => r.json()).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
+    fetch("/api/seguidores-vistas")
+      .then(r => r.json())
+      .then(d => {
+        if (d?.error) setErro(d.error)
+        else setData(d)
+      })
+      .catch(e => setErro(String(e?.message ?? e)))
+      .finally(() => setLoading(false))
   }, [])
 
   // Busca ganho direto do Reportei sempre que período ou mês mudar (exceto "mês atual" que já vem da rota principal)
@@ -1012,6 +1020,12 @@ function SocialMediaSection() {
   return (
     <div>
       <p style={{ fontSize: 13, fontWeight: 700, color: T.cardFg, margin: "0 0 12px", borderBottom: `1px solid ${T.border}`, paddingBottom: 8 }}>Seguidores</p>
+      {erro && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", background: `${T.destructive}11`, border: `1px solid ${T.destructive}55`, borderRadius: 8, fontSize: 12, color: T.destructive, display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>Reportei: {erro}</span>
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 14 }}>
         {[
           { label: "Total de Seguidores", value: loading ? "—" : total?.toLocaleString("pt-BR") ?? "—", color: COR },
@@ -1211,7 +1225,7 @@ export default function VistasHospedesPage() {
         <section style={{ marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Metabase · Reservas Pagas</p>
+              <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: T.mutedFg, margin: "0 0 2px" }}>Nekt · Reservas Válidas (Stays)</p>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: T.cardFg, margin: 0 }}>Meta de Reservas — Anitápolis</h2>
             </div>
             <button onClick={fetchReservas} disabled={loadingRes} style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 12px", background: T.card, border: `1px solid ${T.border}`, borderRadius: 7, fontSize: 12, color: T.mutedFg, cursor: "pointer", fontFamily: T.font }}>

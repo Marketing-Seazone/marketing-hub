@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const TOKEN = process.env.REPORTEI_TOKEN;
 const BASE = 'https://app.reportei.com/api/v2';
-const INTEGRATION_ID = 3313610;
+const INTEGRATION_ID = 3573142;
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -13,6 +13,11 @@ const supabase = createClient(
 const METRIC_TOTAL = { id: '371e93e0-f0a9-403d-8ada-0da32d72b917', reference_key: 'ig:followers_count', component: 'number_v1', metrics: ['followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: [] };
 const METRIC_NEW = { id: '5d397be5-60ef-42d1-973e-919998ffb96d', reference_key: 'ig:new_followers_count', component: 'number_v1', metrics: ['new_followers'], dimensions: [], filters: [], filter: null, sort: [], chart_type: null, custom: [], type: 'new_followers' };
 
+const v = (x: any) =>
+  typeof x?.values === 'number' ? x.values
+  : Array.isArray(x?.values) ? x.values[0]
+  : null;
+
 async function fetchReportei(start: string, end: string) {
   const resp = await fetch(`${BASE}/metrics/get-data`, {
     method: 'POST',
@@ -20,7 +25,7 @@ async function fetchReportei(start: string, end: string) {
     body: JSON.stringify({ start, end, integration_id: INTEGRATION_ID, metrics: [METRIC_NEW] }),
   });
   const data = await resp.json();
-  return data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
+  return v(data?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']);
 }
 
 export async function GET() {
@@ -36,8 +41,14 @@ export async function GET() {
       body: JSON.stringify({ start: ontem, end: hoje, integration_id: INTEGRATION_ID, metrics: [METRIC_TOTAL, METRIC_NEW] }),
     });
     const dataHoje = await respHoje.json();
-    const total_seguidores = dataHoje?.data?.['371e93e0-f0a9-403d-8ada-0da32d72b917']?.values ?? null;
-    const ganho_hoje = dataHoje?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
+    if (dataHoje?.data?.exception || dataHoje?.code === 'integration_expired') {
+      return NextResponse.json({
+        error: dataHoje?.data?.exception?.message ?? 'Integração do Instagram (Vistas) expirou no Reportei. Reautorize em app.reportei.com.',
+        code: dataHoje?.code ?? 'reportei_error',
+      }, { status: 502 });
+    }
+    const total_seguidores = v(dataHoje?.data?.['371e93e0-f0a9-403d-8ada-0da32d72b917']);
+    const ganho_hoje = v(dataHoje?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']);
 
     // Ganho acumulado do mês atual
     const respMes = await fetch(`${BASE}/metrics/get-data`, {
@@ -46,7 +57,7 @@ export async function GET() {
       body: JSON.stringify({ start: inicioMes, end: hoje, integration_id: INTEGRATION_ID, metrics: [METRIC_NEW] }),
     });
     const dataMes = await respMes.json();
-    const ganho_mes = dataMes?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']?.values ?? null;
+    const ganho_mes = v(dataMes?.data?.['5d397be5-60ef-42d1-973e-919998ffb96d']);
 
     // Salva hoje no Supabase
     if (total_seguidores !== null && ganho_hoje !== null) {
