@@ -39,16 +39,20 @@ function TextWithLinks({ text, style }: { text: string; style?: React.CSSPropert
 const TOTAL_LINE = "#f59e0b" // laranja — média móvel total
 const WEB_LINE = "#06b6d4"   // ciano — média móvel website
 
+const finite = (n: number, fallback = 0) => (Number.isFinite(n) ? n : fallback)
+
 function ReservasChart({ days }: { days: DayData[] }) {
   const W = 680, H = 130, PL = 28, PB = 22, PT = 8, PR = 8
   const cW = W - PL - PR, cH = H - PT - PB
-  const maxV = Math.max(...days.map(d => d.count), META_DIA) + 2
-  const xs = (i: number) => PL + (i / (days.length - 1)) * cW
-  const ys = (v: number) => PT + cH - (v / maxV) * cH
+  const maxV = Math.max(...days.map(d => finite(d.count)), META_DIA) + 2
+  const xs = (i: number) => days.length > 1
+    ? PL + (i / (days.length - 1)) * cW
+    : PL + cW / 2
+  const ys = (v: number) => PT + cH - (finite(v) / maxV) * cH
   const metaY = ys(META_DIA)
-  const barW = Math.max(2, (cW / days.length) - 2)
-  const totalPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvg)}`).join(" ")
-  const webPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(d.movingAvgWebsite)}`).join(" ")
+  const barW = Math.max(2, (cW / Math.max(days.length, 1)) - 2)
+  const totalPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(finite(d.movingAvg))}`).join(" ")
+  const webPath = days.map((d, i) => `${i === 0 ? "M" : "L"} ${xs(i)} ${ys(finite(d.movingAvgWebsite))}`).join(" ")
   return (
     <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: "block", overflow: "visible" }}>
       {[0, META_DIA / 2, META_DIA, META_DIA * 1.5].map(v => (
@@ -56,23 +60,25 @@ function ReservasChart({ days }: { days: DayData[] }) {
       ))}
       {/* Barras totais (cinza) ao fundo */}
       {days.map((d, i) => {
-        const bhT = Math.max(2, (d.count / maxV) * cH)
+        const count = finite(d.count)
+        const bhT = Math.max(2, (count / maxV) * cH)
         return (
-          <rect key={`t-${i}`} x={xs(i) - barW / 2} y={ys(d.count)} width={barW} height={bhT} fill="#9ca3af33" stroke="#9ca3af" strokeWidth={0.5} rx={1}>
-            <title>{fmtDate(d.date)}: {d.count} reserva{d.count !== 1 ? "s" : ""} (total)</title>
+          <rect key={`t-${i}`} x={xs(i) - barW / 2} y={ys(count)} width={barW} height={bhT} fill="#9ca3af33" stroke="#9ca3af" strokeWidth={0.5} rx={1}>
+            <title>{fmtDate(d.date)}: {count} reserva{count !== 1 ? "s" : ""} (total)</title>
           </rect>
         )
       })}
       {/* Barras website (verde se ≥ meta, vermelho se abaixo) à frente */}
       {days.map((d, i) => {
-        if (d.countWebsite === 0) return null
-        const bhW = Math.max(2, (d.countWebsite / maxV) * cH)
-        const ok = d.countWebsite >= META_DIA
+        const web = finite(d.countWebsite)
+        if (web <= 0) return null
+        const bhW = Math.max(2, (web / maxV) * cH)
+        const ok = web >= META_DIA
         const fill = ok ? "#10b98155" : `${T.destructive}44`
         const stroke = ok ? "#10b981" : T.destructive
         return (
-          <rect key={`w-${i}`} x={xs(i) - barW / 2} y={ys(d.countWebsite)} width={barW} height={bhW} fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
-            <title>{fmtDate(d.date)}: {d.countWebsite} via website / {d.count} total</title>
+          <rect key={`w-${i}`} x={xs(i) - barW / 2} y={ys(web)} width={barW} height={bhW} fill={fill} stroke={stroke} strokeWidth={0.5} rx={1}>
+            <title>{fmtDate(d.date)}: {web} via website / {finite(d.count)} total</title>
           </rect>
         )
       })}
@@ -1000,13 +1006,13 @@ function SocialMediaSection() {
   const faltaMeta = Math.max(0, META_MENSAL - (ganhoMes ?? 0))
   const progressoMeta = Math.min(100, ((ganhoMes ?? 0) / META_MENSAL) * 100)
 
-  const maxGanho = Math.max(...historicoFiltrado.map(d => d.ganho_dia || 0), 1)
+  const maxGanho = Math.max(...historicoFiltrado.map(d => finite(d.ganho_dia)), 1)
   const W = 680, H = 140, PL = 36, PB = 28, PT = 8, PR = 8
   const cW = W - PL - PR, cH = H - PT - PB
   const n = historicoFiltrado.length
   const barW = n > 1 ? Math.max(6, (cW / n) - 3) : 20
   const xs = (i: number) => n > 1 ? PL + (i / (n - 1)) * cW : PL + cW / 2
-  const ys = (v: number) => PT + cH - (v / maxGanho) * cH
+  const ys = (v: number) => PT + cH - (finite(v) / maxGanho) * cH
 
   const periodos: { label: string; val: 7 | 14 | 30 | 'mes' }[] = [
     { label: 'Mês atual', val: 'mes' }, { label: '7 dias', val: 7 }, { label: '14 dias', val: 14 }, { label: '30 dias', val: 30 },
@@ -1154,7 +1160,7 @@ function SocialMediaSection() {
               ))}
               <g clipPath="url(#chart-clip)">
                 {historicoFiltrado.map((d, i) => {
-                  const ganho = d.ganho_dia || 0
+                  const ganho = finite(d.ganho_dia)
                   const bh = Math.max(2, (ganho / maxGanho) * cH)
                   const isHoje = d.data === new Date().toISOString().split("T")[0]
                   return (

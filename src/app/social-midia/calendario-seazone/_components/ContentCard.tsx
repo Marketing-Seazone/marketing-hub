@@ -7,14 +7,12 @@ import { getEditorial } from '../_lib/calendar-constants';
 import type { Post, ContentStatus, ContentFormat } from '../_lib/types';
 
 const STATUS_OPTIONS: { value: ContentStatus; label: string; bg: string; fg: string }[] = [
-  { value: 'ideia',     label: 'Em aprovacao', bg: T.statusWarnBg,      fg: T.statusWarnDark },
+  { value: 'rascunho',  label: 'Rascunho',      bg: T.cinza50,           fg: T.cinza600 },
+  { value: 'ideia',     label: 'Em aprovação',  bg: T.statusWarnBg,      fg: T.statusWarnDark },
   { value: 'aprovado',  label: 'Aprovado',      bg: `${T.roxo600}18`,    fg: T.roxo600 },
-  { value: 'producao',  label: 'Em producao',   bg: `${T.laranja500}18`, fg: T.laranja500 },
+  { value: 'producao',  label: 'Em produção',   bg: `${T.laranja500}18`, fg: T.laranja500 },
   { value: 'agendado',  label: 'Agendado',      bg: T.pendingBg,         fg: T.pendingFg },
   { value: 'publicado', label: 'Publicado',     bg: T.statusOkBg,        fg: T.statusOkFg },
-  { value: 'rascunho',  label: 'Rascunho',      bg: T.cinza50,           fg: T.cinza600 },
-  { value: 'gravacao',  label: 'Gravacao',      bg: T.cinza50,           fg: T.cinza600 },
-  { value: 'edicao',    label: 'Edicao',        bg: T.cinza50,           fg: T.cinza600 },
 ];
 
 export function getStatusTag(status: ContentStatus) {

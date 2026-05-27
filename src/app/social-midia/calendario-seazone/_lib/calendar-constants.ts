@@ -83,12 +83,10 @@ export const FORMATS: { value: ContentFormat; label: string }[] = [
 ];
 
 export const STATUSES: { value: ContentStatus; label: string; emoji: string }[] = [
-  { value: 'ideia', label: 'Em aprovacao', emoji: '💡' },
-  { value: 'aprovado', label: 'Aprovado', emoji: '✔️' },
-  { value: 'producao', label: 'Em producao', emoji: '🎬' },
   { value: 'rascunho', label: 'Rascunho', emoji: '📝' },
-  { value: 'gravacao', label: 'Gravacao', emoji: '🎥' },
-  { value: 'edicao', label: 'Edicao', emoji: '✂️' },
+  { value: 'ideia', label: 'Em aprovação', emoji: '💡' },
+  { value: 'aprovado', label: 'Aprovado', emoji: '✔️' },
+  { value: 'producao', label: 'Em produção', emoji: '🎬' },
   { value: 'agendado', label: 'Agendado', emoji: '📅' },
   { value: 'publicado', label: 'Publicado', emoji: '✅' },
 ];
