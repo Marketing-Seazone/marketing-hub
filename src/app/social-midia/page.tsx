@@ -81,6 +81,23 @@ export default function Page() {
           </p>
         </a>
 
+        <Link href="/social-midia/canal-ofertas" style={{
+          background: T.card,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          padding: "20px 24px",
+          textDecoration: "none",
+          display: "block",
+          boxShadow: T.elevSm,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
+            Canal de Ofertas
+          </p>
+          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+            Posts semanais de imóveis para Instagram e WhatsApp · Copy com IA · Prompt do Story.
+          </p>
+        </Link>
+
         <Link href="/social-midia/seguidores-seazone" style={{
           background: T.card,
           border: `1px solid ${T.border}`,
