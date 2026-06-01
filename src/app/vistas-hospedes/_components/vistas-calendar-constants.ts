@@ -34,12 +34,10 @@ export const VISTAS_FORMATS: { value: ContentFormat; label: string }[] = [
 ];
 
 export const VISTAS_STATUSES: { value: ContentStatus; label: string; emoji: string }[] = [
+  { value: 'rascunho', label: 'Rascunho', emoji: '📝' },
   { value: 'ideia', label: 'Em aprovação', emoji: '💡' },
   { value: 'aprovado', label: 'Aprovado', emoji: '✅' },
   { value: 'producao', label: 'Em produção', emoji: '🎬' },
-  { value: 'rascunho', label: 'Rascunho', emoji: '📝' },
-  { value: 'gravacao', label: 'Gravação', emoji: '📹' },
-  { value: 'edicao', label: 'Edição', emoji: '✂️' },
   { value: 'agendado', label: 'Agendado', emoji: '📅' },
   { value: 'publicado', label: 'Publicado', emoji: '✔' },
 ];

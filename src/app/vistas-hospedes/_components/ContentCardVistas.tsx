@@ -13,8 +13,6 @@ const STATUS_OPTIONS: { value: ContentStatus; label: string; bg: string; fg: str
   { value: 'producao',  label: 'Em produção',   bg: `${T.laranja500}18`, fg: T.laranja500 },
   { value: 'agendado',  label: 'Agendado',      bg: T.pendingBg,         fg: T.pendingFg },
   { value: 'publicado', label: 'Publicado',     bg: T.statusOkBg,        fg: T.statusOkFg },
-  { value: 'gravacao',  label: 'Gravação',      bg: T.cinza50,           fg: T.cinza600 },
-  { value: 'edicao',    label: 'Edição',        bg: T.cinza50,           fg: T.cinza600 },
 ];
 
 export function getStatusTagVistas(status: ContentStatus) {
