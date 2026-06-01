@@ -342,14 +342,22 @@ const ambosEnviados = data.enviadoInstagram && data.enviadoWhatsapp
             </span>
           </div>
 
-          {/* Texto */}
-          <div style={{
-            background: T.muted, borderRadius: 8, padding: '12px 14px',
-            fontSize: 13, color: T.cardFg, lineHeight: 1.65,
-            whiteSpace: 'pre-wrap', marginBottom: 12, maxHeight: 260, overflowY: 'auto',
-          }}>
-            {copyTab === 'instagram' ? data.copyInstagram : data.copyWhatsapp}
-          </div>
+          {/* Texto editável */}
+          <textarea
+            value={copyTab === 'instagram' ? data.copyInstagram : data.copyWhatsapp}
+            onChange={e => onChange({
+              ...data,
+              [copyTab === 'instagram' ? 'copyInstagram' : 'copyWhatsapp']: e.target.value,
+            })}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: T.muted, borderRadius: 8, padding: '12px 14px',
+              fontSize: 13, color: T.cardFg, lineHeight: 1.65,
+              whiteSpace: 'pre-wrap', marginBottom: 12, minHeight: 200,
+              border: 'none', outline: 'none', resize: 'vertical',
+              fontFamily: T.font,
+            }}
+          />
 
           {/* Ações */}
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
