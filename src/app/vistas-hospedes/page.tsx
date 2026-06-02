@@ -2,7 +2,7 @@
 import { CalendarioConteudoVistas } from './_components/CalendarioConteudoVistas';
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown, ExternalLink, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown, ExternalLink, X } from "lucide-react"
 import { T } from "@/lib/constants"
 import type { DayData } from "@/app/api/vistas-reservas/route"
 import type { Task } from "@/app/api/vistas-checklist/route"
