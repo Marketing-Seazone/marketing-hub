@@ -12,6 +12,8 @@ import { ContentModalVistas } from './ContentModalVistas';
 import { QuickCreateModalVistas } from './QuickCreateModalVistas';
 import type { Post, EditorialSlug, ContentStatus } from '@/app/social-midia/calendario-seazone/_lib/types';
 
+type ChannelFilter = '' | 'instagram' | 'tiktok';
+
 interface DayModalProps {
   date: string; items: Post[]; onClose: () => void; onSelectItem: (item: Post) => void;
   onStatusChange: (id: string, status: ContentStatus) => void;
@@ -49,6 +51,7 @@ export function CalendarViewVistas() {
   const { items, loading, updateItem, deleteItem, fetchItems, createItem } = useContentVistas();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterEditorial, setFilterEditorial] = useState<EditorialSlug | ''>('');
+  const [filterChannel, setFilterChannel] = useState<ChannelFilter>('');
   const [selectedItem, setSelectedItem] = useState<Post | null>(null);
   const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -69,9 +72,15 @@ export function CalendarViewVistas() {
     return items.filter((item) => {
       if (!item.scheduled_at) return false;
       if (filterEditorial && item.editoria !== filterEditorial) return false;
+      if (filterChannel) {
+        const canal = (item.canal ?? '').toLowerCase();
+        const formato = (item.formato ?? '').toLowerCase();
+        if (filterChannel === 'tiktok' && !canal.includes('tiktok') && formato !== 'tiktok') return false;
+        if (filterChannel === 'instagram' && !canal.includes('instagram')) return false;
+      }
       return true;
     });
-  }, [items, filterEditorial]);
+  }, [items, filterEditorial, filterChannel]);
 
   const handleStatusChange = async (id: string, status: ContentStatus) => {
     try { await updateItem(id, { status }); await fetchItems(); showToast(`Status atualizado`); } catch { showToast('Erro ao atualizar status'); }
@@ -112,11 +121,19 @@ export function CalendarViewVistas() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 4px' }}>Calendário</h2>
           <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Visualize e gerencie seus conteúdos agendados — arraste para reagendar</p>
         </div>
-        <select value={filterEditorial} onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
-          style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}>
-          <option value="">Todas editorias</option>
-          {VISTAS_EDITORIALS.map((e) => <option key={e.slug} value={e.slug}>{e.name}</option>)}
-        </select>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={filterEditorial} onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}>
+            <option value="">Todas editorias</option>
+            {VISTAS_EDITORIALS.map((e) => <option key={e.slug} value={e.slug}>{e.name}</option>)}
+          </select>
+          <select value={filterChannel} onChange={(e) => setFilterChannel(e.target.value as ChannelFilter)}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}>
+            <option value="">Todos canais</option>
+            <option value="instagram">Instagram</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+        </div>
       </div>
 
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: 'hidden' }}>
