@@ -125,6 +125,7 @@ export function StoryGenerator({ nomeImovel, storyKey }: Props) {
   const [generating, setGenerating] = useState(false)
   const [loadingStory, setLoadingStory] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const uploadInputRef = useRef<HTMLInputElement>(null)
 
   // Carrega story salvo do IndexedDB ao montar
   useEffect(() => {
@@ -180,6 +181,20 @@ export function StoryGenerator({ nomeImovel, storyKey }: Props) {
     } finally {
       setGenerating(false)
     }
+  }
+
+  function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      const dataUrl = ev.target?.result as string
+      if (!dataUrl) return
+      setStoryUrl(dataUrl)
+      await saveStory(storyKey, dataUrl)
+    }
+    reader.readAsDataURL(file)
   }
 
   function baixar() {
@@ -256,7 +271,7 @@ export function StoryGenerator({ nomeImovel, storyKey }: Props) {
       </div>
 
       {/* Ações */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <button
           onClick={gerar}
           disabled={!bothLoaded || generating}
@@ -273,6 +288,20 @@ export function StoryGenerator({ nomeImovel, storyKey }: Props) {
             ? <><RefreshCw size={13} style={{ animation: 'spin 1s linear infinite' }} /> Gerando...</>
             : <><ImageIcon size={13} /> {storyUrl ? 'Regenerar story' : 'Gerar story'}</>
           }
+        </button>
+
+        <span style={{ fontSize: 11, color: T.mutedFg }}>ou</span>
+
+        <button
+          onClick={() => uploadInputRef.current?.click()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '8px 16px', borderRadius: 8, border: `1px solid ${T.border}`,
+            cursor: 'pointer', background: T.card, color: T.mutedFg,
+            fontSize: 12, fontWeight: 600, transition: 'all 0.15s',
+          }}
+        >
+          <Upload size={13} /> Subir imagem pronta
         </button>
 
         {storyUrl && (
@@ -292,6 +321,7 @@ export function StoryGenerator({ nomeImovel, storyKey }: Props) {
 
       {/* Canvas oculto — superfície de renderização */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
+      <input ref={uploadInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleUpload} />
     </div>
   )
 }

@@ -24,6 +24,23 @@ export default function Page() {
           </p>
         </Link>
 
+        <Link href="/social-midia/seguidores-seazone" style={{
+          background: T.card,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          padding: "20px 24px",
+          textDecoration: "none",
+          display: "block",
+          boxShadow: T.elevSm,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
+            Seazone — Métricas
+          </p>
+          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+            Seguidores, ganho diário e métricas do @destinoseazone via Reportei.
+          </p>
+        </Link>
+
         <Link href="/social-midia/influencers" style={{
           background: T.card,
           border: `1px solid ${T.border}`,
@@ -41,25 +58,22 @@ export default function Page() {
           </p>
         </Link>
 
-        <a href="https://linha-editorial-rodrigo-ruas-seazone.lovable.app"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            background: T.card,
-            border: `1px solid ${T.border}`,
-            borderRadius: 12,
-            padding: "20px 24px",
-            textDecoration: "none",
-            display: "block",
-            boxShadow: T.elevSm,
-          }}>
+        <Link href="/social-midia/canal-ofertas" style={{
+          background: T.card,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          padding: "20px 24px",
+          textDecoration: "none",
+          display: "block",
+          boxShadow: T.elevSm,
+        }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
-            Linha Editorial — Rodrigo Ruas
+            Canal de Ofertas
           </p>
           <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
-            Gestão de imóveis para aluguel por temporada. 4 pilares · 1 Reels/semana · 3 meses.
+            Posts semanais de imóveis para Instagram e WhatsApp · Copy com IA · Prompt do Story.
           </p>
-        </a>
+        </Link>
 
         <a href="https://linha-editorial-pedro-escola-de-imoveis.lovable.app"
           target="_blank"
@@ -81,39 +95,25 @@ export default function Page() {
           </p>
         </a>
 
-        <Link href="/social-midia/canal-ofertas" style={{
-          background: T.card,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          padding: "20px 24px",
-          textDecoration: "none",
-          display: "block",
-          boxShadow: T.elevSm,
-        }}>
+        <a href="https://linha-editorial-rodrigo-ruas-seazone.lovable.app"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 12,
+            padding: "20px 24px",
+            textDecoration: "none",
+            display: "block",
+            boxShadow: T.elevSm,
+          }}>
           <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
-            Canal de Ofertas
+            Linha Editorial — Rodrigo Ruas
           </p>
           <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
-            Posts semanais de imóveis para Instagram e WhatsApp · Copy com IA · Prompt do Story.
+            Gestão de imóveis para aluguel por temporada. 4 pilares · 1 Reels/semana · 3 meses.
           </p>
-        </Link>
-
-        <Link href="/social-midia/seguidores-seazone" style={{
-          background: T.card,
-          border: `1px solid ${T.border}`,
-          borderRadius: 12,
-          padding: "20px 24px",
-          textDecoration: "none",
-          display: "block",
-          boxShadow: T.elevSm,
-        }}>
-          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
-            Seazone — Métricas
-          </p>
-          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
-            Seguidores, ganho diário e métricas do @destinoseazone via Reportei.
-          </p>
-        </Link>
+        </a>
 
       </div>
     </TeamLayout>
