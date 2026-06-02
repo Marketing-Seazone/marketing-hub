@@ -696,7 +696,7 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                         title="Duplo clique para editar"
                         onDoubleClick={e => { e.stopPropagation(); setModalEdit({ id: row.id, key: col.key, label: col.label, val }) }}>
                         {val
-                          ? <span style={{ display: "-webkit-box" as React.CSSProperties["display"], WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as React.CSSProperties["WebkitBoxOrient"], overflow: "hidden", whiteSpace: "normal" as const }}>{val}</span>
+                          ? <span style={{ display: "-webkit-box" as React.CSSProperties["display"], WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden", whiteSpace: "normal" as const }}>{val}</span>
                           : <span style={{ color: "#d1d5db", fontSize: 12 }}>—</span>}
                       </td>
                     )
