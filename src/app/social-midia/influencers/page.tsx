@@ -4,10 +4,13 @@ import { useEffect, useState, useRef } from "react"
 import { TeamLayout } from "@/components/team-layout"
 import { T } from "@/lib/constants"
 import { getSupabase } from "@/app/social-midia/calendario-seazone/_lib/supabase"
-import { Plus, Trash2, Copy, ChevronUp, ChevronDown, ArrowUpDown } from "lucide-react"
+import { Plus, Trash2, Copy, ChevronUp, ChevronDown, ArrowUpDown, ExternalLink, X } from "lucide-react"
 
 const NAVY = "#0f1d4e"
 const COR  = "#0f1d4e"
+
+/* Colunas com editor modal (texto longo) */
+const LONG_TEXT_COLS = ["conteudo_orcado", "observacoes"]
 
 const MES_NOMES: Record<number, string> = {
   1: "01. Janeiro", 2: "02. Fevereiro", 3: "03. Março", 4: "04. Abril",
@@ -33,10 +36,10 @@ const BASE_COLS: ColDef[] = [
   { key: "mes",                      label: "Mês",              width: 95  },
   { key: "categoria",                label: "Categoria",        width: 90,  type: "categoria" },
   { key: "perfil",                   label: "Perfil",           width: 160 },
-  { key: "link_perfil",              label: "Link",             width: 65,  type: "link" },
+  { key: "link_perfil",              label: "Link",             width: 70,  type: "link" },
   { key: "seguidores",               label: "Seguidores",       width: 85  },
   { key: "contato",                  label: "Contato",          width: 150 },
-  { key: "status_contrato",          label: "Status",           width: 135, type: "status" },
+  { key: "status_contrato",          label: "Status",           width: 140, type: "status" },
   { key: "valor_trabalho",           label: "Vlr Trabalho",     width: 100 },
   { key: "valor_hospedagem",         label: "Vlr Hosp.",        width: 90  },
   { key: "data_visita_hospedagem",   label: "Data Visita",      width: 100 },
@@ -45,7 +48,7 @@ const BASE_COLS: ColDef[] = [
   { key: "data_contratacao",         label: "Dt Contrat.",      width: 100 },
   { key: "data_pagamento",           label: "Dt Pgto",          width: 95  },
   { key: "data_hora_post",           label: "Data Post",        width: 100 },
-  { key: "link_publicacao",          label: "Link Post",        width: 65,  type: "link" },
+  { key: "link_publicacao",          label: "Link Post",        width: 70,  type: "link" },
   { key: "quantidade_conversoes",    label: "Conversões",       width: 90  },
   { key: "valor_total_reservas",     label: "Vlr Reservas",     width: 100 },
   { key: "conteudo_orcado",          label: "Conteúdo Orçado",  width: 180 },
@@ -58,10 +61,10 @@ const SEAZONE_COLS: ColDef[] = [
   { key: "mes",                      label: "Mês",              width: 95  },
   { key: "categoria",                label: "Categoria",        width: 90,  type: "categoria" },
   { key: "perfil",                   label: "Perfil",           width: 160 },
-  { key: "link_perfil",              label: "Link",             width: 65,  type: "link" },
+  { key: "link_perfil",              label: "Link",             width: 70,  type: "link" },
   { key: "seguidores",               label: "Seguidores",       width: 85  },
   { key: "contato",                  label: "Contato",          width: 150 },
-  { key: "status_contrato",          label: "Status",           width: 135, type: "status" },
+  { key: "status_contrato",          label: "Status",           width: 140, type: "status" },
   { key: "valor_trabalho",           label: "Vlr Trabalho",     width: 100 },
   { key: "valor_hospedagem",         label: "Vlr Hosp.",        width: 90  },
   { key: "data_visita_hospedagem",   label: "Data Visita",      width: 100 },
@@ -70,7 +73,7 @@ const SEAZONE_COLS: ColDef[] = [
   { key: "data_contratacao",         label: "Dt Contrat.",      width: 100 },
   { key: "data_pagamento",           label: "Dt Pgto",          width: 95  },
   { key: "data_hora_post",           label: "Data Post",        width: 100 },
-  { key: "link_publicacao",          label: "Link Post",        width: 65,  type: "link" },
+  { key: "link_publicacao",          label: "Link Post",        width: 70,  type: "link" },
   { key: "quantidade_conversoes",    label: "Conversões",       width: 90  },
   { key: "valor_total_reservas",     label: "Vlr Reservas",     width: 100 },
   { key: "conteudo_orcado",          label: "Conteúdo Orçado",  width: 180 },
@@ -88,10 +91,10 @@ const CATEGORIA_OPTIONS = ["Influ", "Perfil", "Página"]
 
 function statusStyle(s: string): React.CSSProperties {
   const v = (s || "").toLowerCase().trim()
-  if (v === "contratado")     return { background: "#d1fae5", color: "#065f46", border: "1px solid #6ee7b7" }
-  if (v.includes("não") || v.includes("nao")) return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" }
-  if (v === "aguardando")     return { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }
-  if (v === "permuta")        return { background: "#e0e7ff", color: "#3730a3", border: "1px solid #a5b4fc" }
+  if (v === "contratado")                        return { background: "#d1fae5", color: "#065f46", border: "1px solid #6ee7b7" }
+  if (v.includes("não") || v.includes("nao"))    return { background: "#fee2e2", color: "#991b1b", border: "1px solid #fca5a5" }
+  if (v === "aguardando")                        return { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }
+  if (v === "permuta")                           return { background: "#e0e7ff", color: "#3730a3", border: "1px solid #a5b4fc" }
   return { background: "#f3f4f6", color: "#6b7280", border: "1px solid #d1d5db" }
 }
 
@@ -125,39 +128,42 @@ function ColFilterPopup({ colKey, label, allRows, active, sortDir, onApply, onSo
     setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
   }
 
-  const GS = { border: "#dadce0", headerBg: "#f8f9fa", text: "#202124", textMuted: "#5f6368" }
+  const GS = { border: "#e2e5e9", headerBg: "#f8f9fa", text: "#1a1d23", textMuted: "#6b7280" }
 
   return (
-    <div style={{ position: "absolute", top: "100%", left: 0, zIndex: 200, background: "#fff", border: `1px solid ${GS.border}`, borderRadius: 6, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", minWidth: 240, overflow: "hidden" }}
-      onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-      <div style={{ padding: "8px 12px", background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+    <div
+      style={{ background: "#fff", border: `1px solid ${GS.border}`, borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,0.18)", minWidth: 248, overflow: "hidden" }}
+      onMouseDown={e => e.stopPropagation()}
+      onClick={e => e.stopPropagation()}
+    >
+      <div style={{ padding: "10px 14px", background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: GS.text }}>Filtrar: {label}</span>
-        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: "none", border: "none", cursor: "pointer", color: GS.textMuted, fontSize: 16, lineHeight: 1 }}>✕</button>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: "none", border: "none", cursor: "pointer", color: GS.textMuted, width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4 }}>✕</button>
       </div>
-      <div style={{ padding: "6px 8px", borderBottom: `1px solid ${GS.border}`, display: "flex", gap: 4 }}>
+      <div style={{ padding: "8px 10px", borderBottom: `1px solid ${GS.border}`, display: "flex", gap: 6 }}>
         <button onMouseDown={e => { e.preventDefault(); setSortAZ(true); onSort("asc") }}
-          style={{ flex: 1, padding: "5px 6px", fontSize: 11, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 4, background: sortAZ ? `${COR}15` : "#fff", color: sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, fontWeight: sortAZ ? 700 : 400 }}>
-          <ChevronUp size={11} /> A → Z
+          style={{ flex: 1, padding: "6px 8px", fontSize: 12, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 6, background: sortAZ ? `${COR}15` : "#fff", color: sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: sortAZ ? 700 : 400 }}>
+          <ChevronUp size={12} /> A → Z
         </button>
         <button onMouseDown={e => { e.preventDefault(); setSortAZ(false); onSort("desc") }}
-          style={{ flex: 1, padding: "5px 6px", fontSize: 11, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 4, background: !sortAZ ? `${COR}15` : "#fff", color: !sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 3, fontWeight: !sortAZ ? 700 : 400 }}>
-          <ChevronDown size={11} /> Z → A
+          style={{ flex: 1, padding: "6px 8px", fontSize: 12, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 6, background: !sortAZ ? `${COR}15` : "#fff", color: !sortAZ ? COR : GS.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: !sortAZ ? 700 : 400 }}>
+          <ChevronDown size={12} /> Z → A
         </button>
       </div>
-      <div style={{ padding: "6px 8px", borderBottom: `1px solid ${GS.border}` }}>
+      <div style={{ padding: "8px 10px", borderBottom: `1px solid ${GS.border}` }}>
         <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder="🔍 Buscar..."
-          style={{ width: "100%", padding: "5px 8px", fontSize: 11, border: `1px solid ${GS.border}`, borderRadius: 4, outline: "none", boxSizing: "border-box" as const }} />
+          style={{ width: "100%", padding: "6px 10px", fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 6, outline: "none", boxSizing: "border-box" as const }} />
       </div>
-      <div style={{ padding: "5px 12px", borderBottom: `1px solid ${GS.border}`, background: "#fafafa" }}>
+      <div style={{ padding: "6px 14px", borderBottom: `1px solid ${GS.border}`, background: "#fafafa" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: GS.text, fontWeight: 600 }}>
           <input type="checkbox" checked={allSelected} onChange={() => setSelected(allSelected ? [] : [...allOpts])}
             style={{ width: 14, height: 14, accentColor: COR, cursor: "pointer" }} />
           Selecionar tudo ({allOpts.length})
         </label>
       </div>
-      <div style={{ maxHeight: 180, overflowY: "auto" }}>
+      <div style={{ maxHeight: 200, overflowY: "auto" }}>
         {visible.map(o => (
-          <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 12px", cursor: "pointer", fontSize: 12, color: GS.text }}
+          <label key={o} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", cursor: "pointer", fontSize: 12, color: GS.text }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "#f0f4ff"}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "transparent"}>
             <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)}
@@ -165,15 +171,15 @@ function ColFilterPopup({ colKey, label, allRows, active, sortDir, onApply, onSo
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o}</span>
           </label>
         ))}
-        {visible.length === 0 && <p style={{ padding: "10px 12px", fontSize: 11, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
+        {visible.length === 0 && <p style={{ padding: "12px 14px", fontSize: 12, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
       </div>
-      <div style={{ padding: "8px 12px", borderTop: `1px solid ${GS.border}`, display: "flex", gap: 6, justifyContent: "flex-end", background: "#fafafa" }}>
+      <div style={{ padding: "10px 14px", borderTop: `1px solid ${GS.border}`, display: "flex", gap: 8, justifyContent: "flex-end", background: "#fafafa" }}>
         <button onMouseDown={e => { e.preventDefault(); onClose() }}
-          style={{ padding: "5px 14px", fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 4, background: "#fff", cursor: "pointer", color: GS.text }}>
+          style={{ padding: "6px 16px", fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 6, background: "#fff", cursor: "pointer", color: GS.text }}>
           Cancelar
         </button>
         <button onMouseDown={e => { e.preventDefault(); onApply(selected.length === allOpts.length ? [] : selected); onClose() }}
-          style={{ padding: "5px 14px", fontSize: 12, border: "none", borderRadius: 4, background: COR, color: "#fff", cursor: "pointer", fontWeight: 700 }}>
+          style={{ padding: "6px 16px", fontSize: 12, border: "none", borderRadius: 6, background: COR, color: "#fff", cursor: "pointer", fontWeight: 700 }}>
           OK
         </button>
       </div>
@@ -184,15 +190,15 @@ function ColFilterPopup({ colKey, label, allRows, active, sortDir, onApply, onSo
 /* ── GeralTab ── */
 function GeralTab() {
   const now = new Date()
-  const anoAtual = String(now.getFullYear())
-  const mesAtual = MES_NOMES[now.getMonth() + 1] || ""
+  const anoAtual   = String(now.getFullYear())
+  const mesNumero  = String(now.getMonth() + 1).padStart(2, "0") // "06"
 
   const [orcamento, setOrcamento]           = useState("")
   const [orcamentoInput, setOrcamentoInput] = useState("")
   const [allRows, setAllRows]               = useState<Record<string, InfluRow[]>>({})
   const [loading, setLoading]               = useState(true)
   const [filterAno, setFilterAno]           = useState(anoAtual)
-  const [filterMes, setFilterMes]           = useState(mesAtual)
+  const [filterMes, setFilterMes]           = useState("todos")
 
   useEffect(() => {
     const s = localStorage.getItem("influencers_orcamento_total") || ""
@@ -218,10 +224,12 @@ function GeralTab() {
       .map(r => String(r.mes ?? "")).filter(Boolean)
   )).sort()
 
+  /* Após carregar os dados, encontra o mês atual no formato exato que está no banco
+     (ex: "06. junho") para que o filtro e o select batam corretamente */
   useEffect(() => {
-    if (Object.keys(allRows).length > 0 && todosMeses.includes(mesAtual)) {
-      setFilterMes(mesAtual)
-    }
+    if (Object.keys(allRows).length === 0) return
+    const mesNoBanco = todosMeses.find(m => m.trim().startsWith(mesNumero))
+    setFilterMes(mesNoBanco ?? "todos")
   }, [allRows])
 
   function saveOrcamento() { setOrcamento(orcamentoInput); localStorage.setItem("influencers_orcamento_total", orcamentoInput) }
@@ -386,10 +394,15 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
   const [saving, setSaving]               = useState(false)
   const [colFilters, setColFilters]       = useState<Record<string, string[]>>({})
   const [openFilterCol, setOpenFilterCol] = useState<string | null>(null)
+  /* posição fixa do popup de filtro — calculada no clique para escapar do overflow */
+  const [filterPopupPos, setFilterPopupPos] = useState<{ top: number; left: number } | null>(null)
   const [search, setSearch]               = useState("")
   const [selectedRow, setSelectedRow]     = useState<string | null>(null)
   const [sortCol, setSortCol]             = useState<string | null>(null)
   const [sortDir, setSortDir]             = useState<"asc" | "desc">("asc")
+  const [hoverRow, setHoverRow]           = useState<string | null>(null)
+  /* modal de edição para colunas de texto longo */
+  const [modalEdit, setModalEdit]         = useState<{ id: string; key: string; label: string; val: string } | null>(null)
 
   useEffect(() => { loadRows() }, [tableName])
 
@@ -432,7 +445,7 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
 
   async function addRow() {
     const payload: Record<string, null> = {}; cols.forEach(c => { payload[c.key] = null })
-    const { data, error } = await getSupabase().from(tableName).insert(payload).select().single()
+    const { data } = await getSupabase().from(tableName).insert(payload).select().single()
     if (data) {
       const newRow: InfluRow = {}
       Object.entries(data).forEach(([k, v]) => { newRow[k] = v === null ? "" : String(v) })
@@ -462,95 +475,128 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
     else { setSortCol(key); setSortDir("asc") }
   }
 
+  function closeFilterPopup() {
+    setOpenFilterCol(null)
+    setFilterPopupPos(null)
+  }
+
   const activeFiltersCount = Object.values(colFilters).filter(v => v.length > 0).length
 
   const GS = {
-    headerBg: "#f8f9fa", headerBorder: "#dadce0", cellBorder: "#e2e3e4",
-    rowHover: "#f6f8ff", rowSelected: "#e8f0fe", rowAlt: "#fafbfc",
-    text: "#202124", textMuted: "#5f6368", inputBorder: "#4285f4",
+    headerBg:     "#f8f9fa",
+    headerBorder: "#e2e5e9",
+    cellBorder:   "#edf0f3",
+    rowHover:     "#f0f4ff",
+    rowSelected:  "#e8effd",
+    rowAlt:       "#fafbfd",
+    text:         "#1a1d23",
+    textMuted:    "#6b7280",
+    inputBorder:  "#3b72f6",
   }
 
   const cellBase: React.CSSProperties = {
-    padding: "4px 6px", minHeight: 28, maxHeight: 80,
-    borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`,
-    fontSize: 12, color: GS.text, overflow: "hidden", verticalAlign: "top" as const,
-    cursor: "cell", wordBreak: "break-word" as const, whiteSpace: "pre-wrap" as const, lineHeight: "18px",
+    padding: "8px 10px",
+    borderRight: `1px solid ${GS.cellBorder}`,
+    borderBottom: `1px solid ${GS.cellBorder}`,
+    fontSize: 13,
+    color: GS.text,
+    overflow: "hidden",
+    verticalAlign: "top" as const,
+    cursor: "cell",
+    wordBreak: "break-word" as const,
+    whiteSpace: "pre-wrap" as const,
+    lineHeight: "20px",
   }
 
-  if (loading) return <div style={{ padding: 48, textAlign: "center" as const, color: T.mutedFg }}>Carregando...</div>
+  if (loading) return (
+    <div style={{ padding: 64, textAlign: "center" as const, color: GS.textMuted, fontSize: 14 }}>
+      Carregando...
+    </div>
+  )
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", background: GS.headerBg, border: `1px solid ${GS.headerBorder}`, borderBottom: "none", borderRadius: "6px 6px 0 0", flexWrap: "wrap" as const }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar..."
-          style={{ padding: "4px 8px", fontSize: 12, border: `1px solid ${GS.headerBorder}`, borderRadius: 4, outline: "none", background: "#fff", color: GS.text, width: 200 }} />
-        <span style={{ fontSize: 11, color: GS.textMuted }}>{filtered.length} linha{filtered.length !== 1 ? "s" : ""}</span>
+      {/* Toolbar */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "#fff", border: `1px solid ${GS.headerBorder}`, borderBottom: "none", borderRadius: "10px 10px 0 0", flexWrap: "wrap" as const }}>
+        <input
+          value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="🔍  Buscar..."
+          style={{ padding: "7px 12px", fontSize: 13, border: `1px solid ${GS.headerBorder}`, borderRadius: 8, outline: "none", background: "#fff", color: GS.text, width: 240 }}
+        />
+        <span style={{ fontSize: 12, color: GS.textMuted, background: "#f3f4f6", padding: "4px 10px", borderRadius: 20, fontWeight: 500, whiteSpace: "nowrap" as const }}>
+          {filtered.length} {filtered.length !== 1 ? "linhas" : "linha"}
+        </span>
         {activeFiltersCount > 0 && (
-          <button onClick={() => setColFilters({})} style={{ padding: "3px 8px", background: "#fff3cd", border: "1px solid #fcd34d", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#92400e" }}>
+          <button onClick={() => setColFilters({})}
+            style={{ padding: "5px 10px", background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#92400e", display: "flex", alignItems: "center", gap: 4, fontWeight: 500 }}>
             {activeFiltersCount} filtro{activeFiltersCount > 1 ? "s" : ""} ativo{activeFiltersCount > 1 ? "s" : ""} ✕
           </button>
         )}
         {sortCol && (
-          <button onClick={() => setSortCol(null)} style={{ padding: "3px 8px", background: "#e0f2fe", border: "1px solid #7dd3fc", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#0369a1" }}>
+          <button onClick={() => setSortCol(null)}
+            style={{ padding: "5px 10px", background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#1d4ed8", display: "flex", alignItems: "center", gap: 4 }}>
             {cols.find(c => c.key === sortCol)?.label} {sortDir === "asc" ? "↑ A-Z" : "↓ Z-A"} ✕
           </button>
         )}
         {selectedRow && (
           <>
             <button onClick={() => { const r = filtered.find(r => r.id === selectedRow); if (r) duplicateRow(r) }}
-              style={{ padding: "3px 8px", background: "#fff", border: `1px solid ${GS.headerBorder}`, borderRadius: 4, fontSize: 11, cursor: "pointer", color: GS.text, display: "flex", alignItems: "center", gap: 3 }}>
-              <Copy size={11} /> Duplicar
+              style={{ padding: "5px 12px", background: "#fff", border: `1px solid ${GS.headerBorder}`, borderRadius: 6, fontSize: 12, cursor: "pointer", color: GS.text, display: "flex", alignItems: "center", gap: 4 }}>
+              <Copy size={13} /> Duplicar
             </button>
             <button onClick={() => deleteRow(selectedRow)}
-              style={{ padding: "3px 8px", background: "#fff", border: "1px solid #fca5a5", borderRadius: 4, fontSize: 11, cursor: "pointer", color: "#991b1b", display: "flex", alignItems: "center", gap: 3 }}>
-              <Trash2 size={11} /> Excluir
+              style={{ padding: "5px 12px", background: "#fff5f5", border: "1px solid #fca5a5", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "#dc2626", display: "flex", alignItems: "center", gap: 4 }}>
+              <Trash2 size={13} /> Excluir
             </button>
           </>
         )}
-        <button onClick={addRow} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, padding: "4px 12px", background: NAVY, color: "#fff", border: "none", borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-          <Plus size={12} /> Nova linha
+        <button onClick={addRow}
+          style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", background: NAVY, color: "#fff", border: "none", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+          <Plus size={14} /> Nova linha
         </button>
       </div>
 
-      <div ref={tableRef} style={{ overflowX: "auto", border: `1px solid ${GS.headerBorder}`, borderRadius: "0 0 6px 6px", maxHeight: 560, overflowY: "auto" }}>
-        <table style={{ borderCollapse: "collapse" as const, fontSize: 12, minWidth: "100%", tableLayout: "fixed" as const }}>
+      {/* Table */}
+      <div
+        ref={tableRef}
+        style={{ overflowX: "auto", overflowY: "auto", border: `1px solid ${GS.headerBorder}`, borderRadius: "0 0 10px 10px", maxHeight: 580 }}
+      >
+        <table style={{ borderCollapse: "collapse" as const, fontSize: 13, minWidth: "100%", tableLayout: "fixed" as const }}>
           <colgroup>
-            <col style={{ width: 36 }} />
+            <col style={{ width: 52 }} />
             {cols.map(c => <col key={c.key} style={{ width: c.width }} />)}
           </colgroup>
           <thead style={{ position: "sticky" as const, top: 0, zIndex: 10 }}>
             <tr style={{ background: GS.headerBg }}>
-              <th style={{ width: 36, padding: "6px 4px", borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: "center" as const, fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
+              <th style={{ width: 52, padding: "0 6px", height: 40, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: "center" as const, fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
               {cols.map(c => {
                 const isFiltered = !!(colFilters[c.key]?.length > 0)
                 const isSorted = sortCol === c.key
                 const isOpen = openFilterCol === c.key
                 return (
                   <th key={c.key} style={{ padding: 0, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, background: isFiltered ? `${COR}08` : GS.headerBg, position: "relative" as const }}>
-                    <div style={{ display: "flex", alignItems: "stretch", height: 32 }}>
+                    <div style={{ display: "flex", alignItems: "stretch", height: 40 }}>
                       <button onClick={() => toggleSort(c.key)}
-                        style={{ flex: 1, padding: "0 4px 0 8px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const, fontSize: 11, color: isSorted || isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: "flex", alignItems: "center", gap: 3, overflow: "hidden", whiteSpace: "nowrap" as const }}>
+                        style={{ flex: 1, padding: "0 4px 0 10px", background: "none", border: "none", cursor: "pointer", textAlign: "left" as const, fontSize: 12, color: isSorted || isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: "flex", alignItems: "center", gap: 4, overflow: "hidden", whiteSpace: "nowrap" as const }}>
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{c.label}</span>
                         {isFiltered && <span style={{ fontSize: 9, background: COR, color: "#fff", borderRadius: 10, padding: "1px 4px", flexShrink: 0 }}>●</span>}
-                        {isSorted ? (sortDir === "asc" ? <ChevronUp size={10} color={COR} /> : <ChevronDown size={10} color={COR} />) : <ArrowUpDown size={9} style={{ opacity: 0.25, flexShrink: 0 }} />}
+                        {isSorted ? (sortDir === "asc" ? <ChevronUp size={11} color={COR} /> : <ChevronDown size={11} color={COR} />) : <ArrowUpDown size={10} style={{ opacity: 0.3, flexShrink: 0 }} />}
                       </button>
-                      <div style={{ position: "relative" as const, flexShrink: 0 }}>
-                        <button
-                          onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
-                          style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : "none", border: "none", borderLeft: `1px solid ${GS.headerBorder}`, cursor: "pointer", color: isFiltered || isOpen ? COR : GS.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12 }}>
-                          ▼
-                        </button>
-                        {isOpen && (
-                          <ColFilterPopup
-                            colKey={c.key} label={c.label} allRows={rows}
-                            active={colFilters[c.key] || []}
-                            sortDir={sortCol === c.key ? sortDir : null}
-                            onApply={vals => setColFilters(prev => vals.length ? { ...prev, [c.key]: vals } : (({ [c.key]: _, ...rest }) => rest)(prev))}
-                            onSort={dir => { if (dir) { setSortCol(c.key); setSortDir(dir) } else { setSortCol(null) } }}
-                            onClose={() => setOpenFilterCol(null)}
-                          />
-                        )}
-                      </div>
+                      {/* Botão de filtro: calcula posição real (getBoundingClientRect) para o popup não ser cortado pelo overflow */}
+                      <button
+                        onMouseDown={e => {
+                          e.preventDefault(); e.stopPropagation()
+                          if (isOpen) {
+                            closeFilterPopup()
+                          } else {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setFilterPopupPos({ top: rect.bottom + 4, left: rect.left })
+                            setOpenFilterCol(c.key)
+                          }
+                        }}
+                        style={{ width: 26, height: 40, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : "none", border: "none", borderLeft: `1px solid ${GS.headerBorder}`, cursor: "pointer", color: isFiltered || isOpen ? COR : GS.textMuted, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11 }}>
+                        ▼
+                      </button>
                     </div>
                   </th>
                 )
@@ -560,24 +606,46 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
           <tbody>
             {filtered.map((row, i) => {
               const isSelected = selectedRow === row.id
-              const isAlt = i % 2 === 1
-              const bg = isSelected ? GS.rowSelected : isAlt ? GS.rowAlt : "#fff"
+              const isHovered  = hoverRow === row.id
+              const isAlt      = i % 2 === 1
+              const bg = isSelected ? GS.rowSelected : isHovered ? GS.rowHover : isAlt ? GS.rowAlt : "#fff"
+
               return (
-                <tr key={row.id}
+                <tr
+                  key={row.id}
                   onClick={() => setSelectedRow(isSelected ? null : row.id)}
-                  style={{ background: bg, transition: "background 0.05s" }}
-                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover }}
-                  onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = bg }}
+                  onMouseEnter={() => setHoverRow(row.id)}
+                  onMouseLeave={() => setHoverRow(null)}
+                  style={{ background: bg, transition: "background 0.06s" }}
                 >
-                  <td style={{ ...cellBase, width: 36, textAlign: "center" as const, color: GS.textMuted, fontSize: 11, cursor: "default", whiteSpace: "nowrap" as const, background: bg, padding: "6px 4px" }}>
-                    {i + 1}
+                  {/* Célula #: altura fixa via wrapper interno para não causar deslocamento no hover */}
+                  <td style={{ width: 52, padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: "middle" as const, cursor: "default", background: bg, boxShadow: isSelected ? `inset 3px 0 0 ${COR}` : "none" }}>
+                    <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" as const }}>
+                      {/* Número sempre renderizado; some no hover via opacity (sem afetar layout) */}
+                      <span style={{ position: "absolute" as const, fontSize: 11, color: GS.textMuted, transition: "opacity 0.1s", opacity: (isHovered || isSelected) ? 0 : 1, pointerEvents: "none" }}>
+                        {i + 1}
+                      </span>
+                      {/* Botões sempre renderizados; aparecem no hover via opacity (sem afetar layout) */}
+                      <div style={{ display: "flex", gap: 3, transition: "opacity 0.1s", opacity: (isHovered || isSelected) ? 1 : 0, pointerEvents: (isHovered || isSelected) ? "auto" : "none" }}>
+                        <button onClick={e => { e.stopPropagation(); duplicateRow(row) }} title="Duplicar"
+                          style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff", border: `1px solid ${GS.headerBorder}`, borderRadius: 5, cursor: "pointer", color: GS.textMuted }}>
+                          <Copy size={11} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); deleteRow(row.id) }} title="Excluir"
+                          style={{ width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", background: "#fff5f5", border: "1px solid #fca5a5", borderRadius: 5, cursor: "pointer", color: "#dc2626" }}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
                   </td>
+
                   {cols.map(col => {
                     const val = row[col.key] || ""
                     const isEditing = editCell?.id === row.id && editCell?.key === col.key
+                    const isLongText = LONG_TEXT_COLS.includes(col.key)
 
                     if (isEditing) return (
-                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: "top" as const }}>
+                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: "top" as const, borderTop: `2px solid ${GS.inputBorder}` }}>
                         <textarea autoFocus value={editVal}
                           onChange={e => setEditVal(e.target.value)}
                           onBlur={() => setTimeout(() => commitEdit(row.id, col.key, editVal), 100)}
@@ -586,14 +654,15 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                             if (e.key === "Escape") setEditCell(null)
                             if (e.key === "Tab") { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
                           }}
-                          style={{ width: "100%", minHeight: 28, maxHeight: 120, padding: "4px 6px", fontSize: 12, border: `2px solid ${GS.inputBorder}`, outline: "none", background: "#fff", color: GS.text, boxSizing: "border-box" as const, resize: "vertical" as const, lineHeight: "18px", fontFamily: "inherit" }} />
+                          style={{ width: "100%", minHeight: 36, maxHeight: 140, padding: "8px 10px", fontSize: 13, border: "none", outline: "none", background: "#fff", color: GS.text, boxSizing: "border-box" as const, resize: "vertical" as const, lineHeight: "20px", fontFamily: "inherit" }}
+                        />
                       </td>
                     )
 
                     if (col.type === "status") return (
-                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "3px 4px", whiteSpace: "nowrap" as const }}>
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "6px 8px", whiteSpace: "nowrap" as const }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
-                          style={{ ...statusStyle(val), width: "100%", padding: "2px 6px", fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: "pointer", outline: "none", height: 22 }}>
+                          style={{ ...statusStyle(val), width: "100%", padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", outline: "none", height: 28 }}>
                           <option value="">—</option>
                           {STATUS_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
@@ -601,9 +670,9 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                     )
 
                     if (col.type === "categoria") return (
-                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "3px 4px", whiteSpace: "nowrap" as const }}>
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: "6px 8px", whiteSpace: "nowrap" as const }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
-                          style={{ width: "100%", padding: "2px 4px", fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: "pointer", outline: "none", height: 22, background: `${COR}12`, color: COR, border: `1px solid ${COR}30` }}>
+                          style={{ width: "100%", padding: "4px 10px", fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: "pointer", outline: "none", height: 28, background: `${COR}12`, color: COR, border: `1px solid ${COR}40` }}>
                           <option value="">—</option>
                           {CATEGORIA_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>
@@ -614,9 +683,21 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                       <td key={col.key} style={{ ...cellBase, background: bg, textAlign: "center" as const, whiteSpace: "nowrap" as const }}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
                         <a href={val.split("\n")[0]} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                          style={{ color: "#1a73e8", fontSize: 11, textDecoration: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                          ↗ ver
+                          style={{ color: "#2563eb", fontSize: 12, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 3, padding: "3px 8px", background: "#eff6ff", borderRadius: 6, border: "1px solid #bfdbfe", fontWeight: 500 }}>
+                          <ExternalLink size={11} /> ver
                         </a>
+                      </td>
+                    )
+
+                    /* Colunas de texto longo: abre modal em duplo clique */
+                    if (isLongText) return (
+                      <td key={col.key}
+                        style={{ ...cellBase, background: bg, cursor: "pointer", maxHeight: 72 }}
+                        title="Duplo clique para editar"
+                        onDoubleClick={e => { e.stopPropagation(); setModalEdit({ id: row.id, key: col.key, label: col.label, val }) }}>
+                        {val
+                          ? <span style={{ display: "-webkit-box" as React.CSSProperties["display"], WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as React.CSSProperties["WebkitBoxOrient"], overflow: "hidden", whiteSpace: "normal" as const }}>{val}</span>
+                          : <span style={{ color: "#d1d5db", fontSize: 12 }}>—</span>}
                       </td>
                     )
 
@@ -624,26 +705,109 @@ function DataTab({ tableName, cols }: { tableName: string; cols: ColDef[] }) {
                       <td key={col.key} style={{ ...cellBase, background: bg }} title={val}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
                         {val
-                          ? <span style={{ fontSize: 12, whiteSpace: "pre-wrap" as const, wordBreak: "break-word" as const }}>{val}</span>
-                          : <span style={{ color: "#ccc", fontSize: 11 }}>—</span>}
+                          ? <span>{val}</span>
+                          : <span style={{ color: "#d1d5db", fontSize: 12 }}>—</span>}
                       </td>
                     )
                   })}
                 </tr>
               )
             })}
-            <tr style={{ background: "#fafafa" }} onClick={addRow}>
-              <td style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: "center" as const, color: "#ccc", cursor: "pointer", fontSize: 16 }}>+</td>
-              {cols.map(c => (
-                <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: "pointer" }} />
-              ))}
+
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={cols.length + 1} style={{ padding: "48px 24px", textAlign: "center" as const, color: GS.textMuted, fontSize: 14, borderBottom: `1px solid ${GS.cellBorder}` }}>
+                  {search || Object.keys(colFilters).length > 0
+                    ? "Nenhuma linha corresponde aos filtros aplicados."
+                    : "Nenhuma linha cadastrada. Clique em \"Nova linha\" para começar."}
+                </td>
+              </tr>
+            )}
+
+            <tr
+              onClick={addRow}
+              onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover}
+              onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = "#fafafa"}
+              style={{ background: "#fafafa", cursor: "pointer" }}>
+              <td colSpan={cols.length + 1} style={{ height: 36, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: "center" as const, color: GS.textMuted, fontSize: 13 }}>
+                + Nova linha
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
-        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar · Shift+scroll horizontal
+
+      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 6 }}>
+        Passe o mouse sobre a linha para duplicar ou excluir · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar colunas · Shift+scroll para mover horizontalmente
       </p>
+
+      {/* Popup de filtro com position:fixed para não ser cortado pelo overflow da tabela */}
+      {openFilterCol && filterPopupPos && (() => {
+        const col = cols.find(c => c.key === openFilterCol)
+        if (!col) return null
+        return (
+          <>
+            <div style={{ position: "fixed", inset: 0, zIndex: 998 }} onMouseDown={closeFilterPopup} />
+            <div style={{ position: "fixed", top: filterPopupPos.top, left: filterPopupPos.left, zIndex: 999 }}>
+              <ColFilterPopup
+                colKey={openFilterCol}
+                label={col.label}
+                allRows={rows}
+                active={colFilters[openFilterCol] || []}
+                sortDir={sortCol === openFilterCol ? sortDir : null}
+                onApply={vals => setColFilters(prev => vals.length ? { ...prev, [openFilterCol]: vals } : (({ [openFilterCol]: _, ...rest }) => rest)(prev))}
+                onSort={dir => { if (dir) { setSortCol(openFilterCol); setSortDir(dir) } else setSortCol(null) }}
+                onClose={closeFilterPopup}
+              />
+            </div>
+          </>
+        )
+      })()}
+
+      {/* Modal de edição para colunas de texto longo */}
+      {modalEdit && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          onMouseDown={() => setModalEdit(null)}
+        >
+          <div
+            style={{ background: "#fff", borderRadius: 16, padding: 28, width: 600, maxWidth: "100%", boxShadow: "0 24px 64px rgba(0,0,0,0.22)", display: "flex", flexDirection: "column" as const, gap: 16 }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: "#1a1d23" }}>{modalEdit.label}</span>
+              <button
+                onClick={() => setModalEdit(null)}
+                style={{ width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", background: "#f3f4f6", border: "none", borderRadius: 8, cursor: "pointer", color: "#6b7280" }}>
+                <X size={16} />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              value={modalEdit.val}
+              onChange={e => setModalEdit(prev => prev ? { ...prev, val: e.target.value } : null)}
+              onKeyDown={e => { if (e.key === "Escape") setModalEdit(null) }}
+              placeholder="Digite aqui..."
+              style={{ width: "100%", minHeight: 220, padding: "14px 16px", fontSize: 15, lineHeight: "26px", border: "1px solid #e2e5e9", borderRadius: 10, outline: "none", resize: "vertical" as const, fontFamily: "inherit", color: "#1a1d23", boxSizing: "border-box" as const }}
+            />
+            <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "right" as const }}>
+              {modalEdit.val.length} caracteres
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+              <button
+                onClick={() => setModalEdit(null)}
+                style={{ padding: "9px 20px", fontSize: 14, border: "1px solid #e2e5e9", borderRadius: 8, background: "#fff", cursor: "pointer", color: "#6b7280" }}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => { commitEdit(modalEdit.id, modalEdit.key, modalEdit.val); setModalEdit(null) }}
+                style={{ padding: "9px 24px", fontSize: 14, border: "none", borderRadius: 8, background: NAVY, color: "#fff", cursor: "pointer", fontWeight: 700 }}>
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -654,14 +818,14 @@ export default function Page() {
 
   return (
     <TeamLayout teamId="social-midia">
-      <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 19, fontWeight: 700, color: T.cardFg, margin: "0 0 3px" }}>Controle de Influencers</p>
+      <div style={{ marginBottom: 22 }}>
+        <p style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: "0 0 3px" }}>Controle de Influencers</p>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" as const }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" as const }}>
         {TABS.map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
-            style={{ padding: "9px 20px", borderRadius: 10, fontSize: 15, fontWeight: 600, cursor: "pointer", border: "none", transition: "all .15s", background: activeTab === t.id ? NAVY : T.card, color: activeTab === t.id ? "#fff" : T.mutedFg, boxShadow: activeTab === t.id ? "none" : T.elevSm }}>
+            style={{ padding: "9px 22px", borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: "pointer", border: activeTab === t.id ? "none" : `1px solid ${T.border}`, transition: "all .15s", background: activeTab === t.id ? NAVY : T.card, color: activeTab === t.id ? "#fff" : T.mutedFg, boxShadow: activeTab === t.id ? `0 2px 8px ${NAVY}40` : T.elevSm }}>
             {t.label}
           </button>
         ))}

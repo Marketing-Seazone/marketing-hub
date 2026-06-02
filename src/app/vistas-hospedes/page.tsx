@@ -2,7 +2,7 @@
 import { CalendarioConteudoVistas } from './_components/CalendarioConteudoVistas';
 import { useState, useEffect, useCallback, useRef } from "react"
 import Link from "next/link"
-import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, Link2, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Plus, Trash2, Check, Calendar, AlertTriangle, Pencil, TrendingUp, TrendingDown, RefreshCw, Sparkles, Copy, ChevronDown, ChevronUp, ArrowUpDown, ExternalLink, X } from "lucide-react"
 import { T } from "@/lib/constants"
 import type { DayData } from "@/app/api/vistas-reservas/route"
 import type { Task } from "@/app/api/vistas-checklist/route"
@@ -507,30 +507,32 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
     setSelected(prev => prev.includes(v) ? prev.filter(x => x !== v) : [...prev, v])
   }
 
-  const GS = { border: '#dadce0', headerBg: '#f8f9fa', text: '#202124', textMuted: '#5f6368' }
+  const GS = { border: '#e2e5e9', headerBg: '#f8f9fa', text: '#1a1d23', textMuted: '#6b7280' }
 
   return (
-    <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, background: '#fff', border: `1px solid ${GS.border}`, borderRadius: 6, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', minWidth: 240, overflow: 'hidden' }}
-      onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
-      <div style={{ padding: '8px 12px', background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div
+      style={{ background: '#fff', border: `1px solid ${GS.border}`, borderRadius: 8, boxShadow: '0 8px 32px rgba(0,0,0,0.18)', minWidth: 248, overflow: 'hidden' }}
+      onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}
+    >
+      <div style={{ padding: '10px 14px', background: GS.headerBg, borderBottom: `1px solid ${GS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: GS.text }}>Filtrar: {label}</span>
-        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GS.textMuted, fontSize: 16, lineHeight: 1, padding: '0 2px' }}>✕</button>
+        <button onMouseDown={e => { e.preventDefault(); onClose() }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: GS.textMuted, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4 }}>✕</button>
       </div>
-      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}`, display: 'flex', gap: 4 }}>
+      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${GS.border}`, display: 'flex', gap: 6 }}>
         <button onMouseDown={e => { e.preventDefault(); setSortAZ(true) }}
-          style={{ flex: 1, padding: '5px 6px', fontSize: 11, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 4, background: sortAZ ? `${COR}15` : '#fff', color: sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontWeight: sortAZ ? 700 : 400 }}>
-          <ChevronUp size={11} /> A → Z
+          style={{ flex: 1, padding: '6px 8px', fontSize: 12, border: `1px solid ${sortAZ ? COR : GS.border}`, borderRadius: 6, background: sortAZ ? `${COR}15` : '#fff', color: sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontWeight: sortAZ ? 700 : 400 }}>
+          <ChevronUp size={12} /> A → Z
         </button>
         <button onMouseDown={e => { e.preventDefault(); setSortAZ(false) }}
-          style={{ flex: 1, padding: '5px 6px', fontSize: 11, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 4, background: !sortAZ ? `${COR}15` : '#fff', color: !sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3, fontWeight: !sortAZ ? 700 : 400 }}>
-          <ChevronDown size={11} /> Z → A
+          style={{ flex: 1, padding: '6px 8px', fontSize: 12, border: `1px solid ${!sortAZ ? COR : GS.border}`, borderRadius: 6, background: !sortAZ ? `${COR}15` : '#fff', color: !sortAZ ? COR : GS.text, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontWeight: !sortAZ ? 700 : 400 }}>
+          <ChevronDown size={12} /> Z → A
         </button>
       </div>
-      <div style={{ padding: '6px 8px', borderBottom: `1px solid ${GS.border}` }}>
+      <div style={{ padding: '8px 10px', borderBottom: `1px solid ${GS.border}` }}>
         <input value={searchVal} onChange={e => setSearchVal(e.target.value)} placeholder="🔍 Buscar..."
-          style={{ width: '100%', padding: '5px 8px', fontSize: 11, border: `1px solid ${GS.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' as const }} />
+          style={{ width: '100%', padding: '6px 10px', fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 6, outline: 'none', boxSizing: 'border-box' as const }} />
       </div>
-      <div style={{ padding: '5px 12px', borderBottom: `1px solid ${GS.border}`, background: '#fafafa' }}>
+      <div style={{ padding: '6px 14px', borderBottom: `1px solid ${GS.border}`, background: '#fafafa' }}>
         <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 12, color: GS.text, fontWeight: 600 }}>
           <input type="checkbox" checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }}
             onChange={() => setSelected(allSelected ? [] : [...allOpts])}
@@ -538,25 +540,25 @@ function ColFilterPopup({ colKey, label, allRows, active, onApply, onClose }: {
           Selecionar tudo ({allOpts.length})
         </label>
       </div>
-      <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+      <div style={{ maxHeight: 200, overflowY: 'auto' }}>
         {visible.map(o => (
-          <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 12px', cursor: 'pointer', fontSize: 12, color: GS.text }}
-            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f0f4ff'}
+          <label key={o} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 14px', cursor: 'pointer', fontSize: 12, color: GS.text }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#f5f0ff'}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
             <input type="checkbox" checked={selected.includes(o)} onChange={() => toggle(o)}
               style={{ width: 14, height: 14, accentColor: COR, cursor: 'pointer' }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o}</span>
           </label>
         ))}
-        {visible.length === 0 && <p style={{ padding: '10px 12px', fontSize: 11, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
+        {visible.length === 0 && <p style={{ padding: '12px 14px', fontSize: 12, color: GS.textMuted, margin: 0 }}>Nenhum valor encontrado</p>}
       </div>
-      <div style={{ padding: '8px 12px', borderTop: `1px solid ${GS.border}`, display: 'flex', gap: 6, justifyContent: 'flex-end', background: '#fafafa' }}>
+      <div style={{ padding: '10px 14px', borderTop: `1px solid ${GS.border}`, display: 'flex', gap: 8, justifyContent: 'flex-end', background: '#fafafa' }}>
         <button onMouseDown={e => { e.preventDefault(); onClose() }}
-          style={{ padding: '5px 14px', fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 4, background: '#fff', cursor: 'pointer', color: GS.text }}>
+          style={{ padding: '6px 16px', fontSize: 12, border: `1px solid ${GS.border}`, borderRadius: 6, background: '#fff', cursor: 'pointer', color: GS.text }}>
           Cancelar
         </button>
         <button onMouseDown={e => { e.preventDefault(); onApply(selected.length === allOpts.length ? [] : selected); onClose() }}
-          style={{ padding: '5px 14px', fontSize: 12, border: 'none', borderRadius: 4, background: COR, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
+          style={{ padding: '6px 16px', fontSize: 12, border: 'none', borderRadius: 6, background: COR, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
           OK
         </button>
       </div>
@@ -579,6 +581,7 @@ function InfluenciadoresSection() {
   const [saving, setSaving] = useState(false)
   const [colFilters, setColFilters] = useState<Partial<Record<keyof InfluRow, string[]>>>({})
   const [openFilterCol, setOpenFilterCol] = useState<keyof InfluRow | null>(null)
+  const [filterPopupPos, setFilterPopupPos] = useState<{ top: number; left: number } | null>(null)
   const [search, setSearch] = useState('')
   const [orcamento, setOrcamento] = useState('')
   const [editOrcamento, setEditOrcamento] = useState(false)
@@ -587,6 +590,8 @@ function InfluenciadoresSection() {
   const [selectedRow, setSelectedRow] = useState<string | null>(null)
   const [sortCol, setSortCol] = useState<keyof InfluRow | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  const [hoverRow, setHoverRow] = useState<string | null>(null)
+  const [modalEdit, setModalEdit] = useState<{ id: string; key: keyof InfluRow; label: string; val: string } | null>(null)
 
   useEffect(() => {
     fetch('/api/vistas-influenciadores').then(r => r.json()).then(d => { setRows(Array.isArray(d) ? d : []); setLoading(false) }).catch(() => setLoading(false))
@@ -680,20 +685,39 @@ function InfluenciadoresSection() {
     else { setSortCol(key); setSortDir('asc') }
   }
 
+  function closeFilterPopup() {
+    setOpenFilterCol(null)
+    setFilterPopupPos(null)
+  }
+
   const GS = {
-    headerBg: '#f8f9fa', headerBorder: '#dadce0', cellBorder: '#e2e3e4',
-    rowHover: '#f6f8ff', rowSelected: '#e8f0fe', rowAlt: '#fafbfc',
-    text: '#202124', textMuted: '#5f6368', inputBorder: '#4285f4',
+    headerBg: '#f8f9fa',
+    headerBorder: '#e2e5e9',
+    cellBorder: '#edf0f3',
+    rowHover: '#f5f0ff',
+    rowSelected: '#ede9fe',
+    rowAlt: '#fafbfd',
+    text: '#1a1d23',
+    textMuted: '#6b7280',
+    inputBorder: '#7C3AED',
   }
 
   const cellBase: React.CSSProperties = {
-    padding: '4px 6px', minHeight: 28, maxHeight: 80,
-    borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`,
-    fontSize: 12, color: GS.text, overflow: 'hidden', verticalAlign: 'top',
-    cursor: 'cell', wordBreak: 'break-word', whiteSpace: 'pre-wrap', lineHeight: '18px',
+    padding: '8px 10px',
+    borderRight: `1px solid ${GS.cellBorder}`,
+    borderBottom: `1px solid ${GS.cellBorder}`,
+    fontSize: 13,
+    color: GS.text,
+    overflow: 'hidden',
+    verticalAlign: 'top',
+    cursor: 'cell',
+    wordBreak: 'break-word',
+    whiteSpace: 'pre-wrap',
+    lineHeight: '20px',
   }
 
   const activeFiltersCount = Object.values(colFilters).filter(v => v && v.length > 0).length
+  const LONG_TEXT_COLS: (keyof InfluRow)[] = ['conteudo_orcado', 'observacoes']
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: T.mutedFg, fontSize: 13 }}><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Carregando influenciadores...</div>
 
@@ -769,71 +793,75 @@ function InfluenciadoresSection() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', background: GS.headerBg, border: `1px solid ${GS.headerBorder}`, borderBottom: 'none', borderRadius: '6px 6px 0 0', flexWrap: 'wrap' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍 Buscar perfil, cupom..."
-          style={{ padding: '4px 8px', fontSize: 12, border: `1px solid ${GS.headerBorder}`, borderRadius: 4, outline: 'none', background: '#fff', color: GS.text, width: 200 }} />
-        <span style={{ fontSize: 11, color: GS.textMuted }}>{filtered.length} linha{filtered.length !== 1 ? 's' : ''}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#fff', border: `1px solid ${GS.headerBorder}`, borderBottom: 'none', borderRadius: '10px 10px 0 0', flexWrap: 'wrap' }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="🔍  Buscar perfil, cupom..."
+          style={{ padding: '7px 12px', fontSize: 13, border: `1px solid ${GS.headerBorder}`, borderRadius: 8, outline: 'none', background: '#fff', color: GS.text, width: 240 }} />
+        <span style={{ fontSize: 12, color: GS.textMuted, background: '#f3f4f6', padding: '4px 10px', borderRadius: 20, fontWeight: 500, whiteSpace: 'nowrap' }}>
+          {filtered.length} {filtered.length !== 1 ? 'linhas' : 'linha'}
+        </span>
         {activeFiltersCount > 0 && (
-          <button onClick={() => setColFilters({})} style={{ padding: '3px 8px', background: '#fff3cd', border: '1px solid #fcd34d', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#92400e' }}>
+          <button onClick={() => setColFilters({})} style={{ padding: '5px 10px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#92400e', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 500 }}>
             {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} ativo{activeFiltersCount > 1 ? 's' : ''} ✕
           </button>
         )}
         {sortCol && (
-          <button onClick={() => setSortCol(null)} style={{ padding: '3px 8px', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#0369a1' }}>
+          <button onClick={() => setSortCol(null)} style={{ padding: '5px 10px', background: '#f5f0ff', border: `1px solid ${COR}50`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: COR, display: 'flex', alignItems: 'center', gap: 4 }}>
             {INFLU_COLS.find(c => c.key === sortCol)?.label} {sortDir === 'asc' ? '↑ A-Z' : '↓ Z-A'} ✕
           </button>
         )}
         {selectedRow && (
           <>
             <button onClick={() => { const r = filtered.find(r => r.id === selectedRow); if (r) duplicateRow(r) }}
-              style={{ padding: '3px 8px', background: '#fff', border: `1px solid ${GS.headerBorder}`, borderRadius: 4, fontSize: 11, cursor: 'pointer', color: GS.text, display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Copy size={11} /> Duplicar
+              style={{ padding: '5px 12px', background: '#fff', border: `1px solid ${GS.headerBorder}`, borderRadius: 6, fontSize: 12, cursor: 'pointer', color: GS.text, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Copy size={13} /> Duplicar
             </button>
             <button onClick={() => deleteRow(selectedRow)}
-              style={{ padding: '3px 8px', background: '#fff', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, cursor: 'pointer', color: '#991b1b', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <Trash2 size={11} /> Excluir
+              style={{ padding: '5px 12px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 12, cursor: 'pointer', color: '#dc2626', display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Trash2 size={13} /> Excluir
             </button>
           </>
         )}
-        <button onClick={addRow} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, padding: '4px 12px', background: COR, color: '#fff', border: 'none', borderRadius: 4, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          <Plus size={12} /> Nova linha
+        <button onClick={addRow} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: COR, color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+          <Plus size={14} /> Nova linha
         </button>
       </div>
 
-      <div ref={tableRef} style={{ overflowX: 'auto', border: `1px solid ${GS.headerBorder}`, borderRadius: '0 0 6px 6px', maxHeight: 560, overflowY: 'auto' }}>
-        <table style={{ borderCollapse: 'collapse', fontSize: 12, minWidth: '100%', tableLayout: 'fixed' }}>
+      <div ref={tableRef} style={{ overflowX: 'auto', overflowY: 'auto', border: `1px solid ${GS.headerBorder}`, borderRadius: '0 0 10px 10px', maxHeight: 580 }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 13, minWidth: '100%', tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 36 }} />
+            <col style={{ width: 52 }} />
             {INFLU_COLS.map(c => <col key={c.key} style={{ width: c.width }} />)}
           </colgroup>
           <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
             <tr style={{ background: GS.headerBg }}>
-              <th style={{ width: 36, padding: '6px 4px', borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: 'center', fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
+              <th style={{ width: 52, padding: '0 6px', height: 40, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, textAlign: 'center', fontSize: 11, color: GS.textMuted, fontWeight: 600 }}>#</th>
               {INFLU_COLS.map(c => {
                 const isFiltered = !!(colFilters[c.key] && colFilters[c.key]!.length > 0)
                 const isSorted = sortCol === c.key
                 const isOpen = openFilterCol === c.key
                 return (
                   <th key={c.key} style={{ padding: 0, borderRight: `1px solid ${GS.headerBorder}`, borderBottom: `2px solid ${GS.headerBorder}`, background: isFiltered ? `${COR}08` : GS.headerBg, position: 'relative' }}>
-                    <div style={{ display: 'flex', alignItems: 'stretch', height: 32 }}>
+                    <div style={{ display: 'flex', alignItems: 'stretch', height: 40 }}>
                       <button onClick={() => toggleSort(c.key)}
-                        style={{ flex: 1, padding: '0 4px 0 8px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 11, color: isSorted ? COR : isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: 'flex', alignItems: 'center', gap: 3, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        style={{ flex: 1, padding: '0 4px 0 10px', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', fontSize: 12, color: isSorted || isFiltered ? COR : GS.textMuted, fontWeight: isSorted || isFiltered ? 700 : 600, display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', whiteSpace: 'nowrap' }}>
                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
                         {isFiltered && <span style={{ fontSize: 9, background: COR, color: '#fff', borderRadius: 10, padding: '1px 4px', flexShrink: 0 }}>●</span>}
-                        {isSorted ? (sortDir === 'asc' ? <ChevronUp size={10} color={COR} /> : <ChevronDown size={10} color={COR} />) : <ArrowUpDown size={9} style={{ opacity: 0.25, flexShrink: 0 }} />}
+                        {isSorted ? (sortDir === 'asc' ? <ChevronUp size={11} color={COR} /> : <ChevronDown size={11} color={COR} />) : <ArrowUpDown size={10} style={{ opacity: 0.3, flexShrink: 0 }} />}
                       </button>
-                      <div style={{ position: 'relative', flexShrink: 0 }}>
-                        <button onMouseDown={e => { e.preventDefault(); e.stopPropagation(); setOpenFilterCol(isOpen ? null : c.key) }}
-                          style={{ width: 24, height: 32, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : 'none', border: 'none', borderLeft: `1px solid ${GS.headerBorder}`, cursor: 'pointer', color: isFiltered || isOpen ? COR : GS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
-                          ▼
-                        </button>
-                        {isOpen && (
-                          <ColFilterPopup colKey={c.key} label={c.label} allRows={rowsPeriodo}
-                            active={colFilters[c.key] || []}
-                            onApply={vals => setColFilters(prev => vals.length ? { ...prev, [c.key]: vals } : (({ [c.key]: _, ...rest }) => rest)(prev))}
-                            onClose={() => setOpenFilterCol(null)} />
-                        )}
-                      </div>
+                      <button
+                        onMouseDown={e => {
+                          e.preventDefault(); e.stopPropagation()
+                          if (isOpen) {
+                            closeFilterPopup()
+                          } else {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+                            setFilterPopupPos({ top: rect.bottom + 4, left: rect.left })
+                            setOpenFilterCol(c.key)
+                          }
+                        }}
+                        style={{ width: 26, height: 40, background: isOpen ? `${COR}20` : isFiltered ? `${COR}15` : 'none', border: 'none', borderLeft: `1px solid ${GS.headerBorder}`, cursor: 'pointer', color: isFiltered || isOpen ? COR : GS.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11 }}>
+                        ▼
+                      </button>
                     </div>
                   </th>
                 )
@@ -843,20 +871,41 @@ function InfluenciadoresSection() {
           <tbody>
             {filtered.map((row, i) => {
               const isSelected = selectedRow === row.id
+              const isHovered = hoverRow === row.id
               const isAlt = i % 2 === 1
-              const bg = isSelected ? GS.rowSelected : isAlt ? GS.rowAlt : '#fff'
+              const bg = isSelected ? GS.rowSelected : isHovered ? GS.rowHover : isAlt ? GS.rowAlt : '#fff'
               return (
-                <tr key={row.id} onClick={() => setSelectedRow(isSelected ? null : row.id)}
-                  style={{ background: bg, transition: 'background 0.05s' }}
-                  onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover }}
-                  onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = bg }}
+                <tr key={row.id}
+                  onClick={() => setSelectedRow(isSelected ? null : row.id)}
+                  onMouseEnter={() => setHoverRow(row.id)}
+                  onMouseLeave={() => setHoverRow(null)}
+                  style={{ background: bg, transition: 'background 0.06s' }}
                 >
-                  <td style={{ ...cellBase, width: 36, textAlign: 'center', color: GS.textMuted, fontSize: 11, cursor: 'default', whiteSpace: 'nowrap', background: bg, padding: '6px 4px' }}>{i + 1}</td>
+                  {/* # / Actions — altura fixa para não causar deslocamento no hover */}
+                  <td style={{ width: 52, padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: 'middle', cursor: 'default', background: bg, boxShadow: isSelected ? `inset 3px 0 0 ${COR}` : 'none' }}>
+                    <div style={{ height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                      <span style={{ position: 'absolute', fontSize: 11, color: GS.textMuted, transition: 'opacity 0.1s', opacity: (isHovered || isSelected) ? 0 : 1, pointerEvents: 'none' }}>
+                        {i + 1}
+                      </span>
+                      <div style={{ display: 'flex', gap: 3, transition: 'opacity 0.1s', opacity: (isHovered || isSelected) ? 1 : 0, pointerEvents: (isHovered || isSelected) ? 'auto' : 'none' }}>
+                        <button onClick={e => { e.stopPropagation(); duplicateRow(row) }} title="Duplicar"
+                          style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff', border: `1px solid ${GS.headerBorder}`, borderRadius: 5, cursor: 'pointer', color: GS.textMuted }}>
+                          <Copy size={11} />
+                        </button>
+                        <button onClick={e => { e.stopPropagation(); deleteRow(row.id) }} title="Excluir"
+                          style={{ width: 22, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 5, cursor: 'pointer', color: '#dc2626' }}>
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    </div>
+                  </td>
                   {INFLU_COLS.map(col => {
                     const val = row[col.key] || ''
                     const isEditing = editCell?.id === row.id && editCell?.key === col.key
+                    const isLongText = LONG_TEXT_COLS.includes(col.key)
+
                     if (isEditing) return (
-                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: 'top' }}>
+                      <td key={col.key} style={{ padding: 0, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, verticalAlign: 'top', borderTop: `2px solid ${GS.inputBorder}` }}>
                         <textarea autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
                           onBlur={() => setTimeout(() => commitEdit(row.id, col.key, editVal), 100)}
                           onKeyDown={e => {
@@ -864,13 +913,14 @@ function InfluenciadoresSection() {
                             if (e.key === 'Escape') setEditCell(null)
                             if (e.key === 'Tab') { e.preventDefault(); commitEdit(row.id, col.key, editVal) }
                           }}
-                          style={{ width: '100%', minHeight: 28, maxHeight: 120, padding: '4px 6px', fontSize: 12, border: `2px solid ${GS.inputBorder}`, outline: 'none', background: '#fff', color: GS.text, boxSizing: 'border-box', resize: 'vertical', lineHeight: '18px', fontFamily: 'inherit' }} />
+                          style={{ width: '100%', minHeight: 36, maxHeight: 140, padding: '8px 10px', fontSize: 13, border: 'none', outline: 'none', background: '#fff', color: GS.text, boxSizing: 'border-box', resize: 'vertical', lineHeight: '20px', fontFamily: 'inherit' }} />
                       </td>
                     )
+
                     if (col.key === 'status') return (
-                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '6px 8px', whiteSpace: 'nowrap' }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
-                          style={{ ...statusStyle(val), width: '100%', padding: '2px 6px', fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: 'pointer', outline: 'none', height: 22 }}>
+                          style={{ ...statusStyle(val), width: '100%', padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: 'pointer', outline: 'none', height: 28 }}>
                           <option value="">—</option>
                           <option value="Contratado">Contratado</option>
                           <option value="Não contratado">Não contratado</option>
@@ -879,10 +929,11 @@ function InfluenciadoresSection() {
                         </select>
                       </td>
                     )
+
                     if (col.key === 'categoria') return (
-                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '3px 4px', whiteSpace: 'nowrap' }}>
+                      <td key={col.key} style={{ ...cellBase, background: bg, padding: '6px 8px', whiteSpace: 'nowrap' }}>
                         <select value={val} onChange={e => commitEdit(row.id, col.key, e.target.value)} onClick={e => e.stopPropagation()}
-                          style={{ width: '100%', padding: '2px 4px', fontSize: 11, fontWeight: 600, borderRadius: 3, cursor: 'pointer', outline: 'none', height: 22, background: `${COR}12`, color: COR, border: `1px solid ${COR}30` }}>
+                          style={{ width: '100%', padding: '4px 10px', fontSize: 12, fontWeight: 600, borderRadius: 20, cursor: 'pointer', outline: 'none', height: 28, background: `${COR}12`, color: COR, border: `1px solid ${COR}40` }}>
                           <option value="">—</option>
                           <option value="Influ">Influ</option>
                           <option value="Perfil">Perfil</option>
@@ -890,35 +941,136 @@ function InfluenciadoresSection() {
                         </select>
                       </td>
                     )
+
                     if (col.type === 'link' && val?.startsWith('http')) return (
                       <td key={col.key} style={{ ...cellBase, background: bg, textAlign: 'center', whiteSpace: 'nowrap' }}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
                         <a href={val.split('\n')[0]} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                          style={{ color: '#1a73e8', fontSize: 11, textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-                          <Link2 size={10} /> ver
+                          style={{ color: COR, fontSize: 12, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 3, padding: '3px 8px', background: `${COR}10`, borderRadius: 6, border: `1px solid ${COR}30`, fontWeight: 500 }}>
+                          <ExternalLink size={11} /> ver
                         </a>
                       </td>
                     )
+
+                    if (isLongText) return (
+                      <td key={col.key}
+                        style={{ ...cellBase, background: bg, cursor: 'pointer', maxHeight: 72 }}
+                        title="Duplo clique para editar"
+                        onDoubleClick={e => { e.stopPropagation(); setModalEdit({ id: row.id, key: col.key, label: col.label, val }) }}>
+                        {val
+                          ? <span style={{ display: '-webkit-box' as React.CSSProperties['display'], WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as React.CSSProperties['WebkitBoxOrient'], overflow: 'hidden', whiteSpace: 'normal' }}>{val}</span>
+                          : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
+                      </td>
+                    )
+
                     return (
                       <td key={col.key} style={{ ...cellBase, background: bg }} title={val}
                         onDoubleClick={e => { e.stopPropagation(); setEditCell({ id: row.id, key: col.key }); setEditVal(val) }}>
-                        {val ? <TextWithLinks text={val} style={{ fontSize: 12, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} /> : <span style={{ color: '#ccc', fontSize: 11 }}>—</span>}
+                        {val ? <TextWithLinks text={val} style={{ fontSize: 13, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }} /> : <span style={{ color: '#d1d5db', fontSize: 12 }}>—</span>}
                       </td>
                     )
                   })}
                 </tr>
               )
             })}
-            <tr style={{ background: '#fafafa' }} onClick={addRow}>
-              <td style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: 'center', color: '#ccc', cursor: 'pointer', fontSize: 16 }}>+</td>
-              {INFLU_COLS.map(c => <td key={c.key} style={{ height: 28, borderRight: `1px solid ${GS.cellBorder}`, borderBottom: `1px solid ${GS.cellBorder}`, cursor: 'pointer' }} />)}
+
+            {filtered.length === 0 && (
+              <tr>
+                <td colSpan={INFLU_COLS.length + 1} style={{ padding: '48px 24px', textAlign: 'center', color: GS.textMuted, fontSize: 14, borderBottom: `1px solid ${GS.cellBorder}` }}>
+                  {search || Object.keys(colFilters).length > 0
+                    ? 'Nenhuma linha corresponde aos filtros aplicados.'
+                    : 'Nenhuma linha cadastrada. Clique em "Nova linha" para começar.'}
+                </td>
+              </tr>
+            )}
+
+            <tr
+              onClick={addRow}
+              onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = GS.rowHover}
+              onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = '#fafafa'}
+              style={{ background: '#fafafa', cursor: 'pointer' }}>
+              <td colSpan={INFLU_COLS.length + 1} style={{ height: 36, borderBottom: `1px solid ${GS.cellBorder}`, textAlign: 'center', color: GS.textMuted, fontSize: 13 }}>
+                + Nova linha
+              </td>
             </tr>
           </tbody>
         </table>
       </div>
-      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 4 }}>
-        Clique para selecionar · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar
+
+      <p style={{ fontSize: 11, color: GS.textMuted, marginTop: 6 }}>
+        Passe o mouse sobre a linha para duplicar ou excluir · Duplo clique para editar · Enter para confirmar · Shift+Enter para nova linha · Tab para próxima célula · ▼ para filtrar colunas · Shift+scroll para mover horizontalmente
       </p>
+
+      {/* Popup de filtro com position:fixed — não é cortado pelo overflow da tabela */}
+      {openFilterCol && filterPopupPos && (() => {
+        const col = INFLU_COLS.find(c => c.key === openFilterCol)
+        if (!col) return null
+        return (
+          <>
+            <div style={{ position: 'fixed', inset: 0, zIndex: 998 }} onMouseDown={closeFilterPopup} />
+            <div style={{ position: 'fixed', top: filterPopupPos.top, left: filterPopupPos.left, zIndex: 999 }}>
+              <ColFilterPopup
+                colKey={openFilterCol}
+                label={col.label}
+                allRows={rowsPeriodo}
+                active={colFilters[openFilterCol] || []}
+                onApply={vals => {
+                  setColFilters(prev => {
+                    const next = { ...prev }
+                    if (vals.length) next[openFilterCol!] = vals
+                    else delete next[openFilterCol!]
+                    return next
+                  })
+                }}
+                onClose={closeFilterPopup}
+              />
+            </div>
+          </>
+        )
+      })()}
+
+      {/* Modal de edição para texto longo */}
+      {modalEdit && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onMouseDown={() => setModalEdit(null)}
+        >
+          <div
+            style={{ background: '#fff', borderRadius: 16, padding: 28, width: 600, maxWidth: '100%', boxShadow: '0 24px 64px rgba(0,0,0,0.22)', display: 'flex', flexDirection: 'column', gap: 16 }}
+            onMouseDown={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#1a1d23' }}>{modalEdit.label}</span>
+              <button onClick={() => setModalEdit(null)}
+                style={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f3f4f6', border: 'none', borderRadius: 8, cursor: 'pointer', color: '#6b7280' }}>
+                <X size={16} />
+              </button>
+            </div>
+            <textarea
+              autoFocus
+              value={modalEdit.val}
+              onChange={e => setModalEdit(prev => prev ? { ...prev, val: e.target.value } : null)}
+              onKeyDown={e => { if (e.key === 'Escape') setModalEdit(null) }}
+              placeholder="Digite aqui..."
+              style={{ width: '100%', minHeight: 220, padding: '14px 16px', fontSize: 15, lineHeight: '26px', border: '1px solid #e2e5e9', borderRadius: 10, outline: 'none', resize: 'vertical', fontFamily: 'inherit', color: '#1a1d23', boxSizing: 'border-box' }}
+            />
+            <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'right' }}>
+              {modalEdit.val.length} caracteres
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button onClick={() => setModalEdit(null)}
+                style={{ padding: '9px 20px', fontSize: 14, border: '1px solid #e2e5e9', borderRadius: 8, background: '#fff', cursor: 'pointer', color: '#6b7280' }}>
+                Cancelar
+              </button>
+              <button
+                onClick={() => { commitEdit(modalEdit.id, modalEdit.key, modalEdit.val); setModalEdit(null) }}
+                style={{ padding: '9px 24px', fontSize: 14, border: 'none', borderRadius: 8, background: COR, color: '#fff', cursor: 'pointer', fontWeight: 700 }}>
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

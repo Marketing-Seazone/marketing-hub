@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 import { T, TEAMS, type TeamId } from "@/lib/constants"
 
@@ -11,6 +12,8 @@ interface TeamLayoutProps {
 
 export function TeamLayout({ teamId, children }: TeamLayoutProps) {
   const team = TEAMS.find(t => t.id === teamId)!
+  const pathname = usePathname()
+  const isTeamRoot = pathname === team.href
 
   return (
     <div style={{ minHeight: "100vh", background: T.muted, fontFamily: T.font }}>
@@ -29,12 +32,12 @@ export function TeamLayout({ teamId, children }: TeamLayoutProps) {
         zIndex: 40,
         boxShadow: T.elevSm,
       }}>
-        <Link href="/" style={{
+        <Link href={isTeamRoot ? "/" : team.href} style={{
           display: "flex", alignItems: "center", gap: 4,
           color: T.mutedFg, fontSize: 12, textDecoration: "none", fontWeight: 500,
         }}>
           <ChevronLeft size={14} />
-          Menu
+          {isTeamRoot ? "Menu" : team.label}
         </Link>
         <span style={{ color: T.border }}>|</span>
         <span style={{
