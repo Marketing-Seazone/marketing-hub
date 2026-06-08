@@ -6,6 +6,7 @@ import { T } from '@/lib/constants'
 import { StoryGenerator } from './StoryGenerator'
 
 export type ImovelData = {
+  codigo: string
   nome: string
   cidade: string
   regiao: string
@@ -21,7 +22,7 @@ export type ImovelData = {
 }
 
 export const EMPTY_IMOVEL: ImovelData = {
-  nome: '', cidade: '', regiao: '', valor5diarias: '',
+  codigo: '', nome: '', cidade: '', regiao: '', valor5diarias: '',
   maxHospedes: '', linkReservas: '', linkDrive: '', amenidades: '',
   copyInstagram: '', copyWhatsapp: '',
   enviadoInstagram: false, enviadoWhatsapp: false,
@@ -198,6 +199,17 @@ const ambosEnviados = data.enviadoInstagram && data.enviadoWhatsapp
         }}>
           {statusLabel}
         </span>
+      </div>
+
+      {/* Código do imóvel */}
+      <div style={{ marginBottom: 12 }}>
+        <label style={label}>Código do imóvel</label>
+        <input
+          style={{ ...input, fontFamily: 'monospace', fontWeight: 700, letterSpacing: 0.6, maxWidth: 180 }}
+          value={data.codigo}
+          onChange={set('codigo')}
+          placeholder="Ex: BSF0806"
+        />
       </div>
 
       {/* Form — 2 colunas */}
