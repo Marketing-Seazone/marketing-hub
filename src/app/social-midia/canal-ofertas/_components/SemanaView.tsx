@@ -46,10 +46,20 @@ export function SemanaView() {
       try {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed) && parsed.length === 3) {
-          // Merge com EMPTY_IMOVEL para garantir que campos novos existam
           setImoveis(parsed.map(p => ({ ...EMPTY_IMOVEL, ...p })) as Semana)
         }
       } catch { /* ignore */ }
+    } else {
+      // Pre-preencher códigos selecionados no RadarView
+      const selecao = localStorage.getItem(`canal-ofertas-selecao-${key}`)
+      if (selecao) {
+        try {
+          const codigos: string[] = JSON.parse(selecao)
+          if (Array.isArray(codigos) && codigos.length === 3) {
+            setImoveis(codigos.map(codigo => ({ ...EMPTY_IMOVEL, codigo })) as Semana)
+          }
+        } catch { /* ignore */ }
+      }
     }
     setReady(true)
   }, [])
