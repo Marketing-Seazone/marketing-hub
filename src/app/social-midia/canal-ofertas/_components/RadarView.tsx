@@ -89,14 +89,6 @@ export function RadarView({ onConfirmar }: Props) {
 
   useEffect(() => {
     setUsedCodes(getAllUsedCodes())
-    const selecaoKey = `canal-ofertas-selecao-${getWeekKey()}`
-    const saved = localStorage.getItem(selecaoKey)
-    if (saved) {
-      try {
-        const parsed: string[] = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length === 3) setCodigos(parsed)
-      } catch { /* ignore */ }
-    }
     fetchData()
   }, [fetchData])
 
