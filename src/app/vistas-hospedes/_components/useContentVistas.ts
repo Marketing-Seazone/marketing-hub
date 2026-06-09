@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getSupabase } from '@/app/social-midia/calendario-seazone/_lib/supabase';
-import type { Post } from '@/app/social-midia/calendario-seazone/_lib/types';
+import type { Post, ContentStatus } from '@/app/social-midia/calendario-seazone/_lib/types';
 
 export function useContentVistas() {
   const [items, setItems] = useState<Post[]>([]);
@@ -15,8 +15,26 @@ export function useContentVistas() {
 
     if (error) {
       console.error('Error fetching posts_vistas:', error);
+      setLoading(false);
+      return;
+    }
+
+    const posts = (data as Post[]) ?? [];
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const toPublish = posts.filter(
+      (p) => p.status === 'agendado' && p.scheduled_at && p.scheduled_at.substring(0, 10) < todayStr
+    );
+
+    if (toPublish.length > 0) {
+      await Promise.all(
+        toPublish.map((p) =>
+          getSupabase().from('posts_vistas').update({ status: 'publicado' }).eq('id', p.id)
+        )
+      );
+      const ids = new Set(toPublish.map((p) => p.id));
+      setItems(posts.map((p) => ids.has(p.id) ? { ...p, status: 'publicado' as ContentStatus } : p));
     } else {
-      setItems((data as Post[]) ?? []);
+      setItems(posts);
     }
     setLoading(false);
   }, []);

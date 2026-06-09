@@ -10,7 +10,7 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'carrossel', label: 'Carrossel' },
   { value: 'reels', label: 'Reels' },
   { value: 'stories', label: 'Stories' },
-  { value: 'feed', label: 'Post no Feed' },
+  { value: 'feed', label: 'Post Fixo' },
 ];
 
 const CHANNEL_OPTIONS = [
@@ -27,33 +27,37 @@ interface QuickCreateModalProps {
 export function QuickCreateModal({ date, onClose, onCreate }: QuickCreateModalProps) {
   const [title, setTitle] = useState('');
   const [editoria, setEditoria] = useState<EditorialSlug>(EDITORIALS[0].slug);
-  const [formato, setFormato] = useState<ContentFormat>('carrossel');
+  const [formatos, setFormatos] = useState<ContentFormat[]>([]);
   const [canal, setCanal] = useState('instagram');
   const [status, setStatus] = useState<ContentStatus>('ideia');
   const [notas, setNotas] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const toggleFormato = (fmt: ContentFormat) => {
+    setFormatos((prev) => prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]);
+  };
+
   const handleSave = async () => {
-    if (!title.trim()) {
-      setError('O título é obrigatório.');
-      return;
-    }
+    if (!title.trim()) { setError('O título é obrigatório.'); return; }
+    if (formatos.length === 0) { setError('Selecione ao menos um formato.'); return; }
     setSaving(true);
     setError('');
     try {
-      await onCreate({
-        title: title.trim(),
-        editoria,
-        formato,
-        canal,
-        status,
-        scheduled_at: date,
-        tema: null,
-        estrutura: null,
-        copy: null,
-        notas: notas.trim() || null,
-      });
+      for (const fmt of formatos) {
+        await onCreate({
+          title: title.trim(),
+          editoria,
+          formato: fmt,
+          canal,
+          status,
+          scheduled_at: date,
+          tema: null,
+          estrutura: null,
+          copy: null,
+          notas: notas.trim() || null,
+        });
+      }
       onClose();
     } catch (err: any) {
       setError(err.message ?? 'Erro ao criar post.');
@@ -132,24 +136,37 @@ export function QuickCreateModal({ date, onClose, onCreate }: QuickCreateModalPr
           </select>
         </div>
 
-        {/* Formato + Canal */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
-          <div>
-            <label style={labelStyle}>Formato</label>
-            <select value={formato} onChange={(e) => setFormato(e.target.value as ContentFormat)} style={inputBase}>
-              {FORMAT_OPTIONS.map((f) => (
-                <option key={f.value} value={f.value}>{f.label}</option>
-              ))}
-            </select>
+        {/* Formato — multi-select */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Formato</label>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {FORMAT_OPTIONS.map((f) => (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => toggleFormato(f.value)}
+                style={{
+                  border: `1px solid ${formatos.includes(f.value) ? T.primary : T.border}`,
+                  borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 500,
+                  background: formatos.includes(f.value) ? T.pendingBg : 'transparent',
+                  color: formatos.includes(f.value) ? T.primary : T.mutedFg,
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
-          <div>
-            <label style={labelStyle}>Canal</label>
-            <select value={canal} onChange={(e) => setCanal(e.target.value)} style={inputBase}>
-              {CHANNEL_OPTIONS.map((c) => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-          </div>
+        </div>
+
+        {/* Canal */}
+        <div style={{ marginBottom: 14 }}>
+          <label style={labelStyle}>Canal</label>
+          <select value={canal} onChange={(e) => setCanal(e.target.value)} style={inputBase}>
+            {CHANNEL_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>{c.label}</option>
+            ))}
+          </select>
         </div>
 
         {/* Status */}
@@ -199,7 +216,7 @@ export function QuickCreateModal({ date, onClose, onCreate }: QuickCreateModalPr
               padding: '10px 16px', fontSize: 14, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.5 : 1,
             }}
           >
-            {saving ? 'Salvando...' : 'Criar Post'}
+            {saving ? 'Salvando...' : formatos.length > 1 ? `Criar ${formatos.length} Posts` : 'Criar Post'}
           </button>
         </div>
       </div>

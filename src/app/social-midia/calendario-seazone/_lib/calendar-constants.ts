@@ -77,9 +77,8 @@ export const EDITORIALS: Editorial[] = [
 export const FORMATS: { value: ContentFormat; label: string }[] = [
   { value: 'carrossel', label: 'Carrossel' },
   { value: 'reels', label: 'Reels' },
-  { value: 'feed', label: 'Feed' },
+  { value: 'feed', label: 'Post Fixo' },
   { value: 'stories', label: 'Stories' },
-  { value: 'tiktok', label: 'TikTok' },
 ];
 
 export const STATUSES: { value: ContentStatus; label: string; emoji: string }[] = [

@@ -1,18 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { Calendar, Film, Lightbulb, PenTool } from 'lucide-react';
+import { Calendar, Lightbulb, PenTool } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { CalendarViewVistas } from './CalendarViewVistas';
-import { StoriesViewVistas } from './StoriesViewVistas';
 import { BacklogViewVistas } from './BacklogViewVistas';
 import { CreateContentViewVistas } from './CreateContentViewVistas';
 
-type Tab = 'calendario' | 'stories' | 'criar' | 'backlog';
+type Tab = 'calendario' | 'criar' | 'backlog';
 
 const TABS: { id: Tab; icon: typeof Calendar; label: string }[] = [
   { id: 'calendario', icon: Calendar, label: 'Calendário' },
-  { id: 'stories', icon: Film, label: 'Stories' },
   { id: 'criar', icon: PenTool, label: 'Criar Conteúdo' },
   { id: 'backlog', icon: Lightbulb, label: 'Backlog' },
 ];
@@ -47,7 +45,6 @@ export function CalendarioConteudoVistas() {
       {/* Content */}
       <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 12, padding: 20 }}>
         {activeTab === 'calendario' && <CalendarViewVistas />}
-        {activeTab === 'stories' && <StoriesViewVistas />}
         {activeTab === 'criar' && <CreateContentViewVistas onNavigate={(tab) => setActiveTab(tab as Tab)} />}
         {activeTab === 'backlog' && <BacklogViewVistas />}
       </div>
