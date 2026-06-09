@@ -6,14 +6,14 @@ import {
   isSameMonth, addMonths, subMonths, getDay, isToday, parseISO,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronLeft, ChevronRight, CheckCircle, Plus, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckCircle, Plus, X, ChevronDown } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { useContent } from '../_hooks/useContent';
-import { EDITORIALS } from '../_lib/calendar-constants';
+import { EDITORIALS, FORMATS } from '../_lib/calendar-constants';
 import { ContentCard } from './ContentCard';
 import { ContentModal } from './ContentModal';
 import { QuickCreateModal } from './QuickCreateModal';
-import type { Post, EditorialSlug, ContentStatus } from '../_lib/types';
+import type { Post, EditorialSlug, ContentStatus, ContentFormat } from '../_lib/types';
 
 // Modal com todos os posts do dia
 interface DayModalProps {
@@ -85,6 +85,8 @@ export function CalendarView() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [filterEditorial, setFilterEditorial] = useState<EditorialSlug | ''>('');
   const [filterChannel, setFilterChannel] = useState<ChannelFilter>('');
+  const [filterFormats, setFilterFormats] = useState<ContentFormat[]>([]);
+  const [showFormatDropdown, setShowFormatDropdown] = useState(false);
   const [selectedItem, setSelectedItem] = useState<Post | null>(null);
   const [quickCreateDate, setQuickCreateDate] = useState<string | null>(null);
   const [dragOverDate, setDragOverDate] = useState<string | null>(null);
@@ -115,9 +117,14 @@ export function CalendarView() {
         if (filterChannel === 'tiktok' && !canal.includes('tiktok') && formato !== 'tiktok') return false;
         if (filterChannel === 'instagram' && !canal.includes('instagram')) return false;
       }
+      if (filterFormats.length > 0 && !filterFormats.includes(item.formato as ContentFormat)) return false;
       return true;
     });
-  }, [items, filterEditorial, filterChannel]);
+  }, [items, filterEditorial, filterChannel, filterFormats]);
+
+  const toggleFormatFilter = (fmt: ContentFormat) => {
+    setFilterFormats((prev) => prev.includes(fmt) ? prev.filter((f) => f !== fmt) : [...prev, fmt]);
+  };
 
   const handleStatusChange = async (id: string, status: ContentStatus) => {
     try {
@@ -203,11 +210,11 @@ export function CalendarView() {
           <h2 style={{ fontSize: 20, fontWeight: 700, color: T.cardFg, margin: '0 0 4px' }}>Calendario</h2>
           <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>Visualize e gerencie seus conteudos agendados — arraste para reagendar</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <select
             value={filterEditorial}
             onChange={(e) => setFilterEditorial(e.target.value as EditorialSlug | '')}
-            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14, color: T.cinza700 }}
           >
             <option value="">Todas editorias</option>
             {EDITORIALS.map((e) => (
@@ -217,12 +224,72 @@ export function CalendarView() {
           <select
             value={filterChannel}
             onChange={(e) => setFilterChannel(e.target.value as ChannelFilter)}
-            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14 }}
+            style={{ border: `1px solid ${T.border}`, borderRadius: 12, background: T.card, padding: '8px 16px', fontSize: 14, color: T.cinza700 }}
           >
             <option value="">Todos canais</option>
             <option value="instagram">Instagram</option>
             <option value="tiktok">TikTok</option>
           </select>
+          {/* Filtro de formato — multi-select */}
+          <div style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowFormatDropdown((v) => !v)}
+              style={{
+                border: `1px solid ${filterFormats.length > 0 ? T.primary : T.border}`,
+                borderRadius: 12, background: filterFormats.length > 0 ? T.pendingBg : T.card,
+                padding: '8px 16px', fontSize: 14, cursor: 'pointer',
+                color: filterFormats.length > 0 ? T.primary : T.cinza700,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {filterFormats.length > 0 ? `Formato (${filterFormats.length})` : 'Todos formatos'}
+              <ChevronDown size={14} />
+            </button>
+            {showFormatDropdown && (
+              <>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+                  onClick={() => setShowFormatDropdown(false)}
+                />
+                <div style={{
+                  position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 99,
+                  background: T.card, border: `1px solid ${T.border}`,
+                  borderRadius: 12, padding: 8, boxShadow: T.elevMd, minWidth: 170,
+                }}>
+                  {FORMATS.map((f) => (
+                    <label
+                      key={f.value}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '6px 10px', cursor: 'pointer', borderRadius: 8,
+                        fontSize: 13, color: T.cinza700,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filterFormats.includes(f.value)}
+                        onChange={() => toggleFormatFilter(f.value)}
+                        style={{ accentColor: T.primary, width: 14, height: 14 }}
+                      />
+                      {f.label}
+                    </label>
+                  ))}
+                  {filterFormats.length > 0 && (
+                    <button
+                      onClick={() => { setFilterFormats([]); setShowFormatDropdown(false); }}
+                      style={{
+                        width: '100%', marginTop: 6, padding: '5px 10px', fontSize: 12,
+                        color: T.destructive, background: 'none', border: 'none',
+                        borderTop: `1px solid ${T.border}`, cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      Limpar filtro
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
 

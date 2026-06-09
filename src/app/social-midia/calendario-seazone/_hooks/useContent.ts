@@ -15,8 +15,26 @@ export function useContent() {
 
     if (error) {
       console.error('Error fetching posts:', error);
+      setLoading(false);
+      return;
+    }
+
+    const posts = (data as Post[]) ?? [];
+    const todayStr = new Date().toISOString().substring(0, 10);
+    const toPublish = posts.filter(
+      (p) => p.status === 'agendado' && p.scheduled_at && p.scheduled_at.substring(0, 10) < todayStr
+    );
+
+    if (toPublish.length > 0) {
+      await Promise.all(
+        toPublish.map((p) =>
+          getSupabase().from('posts').update({ status: 'publicado' }).eq('id', p.id)
+        )
+      );
+      const ids = new Set(toPublish.map((p) => p.id));
+      setItems(posts.map((p) => ids.has(p.id) ? { ...p, status: 'publicado' as ContentStatus } : p));
     } else {
-      setItems((data as Post[]) ?? []);
+      setItems(posts);
     }
     setLoading(false);
   }, []);

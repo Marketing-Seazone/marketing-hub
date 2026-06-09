@@ -15,7 +15,7 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'carrossel', label: 'Carrossel' },
   { value: 'reels', label: 'Reels' },
   { value: 'stories', label: 'Stories' },
-  { value: 'feed', label: 'Post no Feed' },
+  { value: 'feed', label: 'Post Fixo' },
 ];
 
 const CHANNEL_OPTIONS: { value: string; label: string }[] = [

@@ -27,7 +27,6 @@ const FORMAT_OPTIONS: { value: ContentFormat; label: string }[] = [
   { value: 'feed',      label: 'Post Fixo' },
   { value: 'reels',     label: 'Reels' },
   { value: 'stories',   label: 'Story' },
-  { value: 'tiktok',    label: 'TikTok' },
 ];
 
 export function getChannelTagVistas(canal?: string | null, formato?: string | null): { label: string; bg: string; fg: string } | null {

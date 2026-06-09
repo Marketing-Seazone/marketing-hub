@@ -1,19 +1,16 @@
 "use client";
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, Calendar, Lightbulb, PenTool, Settings, Film } from 'lucide-react';
+import { ChevronLeft, Calendar, Lightbulb, PenTool, Settings } from 'lucide-react';
 import { T } from '@/lib/constants';
 import { CalendarView } from './_components/CalendarView';
 import { BacklogView } from './_components/BacklogView';
 import { CreateContentView } from './_components/CreateContentView';
 import { SettingsView } from './_components/SettingsView';
-import { StoriesView } from './_components/StoriesView';
-
-type Tab = 'calendario' | 'stories' | 'criar' | 'backlog' | 'config';
+type Tab = 'calendario' | 'criar' | 'backlog' | 'config';
 
 const TABS: { id: Tab; icon: typeof Calendar; label: string }[] = [
   { id: 'calendario', icon: Calendar, label: 'Calendario' },
-  { id: 'stories', icon: Film, label: 'Stories' },
   { id: 'criar', icon: PenTool, label: 'Criar Conteudo' },
   { id: 'backlog', icon: Lightbulb, label: 'Backlog' },
   { id: 'config', icon: Settings, label: 'Configuracoes' },
@@ -69,7 +66,6 @@ export default function Page() {
 
       <main style={{ padding: '32px 24px', maxWidth: 1200, margin: '0 auto' }}>
         {activeTab === 'calendario' && <CalendarView />}
-        {activeTab === 'stories' && <StoriesView />}
         {activeTab === 'criar' && <CreateContentView onNavigate={(tab) => setActiveTab(tab as Tab)} />}
         {activeTab === 'backlog' && <BacklogView />}
         {activeTab === 'config' && <SettingsView onNavigate={(tab) => setActiveTab(tab as Tab)} />}
