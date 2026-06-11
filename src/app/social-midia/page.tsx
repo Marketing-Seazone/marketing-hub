@@ -75,6 +75,26 @@ export default function Page() {
           </p>
         </Link>
 
+        <a href="https://linha-editorial-monica.lovable.app/"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            background: T.card,
+            border: `1px solid ${T.border}`,
+            borderRadius: 12,
+            padding: "20px 24px",
+            textDecoration: "none",
+            display: "block",
+            boxShadow: T.elevSm,
+          }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
+            Linha Editorial — Mônica Medeiros
+          </p>
+          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+            Linha editorial da Mônica Medeiros.
+          </p>
+        </a>
+
         <a href="https://linha-editorial-pedro-escola-de-imoveis.lovable.app"
           target="_blank"
           rel="noopener noreferrer"
