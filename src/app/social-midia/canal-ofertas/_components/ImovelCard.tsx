@@ -204,12 +204,29 @@ const ambosEnviados = data.enviadoInstagram && data.enviadoWhatsapp
       {/* Código do imóvel */}
       <div style={{ marginBottom: 12 }}>
         <label style={label}>Código do imóvel</label>
-        <input
-          style={{ ...input, fontFamily: 'monospace', fontWeight: 700, letterSpacing: 0.6, maxWidth: 180 }}
-          value={data.codigo}
-          onChange={set('codigo')}
-          placeholder="Ex: BSF0806"
-        />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input
+            style={{ ...input, fontFamily: 'monospace', fontWeight: 700, letterSpacing: 0.6, maxWidth: 180 }}
+            value={data.codigo}
+            onChange={set('codigo')}
+            placeholder="Ex: BSF0806"
+          />
+          {data.codigo && (
+            <a
+              href={`https://www.seazone.com.br/s/${data.codigo}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ver no site Seazone"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 34, height: 34, borderRadius: 8, border: `1px solid ${T.border}`,
+                color: T.mutedFg, background: T.card, flexShrink: 0, textDecoration: 'none',
+              }}
+            >
+              <ExternalLink size={14} />
+            </a>
+          )}
+        </div>
       </div>
 
       {/* Form — 2 colunas */}
