@@ -67,7 +67,7 @@ export function RadarView({ onConfirmar }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [usedCodes, setUsedCodes] = useState<Set<string>>(new Set())
-  const [codigos, setCodigos] = useState(['', '', ''])
+  const [codigos, setCodigos] = useState(['', ''])
   const [confirmed, setConfirmed] = useState(false)
   const [activeFilter, setActiveFilter] = useState<'uti' | 'novos'>('uti')
   const [busca, setBusca] = useState('')
@@ -93,17 +93,19 @@ export function RadarView({ onConfirmar }: Props) {
   }, [fetchData])
 
   function selecionarImovel(codigo: string) {
-    // Preenche o primeiro slot vazio; se tudo preenchido, substitui o último
     const idx = codigos.findIndex(c => !c.trim())
+    const next = [...codigos]
     if (idx !== -1) {
-      const next = [...codigos]
       next[idx] = codigo.toUpperCase()
-      setCodigos(next)
     } else {
-      const next = [...codigos]
-      next[2] = codigo.toUpperCase()
-      setCodigos(next)
+      next[1] = codigo.toUpperCase()
     }
+    setCodigos(next)
+  }
+
+  function desselecionarImovel(codigo: string) {
+    const idx = codigos.findIndex(c => c.trim().toUpperCase() === codigo.toUpperCase())
+    if (idx !== -1) removerSlot(idx)
   }
 
   function removerSlot(i: number) {
@@ -322,13 +324,13 @@ export function RadarView({ onConfirmar }: Props) {
               return (
                 <div
                   key={imovel.codigo}
-                  onClick={() => !jaSelecionado && selecionarImovel(imovel.codigo)}
+                  onClick={() => jaSelecionado ? desselecionarImovel(imovel.codigo) : selecionarImovel(imovel.codigo)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '10px 14px', borderRadius: 9,
                     border: `1.5px solid ${jaSelecionado ? T.statusOk : T.border}`,
                     background: jaSelecionado ? T.statusOkBg : T.card,
-                    cursor: jaSelecionado ? 'default' : 'pointer',
+                    cursor: 'pointer',
                     transition: 'all 0.12s',
                     opacity: jaUsado && !jaSelecionado ? 0.5 : 1,
                   }}
@@ -358,8 +360,29 @@ export function RadarView({ onConfirmar }: Props) {
                         Já usado
                       </span>
                     )}
+                    <a
+                      href={`https://www.seazone.com.br/s/${imovel.codigo}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Ver no site Seazone"
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        width: 28, height: 28, borderRadius: 6, border: `1px solid ${T.border}`,
+                        color: T.mutedFg, background: T.card, textDecoration: 'none', flexShrink: 0,
+                      }}
+                    >
+                      <ExternalLink size={12} />
+                    </a>
                     {jaSelecionado ? (
-                      <CheckCircle2 size={16} color={T.statusOk} />
+                      <span style={{
+                        fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
+                        border: `1px solid ${T.statusOk}88`,
+                        color: T.statusOkDark, background: T.statusOkBg,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                      }}>
+                        <CheckCircle2 size={11} /> Remover
+                      </span>
                     ) : (
                       <span style={{
                         fontSize: 11, fontWeight: 600, padding: '4px 10px', borderRadius: 6,
