@@ -27,10 +27,9 @@ function getWeekKey(): string {
   return `canal-ofertas-${year}-W${weekNum.toString().padStart(2, '0')}`
 }
 
-type Semana = [ImovelData, ImovelData, ImovelData]
+type Semana = [ImovelData, ImovelData]
 
 const INITIAL: Semana = [
-  { ...EMPTY_IMOVEL },
   { ...EMPTY_IMOVEL },
   { ...EMPTY_IMOVEL },
 ]
@@ -45,7 +44,7 @@ export function SemanaView() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length === 3) {
+        if (Array.isArray(parsed) && parsed.length === 2) {
           setImoveis(parsed.map(p => ({ ...EMPTY_IMOVEL, ...p })) as Semana)
         }
       } catch { /* ignore */ }
@@ -55,7 +54,7 @@ export function SemanaView() {
       if (selecao) {
         try {
           const codigos: string[] = JSON.parse(selecao)
-          if (Array.isArray(codigos) && codigos.length === 3) {
+          if (Array.isArray(codigos) && codigos.length === 2) {
             setImoveis(codigos.map(codigo => ({ ...EMPTY_IMOVEL, codigo })) as Semana)
           }
         } catch { /* ignore */ }
@@ -79,7 +78,7 @@ export function SemanaView() {
 
   function limparSemana() {
     if (!confirm('Limpar todos os dados desta semana?')) return
-    setImoveis([{ ...EMPTY_IMOVEL }, { ...EMPTY_IMOVEL }, { ...EMPTY_IMOVEL }])
+    setImoveis([{ ...EMPTY_IMOVEL }, { ...EMPTY_IMOVEL }])
   }
 
   return (
@@ -101,7 +100,7 @@ export function SemanaView() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Indicador de progresso */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {[0, 1, 2].map(i => (
+            {[0, 1].map(i => (
               <div key={i} style={{
                 width: 10, height: 10, borderRadius: '50%',
                 background: imoveis[i]?.copyInstagram ? T.statusOk : T.cinza200,
@@ -109,7 +108,7 @@ export function SemanaView() {
               }} />
             ))}
             <span style={{ fontSize: 13, color: T.mutedFg, marginLeft: 4 }}>
-              {prontos}/3 prontos
+              {prontos}/2 prontos
             </span>
           </div>
 
@@ -147,7 +146,7 @@ export function SemanaView() {
         background: T.cinza50, borderRadius: 8,
         fontSize: 12, color: T.mutedFg, lineHeight: 1.5,
       }}>
-        Os dados são salvos automaticamente no navegador por semana. Use o Radar de Ofertas no Lovable para selecionar os 3 imóveis desta semana.
+        Os dados são salvos automaticamente no navegador por semana. Use o Radar de Ofertas no Lovable para selecionar os 2 imóveis desta semana.
       </div>
     </div>
   )
