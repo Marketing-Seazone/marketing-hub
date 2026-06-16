@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useSession } from "next-auth/react"
+import { useEffect, useState } from "react"
 import { T } from "@/lib/constants"
 import { LayoutDashboard, Palette, Zap, TrendingUp, BarChart2, Megaphone, Database, BookOpen, Users } from "lucide-react"
 
@@ -31,8 +31,10 @@ function hoverCard(el: HTMLDivElement, enter: boolean) {
 }
 
 export default function Home() {
-  const { data: session } = useSession()
-  const isAdmin = session?.user?.login === "Sampa-J"
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    setIsAdmin(document.cookie.split("; ").includes("mh_admin=1"))
+  }, [])
 
   return (
     <div style={{ minHeight: "100vh", background: T.muted, fontFamily: T.font }}>

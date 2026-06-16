@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth"
 
 export const maxDuration = 45
 
@@ -141,8 +139,9 @@ async function fetchCreativeData(
 
 export async function POST(req: NextRequest) {
   if (process.env.NODE_ENV !== "development") {
-    const session = await getServerSession(authOptions)
-    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (req.cookies.get("auth")?.value !== "marketingmari2026") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
   }
 
   try {
