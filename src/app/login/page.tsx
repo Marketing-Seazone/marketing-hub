@@ -1,7 +1,10 @@
 "use client"
 
-import { signIn } from "next-auth/react"
+import { useState } from "react"
+import { Lock } from "lucide-react"
 import { T } from "@/lib/constants"
+
+const PASSWORD = "marketingmari2026"
 
 const SeazoneIcon = () => (
   <svg width="32" height="33" viewBox="0 0 48 49" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -9,13 +12,25 @@ const SeazoneIcon = () => (
   </svg>
 )
 
-const GitHubIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12 0C5.374 0 0 5.373 0 12c0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0 1 12 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
-  </svg>
-)
-
 export default function LoginPage() {
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(false)
+
+    if (password === PASSWORD) {
+      document.cookie = `auth=${PASSWORD}; path=/; max-age=2592000; samesite=lax` // 30 dias
+      window.location.href = "/"
+    } else {
+      setError(true)
+      setLoading(false)
+    }
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -45,36 +60,63 @@ export default function LoginPage() {
             Marketing Hub
           </p>
           <p style={{ fontSize: 13, color: T.mutedFg, margin: 0 }}>
-            Seazone · Acesso restrito a colaboradores
+            Seazone · Acesso restrito
           </p>
         </div>
 
-        <button
-          onClick={() => signIn("github", { callbackUrl: "/" })}
-          style={{
-            width: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            background: "#24292F",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            padding: "11px 0",
-            fontSize: 14,
-            fontWeight: 600,
-            cursor: "pointer",
-            fontFamily: T.font,
-          }}
-        >
-          <GitHubIcon />
-          Entrar com GitHub
-        </button>
+        <form onSubmit={handleSubmit} style={{ width: "100%" }}>
+          <label style={{ fontSize: 12, color: T.mutedFg, display: "block", marginBottom: 6 }}>
+            Senha
+          </label>
+          <div style={{ position: "relative", marginBottom: error ? 8 : 16 }}>
+            <Lock
+              size={14}
+              style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.mutedFg }}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setError(false) }}
+              placeholder="Digite a senha de acesso"
+              autoFocus
+              style={{
+                width: "100%",
+                background: T.muted,
+                border: `1px solid ${error ? "#EF4444" : T.border}`,
+                borderRadius: 8,
+                padding: "10px 12px 10px 34px",
+                fontSize: 14,
+                color: T.cardFg,
+                fontFamily: T.font,
+                outline: "none",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          {error && (
+            <p style={{ fontSize: 12, color: "#EF4444", margin: "0 0 12px" }}>Senha incorreta</p>
+          )}
 
-        <p style={{ fontSize: 11, color: T.mutedFg, marginTop: 16, textAlign: "center" }}>
-          Somente colaboradores do repositório têm acesso.
-        </p>
+          <button
+            type="submit"
+            disabled={loading || !password}
+            style={{
+              width: "100%",
+              background: T.primary,
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              padding: "11px 0",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: loading || !password ? "not-allowed" : "pointer",
+              opacity: loading || !password ? 0.5 : 1,
+              fontFamily: T.font,
+            }}
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </form>
       </div>
     </div>
   )

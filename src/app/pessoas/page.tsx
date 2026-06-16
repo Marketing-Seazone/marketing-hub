@@ -1,13 +1,11 @@
 "use client"
 
-import { useSession } from "next-auth/react"
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { T } from "@/lib/constants"
-import { ChevronLeft, Trophy, GitCommit, Plus } from "lucide-react"
+import { ChevronLeft, Trophy, GitCommit, Plus, Lock } from "lucide-react"
 import Link from "next/link"
 
-const ADMIN_LOGIN = "Sampa-J"
+const ADMIN_PASSWORD = "marketingsampa2026"
 const REPO = "Sampa-J/marketing-hub"
 
 type Contributor = {
@@ -21,19 +19,28 @@ type Contributor = {
 }
 
 export default function PessoasPage() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [ready, setReady] = useState(false)
+  const [pwd, setPwd] = useState("")
+  const [pwdError, setPwdError] = useState(false)
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [loading, setLoading] = useState(true)
 
-  const isAdmin = session?.user?.login === ADMIN_LOGIN
-
   useEffect(() => {
-    if (status === "loading") return
-    if (!isAdmin) {
-      router.replace("/")
+    setIsAdmin(document.cookie.split("; ").includes("mh_admin=1"))
+    setReady(true)
+  }, [])
+
+  const handleUnlock = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (pwd === ADMIN_PASSWORD) {
+      document.cookie = "mh_admin=1; path=/; max-age=2592000; samesite=lax" // 30 dias
+      setIsAdmin(true)
+      setPwdError(false)
+    } else {
+      setPwdError(true)
     }
-  }, [status, isAdmin, router])
+  }
 
   useEffect(() => {
     if (!isAdmin) return
@@ -82,7 +89,74 @@ export default function PessoasPage() {
     fetchContributors()
   }, [isAdmin])
 
-  if (status === "loading" || !isAdmin) return null
+  if (!ready) return null
+
+  if (!isAdmin) {
+    return (
+      <div style={{
+        minHeight: "100vh", background: T.muted, fontFamily: T.font,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+      }}>
+        <div style={{
+          background: T.card, border: `1px solid ${T.border}`, borderRadius: 16,
+          padding: "40px 36px", width: "100%", maxWidth: 380, boxShadow: T.elevMd,
+          display: "flex", flexDirection: "column", alignItems: "center",
+        }}>
+          <div style={{
+            width: 44, height: 44, borderRadius: 12, background: "#FEF3C7",
+            display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16,
+          }}>
+            <Lock size={20} color="#92400E" />
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 800, color: T.cardFg, margin: "0 0 6px" }}>
+            Área restrita
+          </p>
+          <p style={{ fontSize: 13, color: T.mutedFg, margin: "0 0 24px", textAlign: "center" }}>
+            Digite a senha de administrador para acessar.
+          </p>
+
+          <form onSubmit={handleUnlock} style={{ width: "100%" }}>
+            <div style={{ position: "relative", marginBottom: pwdError ? 8 : 16 }}>
+              <Lock size={14} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: T.mutedFg }} />
+              <input
+                type="password"
+                value={pwd}
+                onChange={e => { setPwd(e.target.value); setPwdError(false) }}
+                placeholder="Senha de admin"
+                autoFocus
+                style={{
+                  width: "100%", background: T.muted,
+                  border: `1px solid ${pwdError ? "#EF4444" : T.border}`,
+                  borderRadius: 8, padding: "10px 12px 10px 34px",
+                  fontSize: 14, color: T.cardFg, fontFamily: T.font,
+                  outline: "none", boxSizing: "border-box",
+                }}
+              />
+            </div>
+            {pwdError && (
+              <p style={{ fontSize: 12, color: "#EF4444", margin: "0 0 12px" }}>Senha incorreta</p>
+            )}
+            <button
+              type="submit"
+              disabled={!pwd}
+              style={{
+                width: "100%", background: T.primary, color: "#fff", border: "none",
+                borderRadius: 8, padding: "11px 0", fontSize: 14, fontWeight: 600,
+                cursor: !pwd ? "not-allowed" : "pointer", opacity: !pwd ? 0.5 : 1,
+                fontFamily: T.font,
+              }}
+            >
+              Desbloquear
+            </button>
+          </form>
+
+          <Link href="/" style={{ fontSize: 12, color: T.mutedFg, marginTop: 16, textDecoration: "none" }}>
+            ← Voltar ao menu
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   const medalColors = ["#F59E0B", "#9CA3AF", "#CD7C34"]
 
