@@ -1087,6 +1087,26 @@ function SocialMediaSection() {
   const [ganhoPeriodoReportei, setGanhoPeriodoReportei] = useState<number | null>(null)
   const [loadingGanho, setLoadingGanho] = useState(false)
   const [tooltip, setTooltip] = useState<{ idx: number; x: number; y: number } | null>(null)
+  const [metaMensal, setMetaMensal] = useState<number>(META_MENSAL)
+  const [editandoMeta, setEditandoMeta] = useState(false)
+  const [metaInput, setMetaInput] = useState(String(META_MENSAL))
+
+  useEffect(() => {
+    const saved = localStorage.getItem("vistas-meta-mensal")
+    if (saved) {
+      const n = parseInt(saved, 10)
+      if (!isNaN(n) && n > 0) { setMetaMensal(n); setMetaInput(String(n)) }
+    }
+  }, [])
+
+  function salvarMeta() {
+    const n = parseInt(metaInput, 10)
+    if (!isNaN(n) && n > 0) {
+      setMetaMensal(n)
+      localStorage.setItem("vistas-meta-mensal", String(n))
+    }
+    setEditandoMeta(false)
+  }
 
   useEffect(() => {
     fetch("/api/seguidores-vistas")
@@ -1155,8 +1175,8 @@ function SocialMediaSection() {
     return total - ganhoApos
   })()
 
-  const faltaMeta = Math.max(0, META_MENSAL - (ganhoMes ?? 0))
-  const progressoMeta = Math.min(100, ((ganhoMes ?? 0) / META_MENSAL) * 100)
+  const faltaMeta = Math.max(0, metaMensal - (ganhoMes ?? 0))
+  const progressoMeta = Math.min(100, ((ganhoMes ?? 0) / metaMensal) * 100)
 
   const maxGanho = Math.max(...historicoFiltrado.map(d => finite(d.ganho_dia)), 1)
   const W = 680, H = 140, PL = 36, PB = 28, PT = 8, PR = 8
@@ -1205,15 +1225,41 @@ function SocialMediaSection() {
         {[
           { label: "Total de Seguidores", value: loading ? "—" : total?.toLocaleString("pt-BR") ?? "—", color: COR },
           { label: "Ganho Hoje", value: loading ? "—" : ganhoHoje != null ? `+${ganhoHoje.toLocaleString("pt-BR")}` : "—", color: "#10b981" },
-          { label: "Meta Mensal", value: `+${META_MENSAL.toLocaleString("pt-BR")}`, color: "#f59e0b" },
+          { label: "Meta Mensal", value: `+${metaMensal.toLocaleString("pt-BR")}`, color: "#f59e0b" },
           { label: "Ganho no Mês", value: loading ? "—" : ganhoMes != null ? `+${ganhoMes.toLocaleString("pt-BR")}` : "—", color: COR },
           { label: "Falta para Meta", value: loading ? "—" : faltaMeta > 0 ? faltaMeta.toLocaleString("pt-BR") : "✅ Meta batida!", color: faltaMeta > 0 ? "#ef4444" : "#10b981" },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: T.muted, border: `1px solid ${T.border}`, borderRadius: 10, padding: "12px 16px" }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: T.mutedFg, margin: "0 0 4px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{kpi.label}</p>
-            <p style={{ fontSize: 18, fontWeight: 800, color: kpi.color, margin: 0 }}>
-              {loading && kpi.label !== "Meta Mensal" ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : kpi.value}
-            </p>
+            {kpi.label === "Meta Mensal" ? (
+              editandoMeta ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: kpi.color }}>+</span>
+                  <input
+                    type="number"
+                    value={metaInput}
+                    onChange={e => setMetaInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") salvarMeta()
+                      if (e.key === "Escape") { setEditandoMeta(false); setMetaInput(String(metaMensal)) }
+                    }}
+                    autoFocus
+                    style={{ width: 90, fontSize: 16, fontWeight: 800, color: kpi.color, background: "transparent", border: `1px solid ${kpi.color}88`, borderRadius: 6, padding: "2px 6px", outline: "none", fontFamily: "inherit" }}
+                  />
+                  <button onClick={salvarMeta} title="Salvar" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "#10b981", lineHeight: 1 }}><Check size={14} /></button>
+                  <button onClick={() => { setEditandoMeta(false); setMetaInput(String(metaMensal)) }} title="Cancelar" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: T.mutedFg, lineHeight: 1 }}><X size={14} /></button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: kpi.color, margin: 0 }}>{kpi.value}</p>
+                  <button onClick={() => { setEditandoMeta(true); setMetaInput(String(metaMensal)) }} title="Editar meta" style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: T.mutedFg, lineHeight: 1, opacity: 0.6 }}><Pencil size={12} /></button>
+                </div>
+              )
+            ) : (
+              <p style={{ fontSize: 18, fontWeight: 800, color: kpi.color, margin: 0 }}>
+                {loading ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : kpi.value}
+              </p>
+            )}
           </div>
         ))}
       </div>
@@ -1221,7 +1267,7 @@ function SocialMediaSection() {
       {!loading && (
         <div style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.mutedFg, marginBottom: 4 }}>
-            <span>Progresso para meta de +{META_MENSAL.toLocaleString("pt-BR")} no mês</span>
+            <span>Progresso para meta de +{metaMensal.toLocaleString("pt-BR")} no mês</span>
             <span style={{ fontWeight: 700, color: progressoMeta >= 100 ? "#10b981" : COR }}>{progressoMeta.toFixed(1)}%</span>
           </div>
           <div style={{ background: T.border, borderRadius: 99, height: 8, overflow: "hidden" }}>
