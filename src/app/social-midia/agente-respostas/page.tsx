@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from "react"
 import Image from "next/image"
+import Link from "next/link"
+import { ChevronLeft } from "lucide-react"
 
 const PROFILES = {
   seazone: {
@@ -203,6 +205,15 @@ export default function AgenteRespostas() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <Link href="/social-midia" style={{
+            display: "flex", alignItems: "center", gap: 4,
+            color: "#94A3B8", fontSize: 12, textDecoration: "none", fontWeight: 500,
+            marginRight: 4,
+          }}>
+            <ChevronLeft size={14} />
+            Social Mídia
+          </Link>
+          <span style={{ color: "#E2E8F0" }}>|</span>
           <div
             style={{
               width: "32px",
