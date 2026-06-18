@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useCallback } from "react"
+import Image from "next/image"
 
 const PROFILES = {
   seazone: {
     name: "Seazone",
-    emoji: "🌊",
+    logo: "/logo-seazone.png",
     tagline: "Proptech • Aluguel por Temporada",
     accent: "#0066FF",
     accentLight: "#EBF3FF",
@@ -14,7 +15,7 @@ const PROFILES = {
   },
   vistas: {
     name: "Vistas de Anitá",
-    emoji: "🏔️",
+    logo: "/logo-vistas.png",
     tagline: "Cabanas • Serra Catarinense",
     accent: "#2D6A4F",
     accentLight: "#EAF4EE",
@@ -207,14 +208,16 @@ export default function AgenteRespostas() {
               width: "32px",
               height: "32px",
               borderRadius: "8px",
-              background: profile.bg,
+              background: "white",
+              border: "1px solid #E2E8F0",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: "16px",
+              overflow: "hidden",
+              flexShrink: 0,
             }}
           >
-            {profile.emoji}
+            <Image src={profile.logo} alt={profile.name} width={28} height={28} style={{ objectFit: "contain" }} />
           </div>
           <div>
             <div style={{ fontSize: "15px", fontWeight: "600", color: "#0F172A" }}>
@@ -263,15 +266,17 @@ export default function AgenteRespostas() {
                     width: "42px",
                     height: "42px",
                     borderRadius: "10px",
-                    background: p.bg,
+                    background: "white",
+                    border: "1px solid #E2E8F0",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: "20px",
+                    overflow: "hidden",
                     flexShrink: 0,
+                    padding: "4px",
                   }}
                 >
-                  {p.emoji}
+                  <Image src={p.logo} alt={p.name} width={34} height={34} style={{ objectFit: "contain", width: "100%", height: "100%" }} />
                 </div>
                 <div>
                   <div style={{ fontSize: "14px", fontWeight: "600", color: "#0F172A" }}>{p.name}</div>
