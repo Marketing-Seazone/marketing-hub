@@ -75,6 +75,23 @@ export default function Page() {
           </p>
         </Link>
 
+        <Link href="/social-midia/agente-respostas" style={{
+          background: T.card,
+          border: `1px solid ${T.border}`,
+          borderRadius: 12,
+          padding: "20px 24px",
+          textDecoration: "none",
+          display: "block",
+          boxShadow: T.elevSm,
+        }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.cardFg, margin: "0 0 4px" }}>
+            Agente de Respostas
+          </p>
+          <p style={{ fontSize: 12, color: T.mutedFg, margin: 0 }}>
+            Gera 3 variações de resposta para comentários no Instagram, Facebook, LinkedIn e TikTok · Seazone & Vistas de Anitá.
+          </p>
+        </Link>
+
         <a href="https://linha-editorial-monica.lovable.app/"
           target="_blank"
           rel="noopener noreferrer"
