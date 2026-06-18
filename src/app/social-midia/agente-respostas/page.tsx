@@ -280,7 +280,6 @@ export default function AgenteRespostas() {
                 </div>
                 <div>
                   <div style={{ fontSize: "14px", fontWeight: "600", color: "#0F172A" }}>{p.name}</div>
-                  <div style={{ fontSize: "11px", color: "#64748B" }}>{p.tagline}</div>
                 </div>
                 {profileId === id && (
                   <div
