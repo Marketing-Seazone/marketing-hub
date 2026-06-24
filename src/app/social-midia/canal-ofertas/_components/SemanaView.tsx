@@ -27,7 +27,7 @@ function getWeekKey(): string {
   return `canal-ofertas-${year}-W${weekNum.toString().padStart(2, '0')}`
 }
 
-type Semana = [ImovelData, ImovelData]
+type Semana = ImovelData[]
 
 const INITIAL: Semana = [
   { ...EMPTY_IMOVEL },
@@ -44,7 +44,7 @@ export function SemanaView() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length === 2) {
+        if (Array.isArray(parsed) && parsed.length >= 1) {
           setImoveis(parsed.map(p => ({ ...EMPTY_IMOVEL, ...p })) as Semana)
         }
       } catch { /* ignore */ }
@@ -54,7 +54,7 @@ export function SemanaView() {
       if (selecao) {
         try {
           const codigos: string[] = JSON.parse(selecao)
-          if (Array.isArray(codigos) && codigos.length === 2) {
+          if (Array.isArray(codigos) && codigos.length >= 1) {
             setImoveis(codigos.map(codigo => ({ ...EMPTY_IMOVEL, codigo })) as Semana)
           }
         } catch { /* ignore */ }
@@ -100,15 +100,15 @@ export function SemanaView() {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
           {/* Indicador de progresso */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {[0, 1].map(i => (
+            {imoveis.map((imovel, i) => (
               <div key={i} style={{
                 width: 10, height: 10, borderRadius: '50%',
-                background: imoveis[i]?.copyInstagram ? T.statusOk : T.cinza200,
+                background: imovel.copyInstagram ? T.statusOk : T.cinza200,
                 transition: 'background 0.2s',
               }} />
             ))}
             <span style={{ fontSize: 13, color: T.mutedFg, marginLeft: 4 }}>
-              {prontos}/2 prontos
+              {prontos}/{imoveis.length} prontos
             </span>
           </div>
 

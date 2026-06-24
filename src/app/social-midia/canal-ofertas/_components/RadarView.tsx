@@ -115,7 +115,7 @@ export function RadarView({ onConfirmar }: Props) {
   }
 
   function confirmar() {
-    const cleaned = codigos.map(c => c.trim().toUpperCase())
+    const cleaned = codigos.filter(c => c.trim().length > 0).map(c => c.toUpperCase())
     localStorage.setItem(`canal-ofertas-selecao-${getWeekKey()}`, JSON.stringify(cleaned))
     const weekKey = getWeekKey()
     const semanaData = localStorage.getItem(weekKey)
@@ -131,9 +131,8 @@ export function RadarView({ onConfirmar }: Props) {
   }
 
   const isRepeat = (code: string) => code.trim().length > 0 && usedCodes.has(code.trim().toUpperCase())
-  const allFilled = codigos.every(c => c.trim().length > 0)
   const hasRepeat = codigos.some(isRepeat)
-  const canConfirm = allFilled && !hasRepeat
+  const canConfirm = codigos.some(c => c.trim().length > 0) && !hasRepeat
 
   const listaCompleta: ImovelSugestao[] = data ? data[activeFilter] : []
   const lista = useMemo(() => {
@@ -181,7 +180,9 @@ export function RadarView({ onConfirmar }: Props) {
                     }}>×</button>
                   </>
                 ) : (
-                  <span style={{ fontSize: 12, color: T.mutedFg, flex: 1 }}>Vazio — clique num imóvel</span>
+                  <span style={{ fontSize: 12, color: T.mutedFg, flex: 1 }}>
+                    {i === 0 ? 'Vazio — clique num imóvel' : 'Opcional'}
+                  </span>
                 )}
               </div>
             )
