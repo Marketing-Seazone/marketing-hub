@@ -1,3 +1,5 @@
+@AGENTS.md
+
 # Marketing Hub
 
 ## O que é
